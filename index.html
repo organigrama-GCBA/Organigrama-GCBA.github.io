@@ -469,21 +469,24 @@ function buildHierLayout(node,mx,my,BW,BH,HGAP,VGAP,rects=[],lines=[]){
   const useColumn = node.tipo==="SS";
 
   if(useColumn){
-    // DGs en columna vertical centrada bajo la SS
-    const CVGAP=10; // gap reducido entre DGs en columna
+    // DGs en columna vertical — líneas salen SIEMPRE desde el centro inferior de la SS
+    const CVGAP=10;
+    const ssBottomX=mx;
+    const ssBottomY=my+BH;
     hier.forEach((ch,i)=>{
       const cy=my+BH+VGAP+i*(BH+CVGAP);
-      // línea vertical desde nodo anterior (o desde SS)
-      const fromY=i===0?my+BH:my+BH+VGAP+(i-1)*(BH+CVGAP)+BH;
-      lines.push(`<line x1="${fv(mx)}" y1="${fv(fromY)}" x2="${fv(mx)}" y2="${fv(cy)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
+      const chMidX=mx;
+      const chTopY=cy;
+      // Línea desde fondo de SS hasta tope de cada DG
+      lines.push(`<line x1="${fv(ssBottomX)}" y1="${fv(ssBottomY)}" x2="${fv(chMidX)}" y2="${fv(chTopY)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
       rects.push({node:ch,x:mx-BW/2,y:cy,dashed:false});
-      // Si el DG tiene hijos (raro pero posible), los ponemos igual en columna
+      // Sub-hijos del DG (si los hay) también en columna
       const{hier:subHier}=splitChildren(ch);
       if(subHier.length){
+        const chBottomY=cy+BH;
         subHier.forEach((sub,j)=>{
           const sy=cy+BH+VGAP+j*(BH+CVGAP);
-          const sfromY=j===0?cy+BH:cy+BH+VGAP+(j-1)*(BH+CVGAP)+BH;
-          lines.push(`<line x1="${fv(mx)}" y1="${fv(sfromY)}" x2="${fv(mx)}" y2="${fv(sy)}" stroke="#CBD5E0" stroke-width="0.9"/>`);
+          lines.push(`<line x1="${fv(mx)}" y1="${fv(chBottomY)}" x2="${fv(mx)}" y2="${fv(sy)}" stroke="#CBD5E0" stroke-width="0.9"/>`);
           rects.push({node:sub,x:mx-BW/2,y:sy,dashed:false});
         });
       }
@@ -532,7 +535,8 @@ function collectOrgs(node, parentNode=null, acc=[]){
 }
 
 function genPageSVG(root,pn,tot){
-  const PW=1123,PH=1587;
+  const today=new Date();
+  const fecha=`${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
   const MAR=50,HH=88,FH=52,SEP=28; // SEP = espacio para la línea separadora de orgs
   const AVAIL_W=PW-MAR*2;
   const AVAIL_H=PH-HH-FH-MAR;
@@ -545,7 +549,7 @@ function genPageSVG(root,pn,tot){
   // Calculamos cuántas filas necesitan los orgs con un tamaño tentativo
   const ORG_COLS=Math.min(orgs.length,5);
   const ORG_ROWS=Math.ceil(orgs.length/ORG_COLS);
-  const ORG_SECTION_H=hasOrgs?(SEP+20+ORG_ROWS*(62+22+10)):0;
+  const ORG_SECTION_H=hasOrgs?(SEP+20+ORG_ROWS*(62+10)):0;
 
   const HIER_H=AVAIL_H-ORG_SECTION_H;
 
@@ -594,25 +598,22 @@ function genPageSVG(root,pn,tot){
     orgsSVG+=`<text x="${fv(PW/2)}" y="${fv(sepY-4)}" text-anchor="middle" font-size="7.5" fill="#A0AEC0" font-family="Inter,Arial,sans-serif" letter-spacing="1">ORGANISMOS DESCENTRALIZADOS Y FUERA DE NIVEL</text>`;
 
     let orgY=sepY+16;
+
+    // Posición del nodo raíz escalado (para anclar las líneas)
+    // El primer rect siempre es el root, centrado en ox + scaledW/2
+    const rootCX = ox + scaledW/2;
+    const rootBottomY = oy + BH0 * scale; // fondo del nodo raíz escalado
+
     orgs.forEach(({org,parent},i)=>{
       const col=i%ORG_COLS;
       const row=Math.floor(i/ORG_COLS);
       const ox2=orgStartX+col*(OBW+OGAP);
-      const oy2=orgY+row*(OBH+OGAP+22); // +22 para espacio del label de dependencia
+      const oy2=orgY+row*(OBH+22+OGAP);
+      const orgCX=ox2+OBW/2;
+      const orgTopY=oy2;
 
-      // Label de dependencia arriba del nodo
-      const parentLabel=parent?(parent.nombre.length>32?parent.nombre.slice(0,30)+"…":parent.nombre):"";
-      const parentCol=parent?(CF[parent.tipo]||"#718096"):"#718096";
-      if(parentLabel){
-        // línea punteada corta vertical sobre el nodo
-        const nx=ox2+OBW/2;
-        orgsSVG+=`<line x1="${fv(nx)}" y1="${fv(oy2-14)}" x2="${fv(nx)}" y2="${fv(oy2)}" stroke="${parentCol}" stroke-width="1.2" stroke-dasharray="4,3"/>`;
-        // badge del padre
-        const badgeW=Math.min(OBW,parentLabel.length*5.5+14);
-        const badgeX=nx-badgeW/2;
-        orgsSVG+=`<rect x="${fv(badgeX)}" y="${fv(oy2-26)}" width="${fv(badgeW)}" height="14" rx="3" fill="${parentCol}" opacity="0.9"/>`;
-        orgsSVG+=`<text x="${fv(nx)}" y="${fv(oy2-16)}" text-anchor="middle" font-size="6.5" fill="#fff" font-family="Inter,Arial,sans-serif" font-weight="600">${parentLabel}</text>`;
-      }
+      // Línea punteada desde fondo del nodo raíz hasta tope del organismo
+      orgsSVG+=`<line x1="${fv(rootCX)}" y1="${fv(rootBottomY)}" x2="${fv(orgCX)}" y2="${fv(orgTopY)}" stroke="#A0AEC0" stroke-width="1" stroke-dasharray="5,4"/>`;
 
       orgsSVG+=svgBox(ox2,oy2,org,OBW,OBH,true);
     });
@@ -635,7 +636,7 @@ function genPageSVG(root,pn,tot){
 <rect x="0" y="0" width="${PW}" height="${HH}" fill="url(#hg${pn})"/>
 <line x1="0" y1="${HH}" x2="${PW}" y2="${HH}" stroke="#E2E8F0" stroke-width="1"/>
 <text x="${fv(PW/2)}" y="42" text-anchor="middle" font-size="19" font-weight="700" fill="#fff" font-family="Inter,Arial,sans-serif">${root.nombre}</text>
-<text x="${fv(PW/2)}" y="63" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.78)" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · Última actualización: 20/5/2026</text>
+<text x="${fv(PW/2)}" y="63" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.78)" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · Última actualización: ${fecha}</text>
 ${hierSVG}
 ${orgsSVG}
 <rect x="0" y="${PH-FH}" width="${PW}" height="${FH}" fill="#F7FAFC"/>
@@ -1103,7 +1104,7 @@ ${pages.map((p,i)=>`<g transform="translate(0,${i*PH})">${p.replace(/<\/?svg[^>]
       {/* Footer */}
       <div style={{background:"#fff",borderTop:"1px solid #E2E8F0",padding:"6px 20px",
         display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
-        <span style={{fontSize:10,color:"#A0AEC0"}}>Gobierno de la Ciudad Autónoma de Buenos Aires · Última actualización: 20/5/2026</span>
+        <span style={{fontSize:10,color:"#A0AEC0"}}>Gobierno de la Ciudad Autónoma de Buenos Aires · Última actualización: {new Date().toLocaleDateString("es-AR",{day:"2-digit",month:"2-digit",year:"numeric"})}</span>
         <span style={{fontSize:10,color:"#A0AEC0"}}>{flatList(data).length} organismos en el organigrama</span>
       </div>
     </div>
