@@ -535,8 +535,7 @@ function collectOrgs(node, parentNode=null, acc=[]){
 }
 
 function genPageSVG(root,pn,tot){
-  const today=new Date();
-  const fecha=`${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
+  const PW=1123,PH=1587;
   const MAR=50,HH=88,FH=52,SEP=28; // SEP = espacio para la línea separadora de orgs
   const AVAIL_W=PW-MAR*2;
   const AVAIL_H=PH-HH-FH-MAR;
@@ -636,7 +635,7 @@ function genPageSVG(root,pn,tot){
 <rect x="0" y="0" width="${PW}" height="${HH}" fill="url(#hg${pn})"/>
 <line x1="0" y1="${HH}" x2="${PW}" y2="${HH}" stroke="#E2E8F0" stroke-width="1"/>
 <text x="${fv(PW/2)}" y="42" text-anchor="middle" font-size="19" font-weight="700" fill="#fff" font-family="Inter,Arial,sans-serif">${root.nombre}</text>
-<text x="${fv(PW/2)}" y="63" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.78)" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · Última actualización: ${fecha}</text>
+<text x="${fv(PW/2)}" y="63" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.78)" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · Última actualización: 20/5/2026</text>
 ${hierSVG}
 ${orgsSVG}
 <rect x="0" y="${PH-FH}" width="${PW}" height="${FH}" fill="#F7FAFC"/>
@@ -646,23 +645,10 @@ ${legSVG}
 }
 
 function dlSVG(svgStr,fname){
-  const b64=btoa(unescape(encodeURIComponent(svgStr)));
-  const w=window.open("","_blank");
-  if(!w){alert("Permitir ventanas emergentes para descargar el organigrama.");return;}
-  w.document.write(`<!DOCTYPE html><html><head><title>${fname}</title>
-<style>body{margin:0;display:flex;flex-direction:column;align-items:center;background:#f0f0f0;font-family:sans-serif;padding:16px;gap:12px}
-.bar{background:#003D6E;color:#fff;padding:10px 20px;border-radius:8px;display:flex;gap:12px;align-items:center;width:100%;max-width:1123px;box-sizing:border-box}
-.bar span{flex:1;font-size:13px}
-.bar a{background:#F5C400;color:#003D6E;padding:7px 16px;border-radius:6px;font-weight:700;font-size:12px;text-decoration:none}
-img{max-width:1123px;width:100%;box-shadow:0 4px 24px rgba(0,0,0,0.18);border-radius:4px}
-</style></head><body>
-<div class="bar">
-  <span>📄 ${fname}</span>
-  <a href="data:image/svg+xml;base64,${b64}" download="${fname}">⬇ Descargar SVG</a>
-</div>
-<img src="data:image/svg+xml;base64,${b64}" alt="${fname}"/>
-</body></html>`);
-  w.document.close();
+  const blob=new Blob([svgStr],{type:"image/svg+xml;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download=fname;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
 }
 
 /* ── Panel item ──────────────────────────────────── */
@@ -1117,7 +1103,7 @@ ${pages.map((p,i)=>`<g transform="translate(0,${i*PH})">${p.replace(/<\/?svg[^>]
       {/* Footer */}
       <div style={{background:"#fff",borderTop:"1px solid #E2E8F0",padding:"6px 20px",
         display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
-        <span style={{fontSize:10,color:"#A0AEC0"}}>Gobierno de la Ciudad Autónoma de Buenos Aires · Última actualización: {new Date().toLocaleDateString("es-AR",{day:"2-digit",month:"2-digit",year:"numeric"})}</span>
+        <span style={{fontSize:10,color:"#A0AEC0"}}>Gobierno de la Ciudad Autónoma de Buenos Aires · Última actualización: 20/5/2026</span>
         <span style={{fontSize:10,color:"#A0AEC0"}}>{flatList(data).length} organismos en el organigrama</span>
       </div>
     </div>
