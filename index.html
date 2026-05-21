@@ -621,7 +621,11 @@ function genPageSVG(root,pn,tot){
     });
   }
 
-  let hierSVG=`<g transform="translate(${fv(ox)},${fv(oy)}) scale(${scale.toFixed(5)})">${lines0.join("")}${rects0.map(r=>renderRect(r,BW0,BH0)).join("")}</g>`;
+  let hierSVG=`<g transform="translate(${fv(ox)},${fv(oy)}) scale(${scale.toFixed(5)})">`;
+  // Primero todas las líneas, después todos los nodos (evita que los nodos corten las líneas)
+  hierSVG += lines0.join("");
+  hierSVG += rects0.map(r=>renderRect(r,BW0,BH0)).join("");
+  hierSVG+=`</g>`;
   const leg=[["#9B1C1C","Jefatura"],["#92400E","Ministerio"],["#78350F","Secretaría"],["#1E3A5F","Subsecretaría"],["#14532D","Dir. Gral."],["#374151","Org. fuera de nivel"]];
   const lw=118,lx=(PW-(leg.length*lw+10))/2,ly=PH-34;
   let legSVG=leg.map((it,i)=>`<rect x="${fv(lx+i*lw)}" y="${fv(ly)}" width="10" height="10" rx="2" fill="${it[0]}"/><text x="${fv(lx+i*lw+14)}" y="${fv(ly+9)}" font-size="7.5" fill="#718096" font-family="Inter,Arial,sans-serif">${it[1]}</text>`).join("");
