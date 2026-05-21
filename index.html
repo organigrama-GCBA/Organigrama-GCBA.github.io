@@ -647,10 +647,22 @@ ${legSVG}
 
 function dlSVG(svgStr,fname){
   const b64=btoa(unescape(encodeURIComponent(svgStr)));
-  const a=document.createElement("a");
-  a.href="data:image/svg+xml;base64,"+b64;
-  a.download=fname;
-  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  const w=window.open("","_blank");
+  if(!w){alert("Permitir ventanas emergentes para descargar el organigrama.");return;}
+  w.document.write(`<!DOCTYPE html><html><head><title>${fname}</title>
+<style>body{margin:0;display:flex;flex-direction:column;align-items:center;background:#f0f0f0;font-family:sans-serif;padding:16px;gap:12px}
+.bar{background:#003D6E;color:#fff;padding:10px 20px;border-radius:8px;display:flex;gap:12px;align-items:center;width:100%;max-width:1123px;box-sizing:border-box}
+.bar span{flex:1;font-size:13px}
+.bar a{background:#F5C400;color:#003D6E;padding:7px 16px;border-radius:6px;font-weight:700;font-size:12px;text-decoration:none}
+img{max-width:1123px;width:100%;box-shadow:0 4px 24px rgba(0,0,0,0.18);border-radius:4px}
+</style></head><body>
+<div class="bar">
+  <span>📄 ${fname}</span>
+  <a href="data:image/svg+xml;base64,${b64}" download="${fname}">⬇ Descargar SVG</a>
+</div>
+<img src="data:image/svg+xml;base64,${b64}" alt="${fname}"/>
+</body></html>`);
+  w.document.close();
 }
 
 /* ── Panel item ──────────────────────────────────── */
