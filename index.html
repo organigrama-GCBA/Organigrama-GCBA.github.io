@@ -429,66 +429,175 @@ function removeNode(t,id){return{...t,children:t.children.filter(c=>c.id!==id).m
 function addChild(t,pid,child){return updateNode(t,pid,n=>({...n,children:[...n.children,child]}));}
 
 /* ── SVG export ──────────────────────────────────── */
-const BW=180,BH=60,HGAP=16,VGAP=70;
 const CF={JG:"#9B1C1C",VJG:"#9B1C1C",MIN:"#92400E",SEC:"#78350F",SS:"#1E3A5F",DG:"#14532D",ORG:"#374151"};
 const CT={JG:"#fff",VJG:"#fff",MIN:"#fff",SEC:"#fff",SS:"#fff",DG:"#fff",ORG:"#fff"};
 const fv=v=>Number(v).toFixed(1);
-function mW(n){if(!n.children.length)return BW;return Math.max(BW,n.children.reduce((s,c)=>s+mW(c),0)+HGAP*(n.children.length-1));}
-function buildLayout(node,mx,my,rects=[],lines=[]){
-  rects.push({node,x:mx-BW/2,y:my,dashed:!!node.dashed});
-  if(!node.children.length)return;
-  const ws=node.children.map(c=>mW(c));
-  const tot=ws.reduce((s,k)=>s+k,0)+HGAP*(node.children.length-1);
+
+function wrapTxt(t,mx){
+  if(!t)return[];
+  const ws=t.split(" ");const ls=[];let c="";
+  for(const w of ws){if((c+" "+w).trim().length>mx){if(c)ls.push(c.trim());c=w;}else c=(c+" "+w).trim();}
+  if(c)ls.push(c.trim());return ls;
+}
+
+// Separa hijos jerárquicos de organismos fuera de nivel (dashed)
+function splitChildren(node){
+  const hier=node.children.filter(c=>!c.dashed);
+  const orgs=node.children.filter(c=>c.dashed);
+  return{hier,orgs};
+}
+
+// Mide el ancho mínimo del subárbol jerárquico (sin orgs)
+function mW(node,BW,HGAP){
+  const{hier}=splitChildren(node);
+  if(!hier.length)return BW;
+  return Math.max(BW,hier.reduce((s,c)=>s+mW(c,BW,HGAP),0)+HGAP*(hier.length-1));
+}
+
+// Construye layout top-down solo para nodos jerárquicos
+// Devuelve {rects, lines, maxY}
+function buildHierLayout(node,mx,my,BW,BH,HGAP,VGAP,rects=[],lines=[]){
+  rects.push({node,x:mx-BW/2,y:my,dashed:false});
+  const{hier}=splitChildren(node);
+  if(!hier.length)return;
+  const ws=hier.map(c=>mW(c,BW,HGAP));
+  const tot=ws.reduce((s,k)=>s+k,0)+HGAP*(hier.length-1);
   let cx=mx-tot/2;
   const midY=my+BH+VGAP/2;
-  lines.push(`<line x1="${fv(mx)}" y1="${fv(my+BH)}" x2="${fv(mx)}" y2="${fv(midY)}" stroke="#CBD5E0" stroke-width="1.2"/>`);
-  if(node.children.length>1){const bL=cx+ws[0]/2,bR=cx+tot-ws[ws.length-1]/2;lines.push(`<line x1="${fv(bL)}" y1="${fv(midY)}" x2="${fv(bR)}" y2="${fv(midY)}" stroke="#CBD5E0" stroke-width="1.2"/>`);}
-  node.children.forEach((ch,i)=>{
-    const cmx=cx+ws[i]/2,da=ch.dashed?`stroke-dasharray="6,4"`:"";
-    lines.push(`<line x1="${fv(cmx)}" y1="${fv(midY)}" x2="${fv(cmx)}" y2="${fv(my+BH+VGAP)}" stroke="#CBD5E0" stroke-width="1.2" ${da}/>`);
-    buildLayout(ch,cmx,my+BH+VGAP,rects,lines);cx+=ws[i]+HGAP;
+  lines.push(`<line x1="${fv(mx)}" y1="${fv(my+BH)}" x2="${fv(mx)}" y2="${fv(midY)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
+  if(hier.length>1){
+    const bL=cx+ws[0]/2,bR=cx+tot-ws[ws.length-1]/2;
+    lines.push(`<line x1="${fv(bL)}" y1="${fv(midY)}" x2="${fv(bR)}" y2="${fv(midY)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
+  }
+  hier.forEach((ch,i)=>{
+    const cmx=cx+ws[i]/2;
+    lines.push(`<line x1="${fv(cmx)}" y1="${fv(midY)}" x2="${fv(cmx)}" y2="${fv(my+BH+VGAP)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
+    buildHierLayout(ch,cmx,my+BH+VGAP,BW,BH,HGAP,VGAP,rects,lines);
+    cx+=ws[i]+HGAP;
   });
 }
-function wrapTxt(t,mx){if(!t)return[];const ws=t.split(" ");const ls=[];let c="";for(const w of ws){if((c+" "+w).trim().length>mx){if(c)ls.push(c.trim());c=w;}else c=(c+" "+w).trim();}if(c)ls.push(c.trim());return ls;}
-function svgBox({node,x,y,dashed}){
+
+// Renderiza un box SVG
+function svgBox(x,y,node,BW,BH,dashed=false){
   const fill=CF[node.tipo]||"#374151",tc=CT[node.tipo]||"#fff";
   const nl=wrapTxt(node.nombre,21),tl=wrapTxt(node.titular||"",23);
   const lh=11,tot=nl.length+(tl.length?tl.length+0.4:0);
   let yt=y+BH/2-(tot*lh)/2+lh*0.85;
-  const da=dashed?`stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-dasharray="6,4"`:"";
-  let t=`<rect x="${fv(x)}" y="${fv(y)}" width="${BW}" height="${BH}" rx="8" fill="${fill}" ${da}/>`;
+  const da=dashed?`stroke="rgba(255,255,255,0.45)" stroke-width="1.5" stroke-dasharray="5,3"`:"";
+  let t=`<rect x="${fv(x)}" y="${fv(y)}" width="${BW}" height="${BH}" rx="7" fill="${fill}" ${da}/>`;
   nl.forEach(l=>{t+=`<text x="${fv(x+BW/2)}" y="${fv(yt)}" text-anchor="middle" font-size="9" font-weight="600" fill="${tc}" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=lh;});
-  yt+=2;tl.forEach(l=>{t+=`<text x="${fv(x+BW/2)}" y="${fv(yt)}" text-anchor="middle" font-size="7.5" fill="${tc}" opacity="0.8" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=lh;});
+  yt+=2;
+  tl.forEach(l=>{t+=`<text x="${fv(x+BW/2)}" y="${fv(yt)}" text-anchor="middle" font-size="7.5" fill="${tc}" opacity="0.8" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=lh;});
   return t;
 }
-function genPageSVG(root,pn,tot){
-  const PW=1123,PH=1587,MAR=56,HH=90,FH=50;
-  const AW=PW-MAR*2,AH=PH-HH-FH-MAR;
-  const rects=[],lines=[];
-  buildLayout(root,mW(root)/2,0,rects,lines);
-  const minX=Math.min(...rects.map(r=>r.x));rects.forEach(r=>r.x-=minX);
-  const rawW=Math.max(...rects.map(r=>r.x+BW)),rawH=Math.max(...rects.map(r=>r.y+BH));
-  const scale=Math.min(AW/rawW,AH/rawH,1);
-  const ox=MAR+(AW-rawW*scale)/2,oy=HH+(AH-rawH*scale)/2;
-  const hc=CF[root.tipo]||"#1E3A5F",htc="#fff";
-  const leg=[["#9B1C1C","Jefatura"],["#92400E","Ministerio"],["#78350F","Sec."],["#1E3A5F","Subsec."],["#14532D","Dir. Gral."],["#374151","Organismo"]];
-  const lw=105,lx=(PW-(leg.length*lw+155))/2,ly=PH-36;
-  let ls=leg.map((it,i)=>`<rect x="${fv(lx+i*lw)}" y="${fv(ly)}" width="11" height="11" rx="3" fill="${it[0]}"/><text x="${fv(lx+i*lw+15)}" y="${fv(ly+9)}" font-size="8" fill="#4A5568" font-family="Inter,Arial,sans-serif">${it[1]}</text>`).join("");
-  const dx=lx+leg.length*lw+8;
-  ls+=`<line x1="${fv(dx)}" y1="${fv(ly+5)}" x2="${fv(dx+22)}" y2="${fv(ly+5)}" stroke="#718096" stroke-width="1.5" stroke-dasharray="4,3"/><text x="${fv(dx+25)}" y="${fv(ly+9)}" font-size="8" fill="#4A5568" font-family="Inter,Arial,sans-serif">Dep. funcional</text>`;
-  ls+=`<text x="${fv(PW-MAR)}" y="${fv(ly+9)}" text-anchor="end" font-size="8" fill="#A0AEC0" font-family="Inter,Arial,sans-serif">${pn}/${tot}</text>`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}">
-<defs><linearGradient id="hg" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="${hc}"/><stop offset="100%" stop-color="${hc}CC"/></linearGradient></defs>
-<rect width="${PW}" height="${PH}" fill="#F7FAFC"/>
-<rect x="0" y="0" width="${PW}" height="${HH}" fill="url(#hg)"/>
-<line x1="0" y1="${HH}" x2="${PW}" y2="${HH}" stroke="#E2E8F0" stroke-width="1"/>
-<text x="${fv(PW/2)}" y="44" text-anchor="middle" font-size="20" font-weight="700" fill="#fff" font-family="Inter,Arial,sans-serif">${root.nombre}</text>
-<text x="${fv(PW/2)}" y="66" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.82)" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · Última actualización: 20/5/2026</text>
-<g transform="translate(${fv(ox)},${fv(oy)}) scale(${scale.toFixed(5)})">${lines.join("")}${rects.map(r=>svgBox(r)).join("")}</g>
-<rect x="0" y="${PH-FH}" width="${PW}" height="${FH}" fill="#F7FAFC"/>
-<line x1="0" y1="${PH-FH}" x2="${PW}" y2="${PH-FH}" stroke="#E2E8F0" stroke-width="1"/>
-${ls}</svg>`;
+
+// Recolecta TODOS los orgs fuera de nivel de todo el árbol (recursivo)
+function collectOrgs(node,acc=[]){
+  node.children.forEach(ch=>{
+    if(ch.dashed) acc.push(ch);
+    else collectOrgs(ch,acc);
+  });
+  return acc;
 }
+
+function genPageSVG(root,pn,tot){
+  const PW=1123,PH=1587;
+  const MAR=50,HH=88,FH=52,SEP=28; // SEP = espacio para la línea separadora de orgs
+  const AVAIL_W=PW-MAR*2;
+  const AVAIL_H=PH-HH-FH-MAR;
+
+  // Separar organismos fuera de nivel
+  const orgs=collectOrgs(root);
+  const hasOrgs=orgs.length>0;
+
+  // Reservar espacio para la sección de orgs al fondo si los hay
+  // Calculamos cuántas filas necesitan los orgs con un tamaño tentativo
+  const ORG_COLS=Math.min(orgs.length,5);
+  const ORG_ROWS=Math.ceil(orgs.length/ORG_COLS);
+  const ORG_SECTION_H=hasOrgs?(SEP+20+ORG_ROWS*72):0; // header+filas
+
+  const HIER_H=AVAIL_H-ORG_SECTION_H;
+
+  // Construir layout jerárquico sin escala aún
+  const BW0=180,BH0=58,HGAP0=14,VGAP0=66;
+  const rects0=[],lines0=[];
+  const rootW0=mW(root,BW0,HGAP0);
+  buildHierLayout(root,rootW0/2,0,BW0,BH0,HGAP0,VGAP0,rects0,lines0);
+
+  // Normalizar x al origen
+  const minX0=rects0.length?Math.min(...rects0.map(r=>r.x)):0;
+  rects0.forEach(r=>r.x-=minX0);
+  const rawW=rects0.length?Math.max(...rects0.map(r=>r.x+BW0)):BW0;
+  const rawH=rects0.length?Math.max(...rects0.map(r=>r.y+BH0)):BH0;
+
+  // Escala para que el árbol jerárquico quepa en HIER_H y AVAIL_W
+  const scaleX=AVAIL_W/rawW;
+  const scaleH=HIER_H/rawH;
+  const scale=Math.min(scaleX,scaleH,1);
+
+  const scaledW=rawW*scale;
+  const scaledH=rawH*scale;
+  const ox=MAR+(AVAIL_W-scaledW)/2;
+  const oy=HH+(HIER_H-scaledH)/2;
+
+  // Header color
+  const hc=CF[root.tipo]||"#1E3A5F";
+
+  // Construir SVG del árbol jerárquico
+  let hierSVG=`<g transform="translate(${fv(ox)},${fv(oy)}) scale(${scale.toFixed(5)})">`;
+  hierSVG+=lines0.join("");
+  hierSVG+=rects0.map(r=>svgBox(r.x,r.y,r.node,BW0,BH0,false)).join("");
+  hierSVG+=`</g>`;
+
+  // Sección de organismos fuera de nivel
+  let orgsSVG="";
+  if(hasOrgs){
+    const sepY=HH+HIER_H+8;
+    const OBW=Math.min(180,Math.floor((AVAIL_W-(ORG_COLS-1)*10)/ORG_COLS));
+    const OBH=54,OGAP=10;
+    const orgRowW=ORG_COLS*OBW+(ORG_COLS-1)*OGAP;
+    const orgStartX=MAR+(AVAIL_W-orgRowW)/2;
+
+    // Línea separadora con label
+    orgsSVG+=`<line x1="${MAR}" y1="${fv(sepY)}" x2="${fv(PW-MAR)}" y2="${fv(sepY)}" stroke="#A0AEC0" stroke-width="1" stroke-dasharray="6,4"/>`;
+    orgsSVG+=`<text x="${fv(PW/2)}" y="${fv(sepY-4)}" text-anchor="middle" font-size="7.5" fill="#A0AEC0" font-family="Inter,Arial,sans-serif" letter-spacing="1">ORGANISMOS DESCENTRALIZADOS Y FUERA DE NIVEL</text>`;
+
+    let orgY=sepY+16;
+    orgs.forEach((org,i)=>{
+      const col=i%ORG_COLS;
+      const row=Math.floor(i/ORG_COLS);
+      const ox2=orgStartX+col*(OBW+OGAP);
+      const oy2=orgY+row*(OBH+OGAP);
+      orgsSVG+=svgBox(ox2,oy2,org,OBW,OBH,true);
+    });
+  }
+
+  // Leyenda pie de página
+  const leg=[["#9B1C1C","Jefatura"],["#92400E","Ministerio"],["#78350F","Secretaría"],["#1E3A5F","Subsecretaría"],["#14532D","Dir. Gral."],["#374151","Org. fuera de nivel"]];
+  const lw=118,lx=(PW-(leg.length*lw+10))/2,ly=PH-34;
+  let legSVG=leg.map((it,i)=>`<rect x="${fv(lx+i*lw)}" y="${fv(ly)}" width="10" height="10" rx="2" fill="${it[0]}"/><text x="${fv(lx+i*lw+14)}" y="${fv(ly+9)}" font-size="7.5" fill="#718096" font-family="Inter,Arial,sans-serif">${it[1]}</text>`).join("");
+  legSVG+=`<text x="${fv(PW-MAR)}" y="${fv(ly+9)}" text-anchor="end" font-size="8" fill="#A0AEC0" font-family="Inter,Arial,sans-serif">${pn}/${tot}</text>`;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}">
+<defs>
+  <linearGradient id="hg${pn}" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="${hc}"/>
+    <stop offset="100%" stop-color="${hc}BB"/>
+  </linearGradient>
+</defs>
+<rect width="${PW}" height="${PH}" fill="#F7FAFC"/>
+<rect x="0" y="0" width="${PW}" height="${HH}" fill="url(#hg${pn})"/>
+<line x1="0" y1="${HH}" x2="${PW}" y2="${HH}" stroke="#E2E8F0" stroke-width="1"/>
+<text x="${fv(PW/2)}" y="42" text-anchor="middle" font-size="19" font-weight="700" fill="#fff" font-family="Inter,Arial,sans-serif">${root.nombre}</text>
+<text x="${fv(PW/2)}" y="63" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.78)" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · Última actualización: 20/5/2026</text>
+${hierSVG}
+${orgsSVG}
+<rect x="0" y="${PH-FH}" width="${PW}" height="${FH}" fill="#F7FAFC"/>
+<line x1="0" y1="${PH-FH}" x2="${PW}" y2="${PH-FH}" stroke="#E2E8F0" stroke-width="0.8"/>
+${legSVG}
+</svg>`;
+}
+
 function dlSVG(svgStr,fname){
   const blob=new Blob([svgStr],{type:"image/svg+xml;charset=utf-8"});
   const url=URL.createObjectURL(blob);
