@@ -420,9 +420,14 @@ function splitChildren(node){
 function mW(node,BW,HGAP){
   const{hier}=splitChildren(node);
   if(!hier.length)return BW;
-  // JG: solo muestra hijos directos (nivel 1), sin expandir subárboles
-  if(node.tipo==="JG") return Math.max(BW, hier.length*BW + HGAP*(hier.length-1));
-  if(node.tipo==="SS"||node.tipo==="DG"||node.tipo==="GG"||node.tipo==="GO"||node.tipo==="ORG")return BW;
+  if(node.tipo==="JG"){
+    const mins=hier.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
+    const secs=hier.filter(c=>c.tipo==="SEC");
+    const wMins=mins.length*BW+Math.max(0,mins.length-1)*HGAP;
+    const wSecs=secs.length*BW+Math.max(0,secs.length-1)*HGAP;
+    return Math.max(BW,wMins,wSecs);
+  }
+  if(node.tipo==="SS"||node.tipo==="GG"||node.tipo==="GO"||node.tipo==="DG"||node.tipo==="ORG")return BW;
   return Math.max(BW,hier.reduce((s,c)=>s+mW(c,BW,HGAP),0)+HGAP*(hier.length-1));
 }
 
@@ -431,25 +436,94 @@ function buildHierLayout(node,mx,my,BW,BH,HGAP,VGAP,rects=[],lines=[]){
   const{hier}=splitChildren(node);
   if(!hier.length)return;
   const useColumn=node.tipo==="SS"||node.tipo==="GG"||node.tipo==="GO";
-  // JG: solo despliega hijos directos, sin recursión
   const isJG=node.tipo==="JG";
+
   if(useColumn){
+    // DGs en columna lateral: línea sale del costado derecho de SS, baja, entra a cada DG por la izquierda
     const CVGAP=10;
+    const sideX=mx+BW/2+12; // costado derecho de la SS + margen
+    const stemStartY=my+BH/2; // altura media de la SS
     hier.forEach((ch,i)=>{
-      const cy=my+BH+VGAP+i*(BH+CVGAP);
-      lines.push(`<line x1="${fv(mx)}" y1="${fv(my+BH)}" x2="${fv(mx)}" y2="${fv(cy)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
-      rects.push({node:ch,x:mx-BW/2,y:cy,dashed:false});
+      const cy=my+i*(BH+CVGAP); // DGs alineadas a la misma altura que la SS
+      const chLeftX=mx+BW/2+12; // mismo sideX
+      const chMidY=cy+BH/2;
+      rects.push({node:ch,x:sideX+16,y:cy,dashed:false});
+      // Línea vertical lateral desde altura SS hasta cada DG
+      const topY=i===0?stemStartY:chMidY;
+      if(i===0){
+        // línea horizontal desde SS al rail lateral
+        lines.push(`<line x1="${fv(mx+BW/2)}" y1="${fv(stemStartY)}" x2="${fv(sideX)}" y2="${fv(stemStartY)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
+        // rail vertical desde la SS hacia abajo
+        if(hier.length>1){
+          const lastMidY=(hier.length-1)*(BH+CVGAP)+BH/2+my;
+          lines.push(`<line x1="${fv(sideX)}" y1="${fv(stemStartY)}" x2="${fv(sideX)}" y2="${fv(lastMidY)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
+        }
+      }
+      // línea horizontal del rail a cada DG
+      lines.push(`<line x1="${fv(sideX)}" y1="${fv(chMidY)}" x2="${fv(sideX+16)}" y2="${fv(chMidY)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
+
+      // Sub-hijos del DG también en columna lateral
       const{hier:subHier}=splitChildren(ch);
       if(subHier.length&&!isJG){
+        const dgRectX=sideX+16;
+        const dgSideX=dgRectX+BW+12;
+        const dgStemY=cy+BH/2;
+        lines.push(`<line x1="${fv(dgRectX+BW)}" y1="${fv(dgStemY)}" x2="${fv(dgSideX)}" y2="${fv(dgStemY)}" stroke="#CBD5E0" stroke-width="0.9"/>`);
+        if(subHier.length>1){
+          const lastSubMidY=cy+(subHier.length-1)*(BH+CVGAP)+BH/2;
+          lines.push(`<line x1="${fv(dgSideX)}" y1="${fv(dgStemY)}" x2="${fv(dgSideX)}" y2="${fv(lastSubMidY)}" stroke="#CBD5E0" stroke-width="0.9"/>`);
+        }
         subHier.forEach((sub,j)=>{
-          const sy=cy+BH+VGAP+j*(BH+CVGAP);
-          lines.push(`<line x1="${fv(mx)}" y1="${fv(cy+BH)}" x2="${fv(mx)}" y2="${fv(sy)}" stroke="#CBD5E0" stroke-width="0.9"/>`);
-          rects.push({node:sub,x:mx-BW/2,y:sy,dashed:false});
+          const sy=cy+j*(BH+CVGAP);
+          const subMidY=sy+BH/2;
+          lines.push(`<line x1="${fv(dgSideX)}" y1="${fv(subMidY)}" x2="${fv(dgSideX+16)}" y2="${fv(subMidY)}" stroke="#CBD5E0" stroke-width="0.9"/>`);
+          rects.push({node:sub,x:dgSideX+16,y:sy,dashed:false});
         });
       }
     });
+  } else if(isJG){
+    // JG: Ministerios en fila 1, Secretarías en fila 2, sin expandir subárboles
+    const mins=hier.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
+    const secs=hier.filter(c=>c.tipo==="SEC");
+    const renderRow=(nodes,rowY)=>{
+      if(!nodes.length)return;
+      const tot=nodes.length*BW+HGAP*(nodes.length-1);
+      let cx=mx-tot/2;
+      const midY=my+BH+VGAP/2;
+      lines.push(`<line x1="${fv(mx)}" y1="${fv(my+BH)}" x2="${fv(mx)}" y2="${fv(midY)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
+      if(nodes.length>1){
+        lines.push(`<line x1="${fv(cx+BW/2)}" y1="${fv(midY)}" x2="${fv(cx+(nodes.length-1)*(BW+HGAP)+BW/2)}" y2="${fv(midY)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
+      }
+      nodes.forEach(ch=>{
+        const cmx=cx+BW/2;
+        lines.push(`<line x1="${fv(cmx)}" y1="${fv(midY)}" x2="${fv(cmx)}" y2="${fv(rowY)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
+        rects.push({node:ch,x:cx,y:rowY,dashed:false});
+        cx+=BW+HGAP;
+      });
+    };
+    const row1Y=my+BH+VGAP;
+    renderRow(mins,row1Y);
+    if(secs.length){
+      const row2Y=row1Y+BH+VGAP;
+      // línea horizontal que une todas las sec desde el centro del JG
+      const secTot=secs.length*BW+HGAP*(secs.length-1);
+      let scx=mx-secTot/2;
+      const midY2=row1Y+BH+VGAP/2;
+      lines.push(`<line x1="${fv(mx)}" y1="${fv(row1Y+BH)}" x2="${fv(mx)}" y2="${fv(midY2)}" stroke="#CBD5E0" stroke-width="1"/>`);
+      if(secs.length>1){
+        lines.push(`<line x1="${fv(scx+BW/2)}" y1="${fv(midY2)}" x2="${fv(scx+(secs.length-1)*(BW+HGAP)+BW/2)}" y2="${fv(midY2)}" stroke="#CBD5E0" stroke-width="1"/>`);
+      }
+      // línea vertical desde fila ministerios hasta fila secretarías
+      lines.push(`<line x1="${fv(mx)}" y1="${fv(my+BH)}" x2="${fv(mx)}" y2="${fv(midY2)}" stroke="#CBD5E0" stroke-width="1"/>`);
+      secs.forEach(ch=>{
+        const cmx=scx+BW/2;
+        lines.push(`<line x1="${fv(cmx)}" y1="${fv(midY2)}" x2="${fv(cmx)}" y2="${fv(row2Y)}" stroke="#CBD5E0" stroke-width="1"/>`);
+        rects.push({node:ch,x:scx,y:row2Y,dashed:false});
+        scx+=BW+HGAP;
+      });
+    }
   } else {
-    const ws=isJG?hier.map(()=>BW):hier.map(c=>mW(c,BW,HGAP));
+    const ws=hier.map(c=>mW(c,BW,HGAP));
     const tot=ws.reduce((s,k)=>s+k,0)+HGAP*(hier.length-1);
     let cx=mx-tot/2;
     const midY=my+BH+VGAP/2;
@@ -461,12 +535,7 @@ function buildHierLayout(node,mx,my,BW,BH,HGAP,VGAP,rects=[],lines=[]){
     hier.forEach((ch,i)=>{
       const cmx=cx+ws[i]/2;
       lines.push(`<line x1="${fv(cmx)}" y1="${fv(midY)}" x2="${fv(cmx)}" y2="${fv(my+BH+VGAP)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
-      // JG: solo coloca el nodo hijo, sin recursar
-      if(isJG){
-        rects.push({node:ch,x:cmx-BW/2,y:my+BH+VGAP,dashed:false});
-      } else {
-        buildHierLayout(ch,cmx,my+BH+VGAP,BW,BH,HGAP,VGAP,rects,lines);
-      }
+      buildHierLayout(ch,cmx,my+BH+VGAP,BW,BH,HGAP,VGAP,rects,lines);
       cx+=ws[i]+HGAP;
     });
   }
