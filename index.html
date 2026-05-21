@@ -3,38 +3,77 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Organigrama GCBA</title>
+<title>Organigrama — Gobierno de la Ciudad de Buenos Aires</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f5f5f5;color:#222;height:100vh;overflow:hidden}
-button{font-family:inherit;cursor:pointer;background:#f0f0f0;border:1px solid #ddd;border-radius:5px;padding:5px 10px}
-button:hover{background:#e0e0e0}
-input,select{font-family:inherit;outline:none}
-::-webkit-scrollbar{width:6px;height:6px}
-::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Paleta GCBA */
+  --azul:        #005EA6;
+  --azul-oscuro: #003D6E;
+  --azul-claro:  #E8F2FB;
+  --azul-medio:  #B8D5EF;
+  --amarillo:    #F5C400;
+  --gris-bg:     #F2F5F9;
+  --gris-card:   #FFFFFF;
+  --gris-borde:  #D8E2EE;
+  --gris-texto:  #4A5568;
+  --gris-suave:  #718096;
+  --texto:       #1A2B42;
+
+  /* Nodos */
+  --jg:  #B91C1C;
+  --min: #C2570A;
+  --sec: #B45309;
+  --ss:  #1E3A5F;
+  --dg:  #166534;
+  --org: #4B5563;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--gris-bg);
+  color: var(--texto);
+  height: 100vh;
+  overflow: hidden;
+}
+
+button { font-family: inherit; cursor: pointer; transition: all 0.15s; }
+input, select { font-family: inherit; outline: none; transition: border 0.15s; }
+input:focus, select:focus { border-color: var(--azul) !important; box-shadow: 0 0 0 3px rgba(0,94,166,0.12); }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--azul-medio); border-radius: 10px; }
+
+/* Animaciones */
+@keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+.fade-in { animation: fadeIn 0.2s ease; }
 </style>
 </head>
 <body>
 <div id="root" style="height:100vh"></div>
 
 <script type="text/babel">
-const {useState,useMemo,useCallback} = React;
+const { useState, useMemo, useCallback, useEffect } = React;
 
-/* ── Paleta de colores ─────────────────────────── */
+/* ── Paleta nodos ────────────────────────────────── */
 const COLORS = {
-  JG : {bg:"#C0392B",text:"#fff",label:"Jefatura"},
-  VJG: {bg:"#C0392B",text:"#fff",label:"Vicejefatura"},
-  MIN: {bg:"#E67E22",text:"#fff",label:"Ministerio"},
-  SEC: {bg:"#F1C40F",text:"#333",label:"Secretaría"},
-  SS : {bg:"#2C3E50",text:"#fff",label:"Subsecretaría"},
-  DG : {bg:"#27AE60",text:"#fff",label:"Dir. General"},
-  ORG: {bg:"#7F8C8D",text:"#fff",label:"Organismo desc."},
+  JG : { bg:"#9B1C1C", text:"#fff", light:"#FEE2E2", label:"Jefatura" },
+  VJG: { bg:"#9B1C1C", text:"#fff", light:"#FEE2E2", label:"Vicejefatura" },
+  MIN: { bg:"#92400E", text:"#fff", light:"#FEF3C7", label:"Ministerio" },
+  SEC: { bg:"#78350F", text:"#fff", light:"#FEF9C3", label:"Secretaría" },
+  SS : { bg:"#1E3A5F", text:"#fff", light:"#DBEAFE", label:"Subsecretaría" },
+  DG : { bg:"#14532D", text:"#fff", light:"#DCFCE7", label:"Dir. General" },
+  ORG: { bg:"#374151", text:"#fff", light:"#F3F4F6", label:"Organismo desc." },
 };
 
-/* ── Datos ─────────────────────────────────────── */
+/* ── Datos ────────────────────────────────────────── */
 const INITIAL = {
   id:"JG",nombre:"Jefe de Gobierno",titular:"Jorge Macri",tipo:"JG",children:[
   {id:"VJG",nombre:"Vicejefatura de Gobierno",titular:"Clara Muzzio",tipo:"VJG",children:[
@@ -379,21 +418,22 @@ const INITIAL = {
   ]},
 ]};
 
-/* ── Helpers ────────────────────────────────────── */
-function flatList(tree,acc=[]){acc.push(tree);tree.children.forEach(c=>flatList(c,acc));return acc;}
-function findNode(tree,id){if(tree.id===id)return tree;for(const c of tree.children){const f=findNode(c,id);if(f)return f;}return null;}
-function updateNode(tree,id,fn){if(tree.id===id)return fn(tree);return{...tree,children:tree.children.map(c=>updateNode(c,id,fn))};}
-function removeNode(tree,id){return{...tree,children:tree.children.filter(c=>c.id!==id).map(c=>removeNode(c,id))};}
-function addChild(tree,pid,child){return updateNode(tree,pid,n=>({...n,children:[...n.children,child]}));}
+/* ── Helpers ─────────────────────────────────────── */
+const STORAGE_KEY = "gcba_org_v1";
+function loadData(){try{const s=localStorage.getItem(STORAGE_KEY);return s?JSON.parse(s):INITIAL;}catch{return INITIAL;}}
+function saveData(d){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}catch{}}
+function flatList(t,a=[]){a.push(t);t.children.forEach(c=>flatList(c,a));return a;}
+function findNode(t,id){if(t.id===id)return t;for(const c of t.children){const f=findNode(c,id);if(f)return f;}return null;}
+function updateNode(t,id,fn){if(t.id===id)return fn(t);return{...t,children:t.children.map(c=>updateNode(c,id,fn))};}
+function removeNode(t,id){return{...t,children:t.children.filter(c=>c.id!==id).map(c=>removeNode(c,id))};}
+function addChild(t,pid,child){return updateNode(t,pid,n=>({...n,children:[...n.children,child]}));}
 
-/* ── SVG export (top-down, A3 portrait) ────────── */
+/* ── SVG export ──────────────────────────────────── */
 const BW=180,BH=60,HGAP=16,VGAP=70;
-const CF={JG:"#C0392B",VJG:"#C0392B",MIN:"#E67E22",SEC:"#F1C40F",SS:"#2C3E50",DG:"#27AE60",ORG:"#7F8C8D"};
-const CT={JG:"#fff",VJG:"#fff",MIN:"#fff",SEC:"#333",SS:"#fff",DG:"#fff",ORG:"#fff"};
+const CF={JG:"#9B1C1C",VJG:"#9B1C1C",MIN:"#92400E",SEC:"#78350F",SS:"#1E3A5F",DG:"#14532D",ORG:"#374151"};
+const CT={JG:"#fff",VJG:"#fff",MIN:"#fff",SEC:"#fff",SS:"#fff",DG:"#fff",ORG:"#fff"};
 const fv=v=>Number(v).toFixed(1);
-
 function mW(n){if(!n.children.length)return BW;return Math.max(BW,n.children.reduce((s,c)=>s+mW(c),0)+HGAP*(n.children.length-1));}
-
 function buildLayout(node,mx,my,rects=[],lines=[]){
   rects.push({node,x:mx-BW/2,y:my,dashed:!!node.dashed});
   if(!node.children.length)return;
@@ -401,36 +441,28 @@ function buildLayout(node,mx,my,rects=[],lines=[]){
   const tot=ws.reduce((s,k)=>s+k,0)+HGAP*(node.children.length-1);
   let cx=mx-tot/2;
   const midY=my+BH+VGAP/2;
-  lines.push(`<line x1="${fv(mx)}" y1="${fv(my+BH)}" x2="${fv(mx)}" y2="${fv(midY)}" stroke="#ccc" stroke-width="1.1"/>`);
-  if(node.children.length>1){
-    const bL=cx+ws[0]/2,bR=cx+tot-ws[ws.length-1]/2;
-    lines.push(`<line x1="${fv(bL)}" y1="${fv(midY)}" x2="${fv(bR)}" y2="${fv(midY)}" stroke="#ccc" stroke-width="1.1"/>`);
-  }
+  lines.push(`<line x1="${fv(mx)}" y1="${fv(my+BH)}" x2="${fv(mx)}" y2="${fv(midY)}" stroke="#CBD5E0" stroke-width="1.2"/>`);
+  if(node.children.length>1){const bL=cx+ws[0]/2,bR=cx+tot-ws[ws.length-1]/2;lines.push(`<line x1="${fv(bL)}" y1="${fv(midY)}" x2="${fv(bR)}" y2="${fv(midY)}" stroke="#CBD5E0" stroke-width="1.2"/>`);}
   node.children.forEach((ch,i)=>{
-    const cmx=cx+ws[i]/2;
-    const da=ch.dashed?`stroke-dasharray="6,4"`:"";
-    lines.push(`<line x1="${fv(cmx)}" y1="${fv(midY)}" x2="${fv(cmx)}" y2="${fv(my+BH+VGAP)}" stroke="#ccc" stroke-width="1.1" ${da}/>`);
-    buildLayout(ch,cmx,my+BH+VGAP,rects,lines);
-    cx+=ws[i]+HGAP;
+    const cmx=cx+ws[i]/2,da=ch.dashed?`stroke-dasharray="6,4"`:"";
+    lines.push(`<line x1="${fv(cmx)}" y1="${fv(midY)}" x2="${fv(cmx)}" y2="${fv(my+BH+VGAP)}" stroke="#CBD5E0" stroke-width="1.2" ${da}/>`);
+    buildLayout(ch,cmx,my+BH+VGAP,rects,lines);cx+=ws[i]+HGAP;
   });
 }
-
 function wrapTxt(t,mx){if(!t)return[];const ws=t.split(" ");const ls=[];let c="";for(const w of ws){if((c+" "+w).trim().length>mx){if(c)ls.push(c.trim());c=w;}else c=(c+" "+w).trim();}if(c)ls.push(c.trim());return ls;}
-
 function svgBox({node,x,y,dashed}){
-  const fill=CF[node.tipo]||"#7F8C8D",tc=CT[node.tipo]||"#fff";
+  const fill=CF[node.tipo]||"#374151",tc=CT[node.tipo]||"#fff";
   const nl=wrapTxt(node.nombre,21),tl=wrapTxt(node.titular||"",23);
   const lh=11,tot=nl.length+(tl.length?tl.length+0.4:0);
   let yt=y+BH/2-(tot*lh)/2+lh*0.85;
-  const da=dashed?`stroke="rgba(255,255,255,0.6)" stroke-width="2" stroke-dasharray="6,4"`:"";
-  let t=`<rect x="${fv(x)}" y="${fv(y)}" width="${BW}" height="${BH}" rx="7" fill="${fill}" ${da}/>`;
-  nl.forEach(l=>{t+=`<text x="${fv(x+BW/2)}" y="${fv(yt)}" text-anchor="middle" font-size="9" font-weight="bold" fill="${tc}" font-family="Arial,sans-serif">${l}</text>`;yt+=lh;});
-  yt+=2;tl.forEach(l=>{t+=`<text x="${fv(x+BW/2)}" y="${fv(yt)}" text-anchor="middle" font-size="8" fill="${tc}" opacity="0.85" font-family="Arial,sans-serif">${l}</text>`;yt+=lh;});
+  const da=dashed?`stroke="rgba(255,255,255,0.5)" stroke-width="2" stroke-dasharray="6,4"`:"";
+  let t=`<rect x="${fv(x)}" y="${fv(y)}" width="${BW}" height="${BH}" rx="8" fill="${fill}" ${da}/>`;
+  nl.forEach(l=>{t+=`<text x="${fv(x+BW/2)}" y="${fv(yt)}" text-anchor="middle" font-size="9" font-weight="600" fill="${tc}" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=lh;});
+  yt+=2;tl.forEach(l=>{t+=`<text x="${fv(x+BW/2)}" y="${fv(yt)}" text-anchor="middle" font-size="7.5" fill="${tc}" opacity="0.8" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=lh;});
   return t;
 }
-
 function genPageSVG(root,pn,tot){
-  const PW=1123,PH=1587,MAR=50,HH=80,FH=42;
+  const PW=1123,PH=1587,MAR=56,HH=90,FH=50;
   const AW=PW-MAR*2,AH=PH-HH-FH-MAR;
   const rects=[],lines=[];
   buildLayout(root,mW(root)/2,0,rects,lines);
@@ -438,22 +470,25 @@ function genPageSVG(root,pn,tot){
   const rawW=Math.max(...rects.map(r=>r.x+BW)),rawH=Math.max(...rects.map(r=>r.y+BH));
   const scale=Math.min(AW/rawW,AH/rawH,1);
   const ox=MAR+(AW-rawW*scale)/2,oy=HH+(AH-rawH*scale)/2;
-  const hc=CF[root.tipo]||"#7F8C8D",htc=CT[root.tipo]||"#fff";
-  const leg=[["#C0392B","Jefatura"],["#E67E22","Ministerio"],["#F1C40F","Sec."],["#2C3E50","Subsec."],["#27AE60","Dir. Gral."],["#7F8C8D","Organismo"]];
-  const lw=100,lx=(PW-(leg.length*lw+150))/2,ly=PH-30;
-  let ls=leg.map((it,i)=>`<rect x="${fv(lx+i*lw)}" y="${fv(ly)}" width="10" height="10" rx="2" fill="${it[0]}"/><text x="${fv(lx+i*lw+13)}" y="${fv(ly+9)}" font-size="8" fill="#666" font-family="Arial,sans-serif">${it[1]}</text>`).join("");
-  const dx=lx+leg.length*lw+6;
-  ls+=`<line x1="${fv(dx)}" y1="${fv(ly+5)}" x2="${fv(dx+20)}" y2="${fv(ly+5)}" stroke="#999" stroke-width="1.2" stroke-dasharray="4,3"/><text x="${fv(dx+23)}" y="${fv(ly+9)}" font-size="8" fill="#666" font-family="Arial,sans-serif">Dep. funcional</text>`;
-  ls+=`<text x="${fv(PW-MAR)}" y="${fv(ly+9)}" text-anchor="end" font-size="8" fill="#bbb" font-family="Arial,sans-serif">${pn}/${tot}</text>`;
+  const hc=CF[root.tipo]||"#1E3A5F",htc="#fff";
+  const leg=[["#9B1C1C","Jefatura"],["#92400E","Ministerio"],["#78350F","Sec."],["#1E3A5F","Subsec."],["#14532D","Dir. Gral."],["#374151","Organismo"]];
+  const lw=105,lx=(PW-(leg.length*lw+155))/2,ly=PH-36;
+  let ls=leg.map((it,i)=>`<rect x="${fv(lx+i*lw)}" y="${fv(ly)}" width="11" height="11" rx="3" fill="${it[0]}"/><text x="${fv(lx+i*lw+15)}" y="${fv(ly+9)}" font-size="8" fill="#4A5568" font-family="Inter,Arial,sans-serif">${it[1]}</text>`).join("");
+  const dx=lx+leg.length*lw+8;
+  ls+=`<line x1="${fv(dx)}" y1="${fv(ly+5)}" x2="${fv(dx+22)}" y2="${fv(ly+5)}" stroke="#718096" stroke-width="1.5" stroke-dasharray="4,3"/><text x="${fv(dx+25)}" y="${fv(ly+9)}" font-size="8" fill="#4A5568" font-family="Inter,Arial,sans-serif">Dep. funcional</text>`;
+  ls+=`<text x="${fv(PW-MAR)}" y="${fv(ly+9)}" text-anchor="end" font-size="8" fill="#A0AEC0" font-family="Inter,Arial,sans-serif">${pn}/${tot}</text>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}">
-<rect width="${PW}" height="${PH}" fill="white"/>
-<rect x="0" y="0" width="${PW}" height="${HH-6}" fill="${hc}"/>
-<text x="${fv(PW/2)}" y="40" text-anchor="middle" font-size="18" font-weight="bold" fill="${htc}" font-family="Arial,sans-serif">${root.nombre}</text>
-<text x="${fv(PW/2)}" y="58" text-anchor="middle" font-size="10" fill="${htc}" opacity="0.85" font-family="Arial,sans-serif">Ciudad Autónoma de Buenos Aires · Última actualización: 20/5/2026</text>
+<defs><linearGradient id="hg" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="${hc}"/><stop offset="100%" stop-color="${hc}CC"/></linearGradient></defs>
+<rect width="${PW}" height="${PH}" fill="#F7FAFC"/>
+<rect x="0" y="0" width="${PW}" height="${HH}" fill="url(#hg)"/>
+<line x1="0" y1="${HH}" x2="${PW}" y2="${HH}" stroke="#E2E8F0" stroke-width="1"/>
+<text x="${fv(PW/2)}" y="44" text-anchor="middle" font-size="20" font-weight="700" fill="#fff" font-family="Inter,Arial,sans-serif">${root.nombre}</text>
+<text x="${fv(PW/2)}" y="66" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.82)" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · Última actualización: 20/5/2026</text>
 <g transform="translate(${fv(ox)},${fv(oy)}) scale(${scale.toFixed(5)})">${lines.join("")}${rects.map(r=>svgBox(r)).join("")}</g>
+<rect x="0" y="${PH-FH}" width="${PW}" height="${FH}" fill="#F7FAFC"/>
+<line x1="0" y1="${PH-FH}" x2="${PW}" y2="${PH-FH}" stroke="#E2E8F0" stroke-width="1"/>
 ${ls}</svg>`;
 }
-
 function dlSVG(svgStr,fname){
   const blob=new Blob([svgStr],{type:"image/svg+xml;charset=utf-8"});
   const url=URL.createObjectURL(blob);
@@ -461,29 +496,49 @@ function dlSVG(svgStr,fname){
   document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
 }
 
-/* ── Panel izquierdo (árbol) ────────────────────── */
+/* ── Panel item ──────────────────────────────────── */
 function PanelItem({node,onSelect,selectedId,depth=0}){
   const [open,setOpen]=useState(depth<1);
   const col=COLORS[node.tipo]||COLORS.ORG;
   const isSel=selectedId===node.id;
   return(
-    <div style={{marginBottom:1}}>
+    <div style={{marginBottom:2}}>
       <div onClick={()=>{onSelect(node);if(node.children.length)setOpen(o=>!o);}}
-        style={{display:"flex",alignItems:"center",gap:7,padding:"5px 8px",
-          marginLeft:depth*14,borderRadius:7,cursor:"pointer",
-          background:isSel?col.bg:"transparent",
-          border:`1.5px ${node.dashed?"dashed":"solid"} ${isSel?col.bg:col.bg+"44"}`,
-          marginBottom:1}}>
-        <div style={{width:9,height:9,borderRadius:2,background:isSel?"#fff":col.bg,flexShrink:0}}/>
+        style={{
+          display:"flex",alignItems:"center",gap:8,
+          padding:`${depth===0?"7px":"5px"} 10px`,
+          marginLeft:depth*12,borderRadius:8,cursor:"pointer",
+          background:isSel?col.bg:depth===0?"rgba(0,94,166,0.06)":"transparent",
+          border:`1.5px ${node.dashed?"dashed":"solid"} ${isSel?col.bg:depth===0?"rgba(0,94,166,0.2)":"transparent"}`,
+          transition:"all 0.15s",
+        }}
+        onMouseEnter={e=>{if(!isSel)e.currentTarget.style.background="rgba(0,94,166,0.08)";}}
+        onMouseLeave={e=>{if(!isSel)e.currentTarget.style.background=depth===0?"rgba(0,94,166,0.06)":"transparent";}}>
+        {/* Color dot */}
+        <div style={{width:8,height:8,borderRadius:2,flexShrink:0,
+          background:isSel?"rgba(255,255,255,0.9)":col.bg}}/>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:depth===0?12:11,fontWeight:depth===0?700:500,
-            color:isSel?"#fff":depth===0?col.bg:"#1a1a1a",
+          <div style={{
+            fontSize:depth===0?12:11,
+            fontWeight:depth===0?600:400,
+            color:isSel?"#fff":depth===0?"#1A2B42":"#4A5568",
             lineHeight:1.3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
             {node.nombre}
           </div>
-          {node.titular&&<div style={{fontSize:10,color:isSel?"rgba(255,255,255,0.8)":"#666",
-            whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{node.titular}</div>}
+          {node.titular&&depth<=1&&(
+            <div style={{fontSize:10,color:isSel?"rgba(255,255,255,0.75)":"#718096",
+              whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+              {node.titular}
+            </div>
+          )}
         </div>
+        {node.children.length>0&&(
+          <span style={{fontSize:9,color:isSel?"rgba(255,255,255,0.8)":col.bg,flexShrink:0,
+            background:isSel?"rgba(255,255,255,0.15)":col.bg+"18",
+            padding:"1px 5px",borderRadius:10,fontWeight:600}}>
+            {node.children.length}
+          </span>
+        )}
         {node.children.length>0&&<span style={{fontSize:10,color:isSel?"#fff":col.bg,flexShrink:0}}>{open?"▾":"▸"}</span>}
       </div>
       {open&&node.children.map(ch=><PanelItem key={ch.id} node={ch} onSelect={onSelect} selectedId={selectedId} depth={depth+1}/>)}
@@ -491,13 +546,18 @@ function PanelItem({node,onSelect,selectedId,depth=0}){
   );
 }
 
-/* ── Modal base ─────────────────────────────────── */
-function Modal({title,children,onClose}){
+/* ── Modal ───────────────────────────────────────── */
+function Modal({title,accentColor="#005EA6",children,onClose}){
   return(
-    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:12,padding:22,width:370,boxShadow:"0 8px 32px rgba(0,0,0,0.2)"}}>
-        <div style={{fontSize:14,fontWeight:700,marginBottom:14,color:"#1a1a1a"}}>{title}</div>
-        {children}
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(15,30,60,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(2px)"}}>
+      <div onClick={e=>e.stopPropagation()} className="fade-in"
+        style={{background:"#fff",borderRadius:16,padding:0,width:400,boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
+        {/* Modal header */}
+        <div style={{background:accentColor,padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div style={{fontSize:14,fontWeight:600,color:"#fff"}}>{title}</div>
+          <button onClick={onClose} style={{background:"rgba(255,255,255,0.2)",border:"none",borderRadius:6,color:"#fff",width:28,height:28,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+        </div>
+        <div style={{padding:"20px 20px 24px"}}>{children}</div>
       </div>
     </div>
   );
@@ -505,13 +565,15 @@ function Modal({title,children,onClose}){
 
 function Field({label,value,onChange,type="text"}){
   return(
-    <div style={{marginBottom:10}}>
-      <label style={{fontSize:11,color:"#555",display:"block",marginBottom:3}}>{label}</label>
+    <div style={{marginBottom:12}}>
+      <label style={{fontSize:11,fontWeight:500,color:"#4A5568",display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.04em"}}>{label}</label>
       {type==="select"
-        ?<select value={value} onChange={onChange} style={{width:"100%",fontSize:12,padding:"6px 9px",borderRadius:6,border:"1px solid #ddd"}}>
+        ?<select value={value} onChange={onChange}
+          style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:"1.5px solid #D8E2EE",background:"#fff",color:"#1A2B42"}}>
           {Object.entries(COLORS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
         </select>
-        :<input value={value} onChange={onChange} style={{width:"100%",fontSize:12,padding:"6px 9px",borderRadius:6,border:"1px solid #ddd"}}/>
+        :<input value={value} onChange={onChange}
+          style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:"1.5px solid #D8E2EE",color:"#1A2B42"}}/>
       }
     </div>
   );
@@ -520,22 +582,101 @@ function Field({label,value,onChange,type="text"}){
 function NodePreview({form}){
   const col=COLORS[form.tipo]||COLORS.ORG;
   return(
-    <div style={{background:col.bg,color:col.text,borderRadius:8,padding:"8px 12px",marginBottom:14,
-      border:form.dashed?"2px dashed rgba(255,255,255,0.5)":"none"}}>
-      <div style={{fontSize:12,fontWeight:700}}>{form.nombre||"—"}</div>
-      {form.titular&&<div style={{fontSize:11,opacity:0.85}}>{form.titular}</div>}
+    <div style={{background:col.bg,color:col.text,borderRadius:10,padding:"12px 14px",marginBottom:16,
+      border:form.dashed?"2px dashed rgba(255,255,255,0.4)":"none",
+      boxShadow:"0 2px 8px rgba(0,0,0,0.12)"}}>
+      <div style={{fontSize:11,fontWeight:500,opacity:0.7,marginBottom:2}}>{col.label}</div>
+      <div style={{fontSize:13,fontWeight:700}}>{form.nombre||"—"}</div>
+      {form.titular&&<div style={{fontSize:11,opacity:0.82,marginTop:2}}>{form.titular}</div>}
     </div>
   );
 }
 
-/* ── App ────────────────────────────────────────── */
+/* ── Botones ─────────────────────────────────────── */
+const Btn=({children,onClick,variant="secondary",small=false,style={}})=>{
+  const variants={
+    primary:{background:"#005EA6",color:"#fff",border:"none"},
+    success:{background:"#166534",color:"#fff",border:"none"},
+    danger:{background:"transparent",color:"#9B1C1C",border:"1.5px solid #FCA5A5"},
+    secondary:{background:"#fff",color:"#1A2B42",border:"1.5px solid #D8E2EE"},
+    ghost:{background:"transparent",color:"#4A5568",border:"1.5px solid #E2E8F0"},
+  };
+  return(
+    <button onClick={onClick}
+      style={{...variants[variant],borderRadius:8,padding:small?"4px 10px":"6px 14px",
+        fontSize:small?11:12,fontWeight:500,display:"flex",alignItems:"center",gap:5,...style}}
+      onMouseEnter={e=>{e.currentTarget.style.opacity="0.85";}}
+      onMouseLeave={e=>{e.currentTarget.style.opacity="1";}}>
+      {children}
+    </button>
+  );
+};
+
+/* ── Badge tipo ──────────────────────────────────── */
+function TypeBadge({tipo,dashed}){
+  const col=COLORS[tipo]||COLORS.ORG;
+  return(
+    <span style={{background:col.bg,color:col.text,fontSize:10,fontWeight:600,
+      padding:"3px 9px",borderRadius:20,letterSpacing:"0.03em",
+      border:dashed?"1.5px dashed rgba(255,255,255,0.4)":"none"}}>
+      {col.label}{dashed?" · Dep. funcional":""}
+    </span>
+  );
+}
+
+/* ── Child card ──────────────────────────────────── */
+function ChildCard({node,onClick}){
+  const col=COLORS[node.tipo]||COLORS.ORG;
+  return(
+    <div onClick={()=>onClick(node)}
+      style={{
+        background:"#fff",borderRadius:12,padding:"12px 14px",cursor:"pointer",
+        border:`1.5px solid ${node.dashed?"#CBD5E0":col.bg+"33"}`,
+        borderLeft:`4px solid ${col.bg}`,
+        boxShadow:"0 1px 4px rgba(0,0,0,0.06)",
+        transition:"all 0.15s",
+      }}
+      onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 16px rgba(0,94,166,0.12)";e.currentTarget.style.borderColor=col.bg;}}
+      onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 4px rgba(0,0,0,0.06)";e.currentTarget.style.borderColor=node.dashed?"#CBD5E0":col.bg+"33";}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:11,fontWeight:700,color:col.bg,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.04em"}}>
+            {col.label}
+          </div>
+          <div style={{fontSize:12,fontWeight:600,color:"#1A2B42",lineHeight:1.35}}>{node.nombre}</div>
+          {node.titular&&<div style={{fontSize:11,color:"#718096",marginTop:3}}>{node.titular}</div>}
+        </div>
+        {node.children.length>0&&(
+          <span style={{background:col.bg+"18",color:col.bg,fontSize:10,fontWeight:600,
+            padding:"2px 7px",borderRadius:20,flexShrink:0,marginTop:2}}>
+            {node.children.length} dep.
+          </span>
+        )}
+      </div>
+      {node.dashed&&<div style={{fontSize:10,color:"#718096",marginTop:6,display:"flex",alignItems:"center",gap:4}}>
+        <span style={{borderTop:"1.5px dashed #A0AEC0",width:14,display:"inline-block"}}/>
+        Dependencia funcional
+      </div>}
+    </div>
+  );
+}
+
+/* ── App ─────────────────────────────────────────── */
 function App(){
-  const [data,setData]=useState(INITIAL);
+  const [data,setData]=useState(()=>loadData());
   const [selected,setSelected]=useState(null);
   const [search,setSearch]=useState("");
   const [modal,setModal]=useState(null);
   const [editForm,setEditForm]=useState({});
   const [addForm,setAddForm]=useState({nombre:"",titular:"",tipo:"DG",dashed:false});
+  const [saved,setSaved]=useState(false);
+
+  useEffect(()=>{
+    saveData(data);
+    setSaved(true);
+    const t=setTimeout(()=>setSaved(false),1800);
+    return()=>clearTimeout(t);
+  },[data]);
 
   const allNodes=useMemo(()=>flatList(data),[data]);
   const results=useMemo(()=>{
@@ -545,15 +686,6 @@ function App(){
   },[search,allNodes]);
 
   const select=useCallback(node=>setSelected(s=>s?.id===node.id?null:node),[]);
-
-  const openEdit=()=>{
-    setEditForm({nombre:selected.nombre,titular:selected.titular||"",tipo:selected.tipo,dashed:!!selected.dashed});
-    setModal("edit");
-  };
-  const openAdd=()=>{
-    setAddForm({nombre:"",titular:"",tipo:"DG",dashed:false});
-    setModal("add");
-  };
 
   const saveEdit=()=>{
     const nd=updateNode(data,selected.id,n=>({...n,...editForm}));
@@ -570,165 +702,254 @@ function App(){
     if(!confirm(`¿Eliminar "${selected.nombre}" y todas sus dependencias?`))return;
     setData(removeNode(data,selected.id));setSelected(null);
   };
+  const reset=()=>{
+    if(!confirm("¿Restablecer el organigrama al estado original? Se perderán todos los cambios."))return;
+    setData(INITIAL);setSelected(null);localStorage.removeItem(STORAGE_KEY);
+  };
 
   const dlAll=()=>{
-    const subjects=[data,...data.children];
+    const subs=[data,...data.children];
     const PH=1587,PW=1123;
-    const pages=subjects.map((s,i)=>genPageSVG(s,i+1,subjects.length));
+    const pages=subs.map((s,i)=>genPageSVG(s,i+1,subs.length));
     const combined=`<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH*pages.length}" viewBox="0 0 ${PW} ${PH*pages.length}">
 ${pages.map((p,i)=>`<g transform="translate(0,${i*PH})">${p.replace(/<\/?svg[^>]*>/g,"")}</g>`).join("\n")}
 </svg>`;
     dlSVG(combined,"organigrama-gcba-completo.svg");
   };
-
-  const dlSection=()=>{
-    if(!selected)return;
-    dlSVG(genPageSVG(selected,1,1),`organigrama-${selected.id.toLowerCase()}.svg`);
-  };
+  const dlSection=()=>{if(!selected)return;dlSVG(genPageSVG(selected,1,1),`organigrama-${selected.id.toLowerCase()}.svg`);};
 
   const ef=k=>e=>setEditForm(f=>({...f,[k]:e.target.type==="checkbox"?e.target.checked:e.target.value}));
   const af=k=>e=>setAddForm(f=>({...f,[k]:e.target.type==="checkbox"?e.target.checked:e.target.value}));
 
-  const btnStyle={fontSize:11,padding:"5px 10px",borderRadius:5,cursor:"pointer",border:"1px solid #ddd",background:"#f5f5f5"};
+  const selCol=selected?(COLORS[selected.tipo]||COLORS.ORG):null;
 
   return(
-    <div style={{display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden",background:"#f5f5f5"}}>
+    <div style={{display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden",background:"#F2F5F9"}}>
 
       {/* Modales */}
       {modal==="edit"&&selected&&(
-        <Modal title="Editar nodo" onClose={()=>setModal(null)}>
+        <Modal title="Editar nodo" accentColor={selCol?.bg||"#005EA6"} onClose={()=>setModal(null)}>
           <NodePreview form={editForm}/>
           <Field label="Nombre" value={editForm.nombre} onChange={ef("nombre")}/>
           <Field label="Titular" value={editForm.titular} onChange={ef("titular")}/>
           <Field label="Tipo" value={editForm.tipo} onChange={ef("tipo")} type="select"/>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}>
-            <input type="checkbox" id="ed" checked={!!editForm.dashed} onChange={ef("dashed")}/>
-            <label htmlFor="ed" style={{fontSize:11,color:"#555"}}>Línea punteada (dependencia funcional)</label>
-          </div>
+          <label style={{display:"flex",alignItems:"center",gap:8,marginBottom:20,cursor:"pointer"}}>
+            <input type="checkbox" checked={!!editForm.dashed} onChange={ef("dashed")} style={{accentColor:"#005EA6",width:15,height:15}}/>
+            <span style={{fontSize:12,color:"#4A5568"}}>Dependencia funcional (línea punteada)</span>
+          </label>
           <div style={{display:"flex",gap:8}}>
-            <button onClick={saveEdit} style={{flex:1,fontSize:12,padding:"7px 0",background:"#2C3E50",color:"#fff",border:"none",borderRadius:6}}>Guardar</button>
-            <button onClick={()=>setModal(null)} style={{flex:1,fontSize:12,padding:"7px 0",borderRadius:6}}>Cancelar</button>
+            <Btn variant="primary" onClick={saveEdit} style={{flex:1,justifyContent:"center"}}>Guardar cambios</Btn>
+            <Btn variant="ghost" onClick={()=>setModal(null)} style={{flex:1,justifyContent:"center"}}>Cancelar</Btn>
           </div>
         </Modal>
       )}
       {modal==="add"&&selected&&(
-        <Modal title="Agregar dependencia" onClose={()=>setModal(null)}>
+        <Modal title={`Agregar dependencia en ${selected.nombre}`} accentColor="#166534" onClose={()=>setModal(null)}>
           <NodePreview form={addForm}/>
           <Field label="Nombre" value={addForm.nombre} onChange={af("nombre")}/>
           <Field label="Titular" value={addForm.titular} onChange={af("titular")}/>
           <Field label="Tipo" value={addForm.tipo} onChange={af("tipo")} type="select"/>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:16}}>
-            <input type="checkbox" id="ad" checked={!!addForm.dashed} onChange={af("dashed")}/>
-            <label htmlFor="ad" style={{fontSize:11,color:"#555"}}>Línea punteada (dependencia funcional)</label>
-          </div>
+          <label style={{display:"flex",alignItems:"center",gap:8,marginBottom:20,cursor:"pointer"}}>
+            <input type="checkbox" checked={!!addForm.dashed} onChange={af("dashed")} style={{accentColor:"#005EA6",width:15,height:15}}/>
+            <span style={{fontSize:12,color:"#4A5568"}}>Dependencia funcional (línea punteada)</span>
+          </label>
           <div style={{display:"flex",gap:8}}>
-            <button onClick={saveAdd} style={{flex:1,fontSize:12,padding:"7px 0",background:"#27AE60",color:"#fff",border:"none",borderRadius:6}}>Agregar</button>
-            <button onClick={()=>setModal(null)} style={{flex:1,fontSize:12,padding:"7px 0",borderRadius:6}}>Cancelar</button>
+            <Btn variant="success" onClick={saveAdd} style={{flex:1,justifyContent:"center"}}>Agregar nodo</Btn>
+            <Btn variant="ghost" onClick={()=>setModal(null)} style={{flex:1,justifyContent:"center"}}>Cancelar</Btn>
           </div>
         </Modal>
       )}
 
-      {/* Header */}
-      <div style={{padding:"8px 16px",background:"#fff",borderBottom:"1px solid #ddd",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",flexShrink:0}}>
-        <div>
-          <div style={{fontSize:15,fontWeight:700,color:"#1a1a1a"}}>Organigrama GCBA</div>
-          <div style={{fontSize:10,color:"#888"}}>Última actualización: 20/5/2026</div>
+      {/* ── HEADER ── */}
+      <header style={{
+        background:"#003D6E",
+        padding:"0 20px",
+        display:"flex",alignItems:"center",gap:16,
+        height:56,flexShrink:0,
+        boxShadow:"0 2px 8px rgba(0,0,0,0.15)",
+      }}>
+        {/* Logo / título */}
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <div style={{width:36,height:36,borderRadius:8,background:"#F5C400",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" fill="#003D6E"/>
+              <polyline points="9 22 9 12 15 12 15 22" fill="#F5C400" stroke="#003D6E" strokeWidth="0.5"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{fontSize:14,fontWeight:700,color:"#fff",lineHeight:1.2}}>Organigrama GCBA</div>
+            <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",fontWeight:400}}>Ciudad Autónoma de Buenos Aires</div>
+          </div>
         </div>
-        <div style={{flex:1}}/>
-        <input placeholder="Buscar..." value={search} onChange={e=>setSearch(e.target.value)}
-          style={{fontSize:12,padding:"5px 10px",borderRadius:6,border:"1px solid #ddd",width:170}}/>
-        <button onClick={dlAll} style={{...btnStyle,background:"#2C3E50",color:"#fff",border:"none"}}>🖨 Descargar completo</button>
-      </div>
 
-      {/* Body */}
+        {/* Buscador */}
+        <div style={{flex:1,maxWidth:320,position:"relative"}}>
+          <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:14,color:"rgba(255,255,255,0.4)"}}>🔍</span>
+          <input placeholder="Buscar organismo o titular..." value={search} onChange={e=>setSearch(e.target.value)}
+            style={{width:"100%",fontSize:12,padding:"7px 10px 7px 32px",borderRadius:8,
+              border:"1.5px solid rgba(255,255,255,0.2)",background:"rgba(255,255,255,0.1)",
+              color:"#fff"}}
+            onFocus={e=>{e.target.style.background="rgba(255,255,255,0.18)";e.target.style.borderColor="rgba(255,255,255,0.4)";}}
+            onBlur={e=>{e.target.style.background="rgba(255,255,255,0.1)";e.target.style.borderColor="rgba(255,255,255,0.2)";}}/>
+        </div>
+
+        <div style={{display:"flex",gap:8,alignItems:"center",marginLeft:"auto"}}>
+          {/* Indicador de guardado */}
+          {saved&&<span style={{fontSize:11,color:"rgba(255,255,255,0.6)",display:"flex",alignItems:"center",gap:4}}>
+            <span style={{color:"#68D391"}}>✓</span> Guardado
+          </span>}
+          <Btn variant="ghost" onClick={dlAll}
+            style={{color:"#fff",borderColor:"rgba(255,255,255,0.25)",background:"rgba(255,255,255,0.08)",fontSize:11}}>
+            🖨 Descargar todo
+          </Btn>
+          <Btn variant="ghost" onClick={reset}
+            style={{color:"rgba(255,255,255,0.6)",borderColor:"rgba(255,255,255,0.15)",background:"transparent",fontSize:11}}>
+            ↺ Restablecer
+          </Btn>
+        </div>
+      </header>
+
+      {/* ── BODY ── */}
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
 
-        {/* Árbol */}
-        <div style={{width:300,flexShrink:0,overflowY:"auto",padding:"8px 6px",background:"#fff",borderRight:"1px solid #ddd"}}>
-          <div style={{display:"flex",flexWrap:"wrap",gap:3,marginBottom:8}}>
-            {Object.entries(COLORS).map(([k,v])=>(
-              <span key={k} style={{background:v.bg,color:v.text,fontSize:9,padding:"2px 5px",borderRadius:3}}>{v.label}</span>
-            ))}
-          </div>
-          {search.trim()
-            ?<div>
-              <div style={{fontSize:10,color:"#888",marginBottom:5}}>{results.length} resultados</div>
-              {results.slice(0,30).map(n=>(
-                <div key={n.id} onClick={()=>select(n)}
-                  style={{padding:"4px 7px",borderRadius:5,cursor:"pointer",marginBottom:2,fontSize:11,
-                    background:selected?.id===n.id?(COLORS[n.tipo]||COLORS.ORG).bg:"#f0f0f0",
-                    color:selected?.id===n.id?(COLORS[n.tipo]||COLORS.ORG).text:"#1a1a1a"}}>
-                  <div style={{fontWeight:600}}>{n.nombre}</div>
-                  {n.titular&&<div style={{opacity:0.7,fontSize:10}}>{n.titular}</div>}
-                </div>
+        {/* ── PANEL IZQUIERDO ── */}
+        <aside style={{
+          width:288,flexShrink:0,
+          display:"flex",flexDirection:"column",
+          background:"#fff",
+          borderRight:"1px solid #D8E2EE",
+        }}>
+          {/* Leyenda */}
+          <div style={{padding:"12px 12px 8px",borderBottom:"1px solid #EDF2F7",flexShrink:0}}>
+            <div style={{fontSize:10,fontWeight:600,color:"#718096",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>
+              Tipo de organismo
+            </div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+              {Object.entries(COLORS).map(([k,v])=>(
+                <span key={k} style={{background:v.bg,color:v.text,fontSize:9,fontWeight:600,
+                  padding:"2px 7px",borderRadius:20,letterSpacing:"0.02em"}}>
+                  {v.label}
+                </span>
               ))}
             </div>
-            :<PanelItem node={data} onSelect={select} selectedId={selected?.id}/>
-          }
-        </div>
-
-        {/* Detalle */}
-        <div style={{flex:1,overflowY:"auto",padding:"16px 18px",background:"#f5f5f5"}}>
-          {selected?(
-            <>
-              {/* Cabecera del nodo */}
-              <div style={{background:"#fff",borderRadius:10,padding:"14px 16px",marginBottom:14,boxShadow:"0 1px 4px rgba(0,0,0,0.08)"}}>
-                <div style={{display:"flex",gap:10,alignItems:"flex-start",flexWrap:"wrap"}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:17,fontWeight:700,color:"#1a1a1a",lineHeight:1.2}}>{selected.nombre}</div>
-                    {selected.titular&&<div style={{fontSize:13,color:"#555",marginTop:3}}>{selected.titular}</div>}
-                    <div style={{display:"flex",gap:5,marginTop:8,flexWrap:"wrap"}}>
-                      <span style={{background:(COLORS[selected.tipo]||COLORS.ORG).bg,color:(COLORS[selected.tipo]||COLORS.ORG).text,
-                        fontSize:10,padding:"2px 8px",borderRadius:4}}>
-                        {(COLORS[selected.tipo]||COLORS.ORG).label}
-                      </span>
-                      {selected.dashed&&<span style={{fontSize:10,color:"#888",padding:"2px 8px",border:"1px dashed #aaa",borderRadius:4}}>Dep. funcional</span>}
-                      <span style={{fontSize:10,color:"#555",padding:"2px 8px",background:"#f0f0f0",borderRadius:4}}>
-                        {selected.children.length} dependencia{selected.children.length!==1?"s":""}
-                      </span>
+          </div>
+          {/* Árbol */}
+          <div style={{flex:1,overflowY:"auto",padding:"8px 8px"}}>
+            {search.trim()?(
+              <div>
+                <div style={{fontSize:10,color:"#718096",marginBottom:8,fontWeight:500}}>
+                  {results.length} resultado{results.length!==1?"s":""}
+                </div>
+                {results.slice(0,30).map(n=>{
+                  const col=COLORS[n.tipo]||COLORS.ORG;
+                  const isSel=selected?.id===n.id;
+                  return(
+                    <div key={n.id} onClick={()=>select(n)}
+                      style={{padding:"7px 10px",borderRadius:8,cursor:"pointer",marginBottom:3,
+                        background:isSel?col.bg:"#F7FAFC",
+                        border:`1.5px solid ${isSel?col.bg:"#E2E8F0"}`,
+                        borderLeft:`4px solid ${col.bg}`,
+                      }}>
+                      <div style={{fontSize:11,fontWeight:600,color:isSel?"#fff":col.bg}}>{n.nombre}</div>
+                      {n.titular&&<div style={{fontSize:10,color:isSel?"rgba(255,255,255,0.75)":"#718096"}}>{n.titular}</div>}
                     </div>
-                  </div>
-                  {/* Acciones */}
-                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                    <button onClick={openEdit} style={btnStyle}>✏️ Editar</button>
-                    <button onClick={openAdd} style={btnStyle}>➕ Agregar</button>
-                    {selected.id!=="JG"&&<button onClick={del} style={{...btnStyle,color:"#c0392b",borderColor:"#e99"}}>🗑 Eliminar</button>}
-                    <button onClick={dlSection} style={{...btnStyle,background:"#2C3E50",color:"#fff",border:"none"}}>🖨 Descargar sección</button>
+                  );
+                })}
+              </div>
+            ):(
+              <PanelItem node={data} onSelect={select} selectedId={selected?.id}/>
+            )}
+          </div>
+        </aside>
+
+        {/* ── PANEL DERECHO ── */}
+        <main style={{flex:1,overflowY:"auto",padding:"20px 24px"}}>
+          {selected?(
+            <div className="fade-in">
+              {/* Card del nodo seleccionado */}
+              <div style={{
+                background:"#fff",borderRadius:16,
+                overflow:"hidden",
+                boxShadow:"0 2px 12px rgba(0,0,0,0.07)",
+                marginBottom:20,
+              }}>
+                {/* Banda de color superior */}
+                <div style={{background:selCol.bg,height:6}}/>
+                <div style={{padding:"18px 20px"}}>
+                  <div style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
+                    <div style={{flex:1,minWidth:200}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                        <TypeBadge tipo={selected.tipo} dashed={selected.dashed}/>
+                      </div>
+                      <div style={{fontSize:20,fontWeight:700,color:"#1A2B42",lineHeight:1.2,marginBottom:4}}>
+                        {selected.nombre}
+                      </div>
+                      {selected.titular&&(
+                        <div style={{fontSize:13,color:"#718096",display:"flex",alignItems:"center",gap:6}}>
+                          <span style={{width:16,height:16,borderRadius:"50%",background:selCol.bg+"22",
+                            display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:9}}>👤</span>
+                          {selected.titular}
+                        </div>
+                      )}
+                      <div style={{marginTop:10,display:"flex",gap:8,flexWrap:"wrap"}}>
+                        <span style={{fontSize:11,color:"#4A5568",background:"#EDF2F7",padding:"3px 10px",borderRadius:20,fontWeight:500}}>
+                          {selected.children.length} dependencia{selected.children.length!==1?"s directas":"directa"}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Acciones */}
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+                      <Btn variant="secondary" small onClick={()=>{
+                        setEditForm({nombre:selected.nombre,titular:selected.titular||"",tipo:selected.tipo,dashed:!!selected.dashed});
+                        setModal("edit");
+                      }}>✏️ Editar</Btn>
+                      <Btn variant="secondary" small onClick={()=>{
+                        setAddForm({nombre:"",titular:"",tipo:"DG",dashed:false});
+                        setModal("add");
+                      }}>➕ Agregar</Btn>
+                      {selected.id!=="JG"&&<Btn variant="danger" small onClick={del}>🗑 Eliminar</Btn>}
+                      <Btn variant="primary" small onClick={dlSection}>🖨 Descargar</Btn>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Hijos */}
+              {/* Dependencias */}
               {selected.children.length>0&&(
                 <>
-                  <div style={{fontSize:11,fontWeight:600,color:"#888",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.05em"}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#718096",marginBottom:12,
+                    textTransform:"uppercase",letterSpacing:"0.07em",display:"flex",alignItems:"center",gap:8}}>
                     Dependencias directas
+                    <span style={{background:"#E2E8F0",color:"#4A5568",fontSize:10,fontWeight:600,
+                      padding:"1px 8px",borderRadius:20}}>{selected.children.length}</span>
                   </div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:8}}>
-                    {selected.children.map(ch=>{
-                      const col=COLORS[ch.tipo]||COLORS.ORG;
-                      return(
-                        <div key={ch.id} onClick={()=>select(ch)}
-                          style={{background:col.bg,color:col.text,borderRadius:8,padding:"10px 12px",cursor:"pointer",
-                            border:ch.dashed?"2px dashed rgba(255,255,255,0.45)":"2px solid transparent",
-                            boxShadow:"0 1px 4px rgba(0,0,0,0.1)"}}>
-                          <div style={{fontSize:11,fontWeight:700,lineHeight:1.3}}>{ch.nombre}</div>
-                          {ch.titular&&<div style={{fontSize:10,opacity:0.85,marginTop:3}}>{ch.titular}</div>}
-                          {ch.children.length>0&&<div style={{fontSize:9,marginTop:5,opacity:0.7}}>▾ {ch.children.length} dep.</div>}
-                        </div>
-                      );
-                    })}
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:10}}>
+                    {selected.children.map(ch=><ChildCard key={ch.id} node={ch} onClick={select}/>)}
                   </div>
                 </>
               )}
-            </>
+            </div>
           ):(
-            <div style={{color:"#888",fontSize:13,marginTop:30,textAlign:"center",lineHeight:1.8}}>
-              ← Seleccioná un organismo del panel izquierdo<br/>para ver sus detalles y editarlo.
+            /* Estado vacío */
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+              height:"100%",color:"#A0AEC0",textAlign:"center",gap:12}}>
+              <div style={{width:64,height:64,borderRadius:16,background:"#EDF2F7",
+                display:"flex",alignItems:"center",justifyContent:"center",fontSize:28}}>🏛️</div>
+              <div>
+                <div style={{fontSize:15,fontWeight:600,color:"#4A5568",marginBottom:4}}>Seleccioná un organismo</div>
+                <div style={{fontSize:13,color:"#A0AEC0"}}>Hacé clic en cualquier nodo del panel izquierdo<br/>para ver sus detalles y dependencias.</div>
+              </div>
             </div>
           )}
-        </div>
+        </main>
+      </div>
+
+      {/* Footer */}
+      <div style={{background:"#fff",borderTop:"1px solid #E2E8F0",padding:"6px 20px",
+        display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
+        <span style={{fontSize:10,color:"#A0AEC0"}}>Gobierno de la Ciudad Autónoma de Buenos Aires · Última actualización: 20/5/2026</span>
+        <span style={{fontSize:10,color:"#A0AEC0"}}>{flatList(data).length} organismos en el organigrama</span>
       </div>
     </div>
   );
