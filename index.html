@@ -9,72 +9,42 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-:root {
-  /* Paleta GCBA */
-  --azul:        #005EA6;
-  --azul-oscuro: #003D6E;
-  --azul-claro:  #E8F2FB;
-  --azul-medio:  #B8D5EF;
-  --amarillo:    #F5C400;
-  --gris-bg:     #F2F5F9;
-  --gris-card:   #FFFFFF;
-  --gris-borde:  #D8E2EE;
-  --gris-texto:  #4A5568;
-  --gris-suave:  #718096;
-  --texto:       #1A2B42;
-
-  /* Nodos */
-  --jg:  #B91C1C;
-  --min: #C2570A;
-  --sec: #B45309;
-  --ss:  #1E3A5F;
-  --dg:  #166534;
-  --org: #4B5563;
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --azul:#005EA6;--azul-oscuro:#003D6E;--azul-claro:#E8F2FB;
+  --azul-medio:#B8D5EF;--amarillo:#F5C400;--gris-bg:#F2F5F9;
+  --gris-card:#FFFFFF;--gris-borde:#D8E2EE;--gris-texto:#4A5568;
+  --gris-suave:#718096;--texto:#1A2B42;
 }
-
-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: var(--gris-bg);
-  color: var(--texto);
-  height: 100vh;
-  overflow: hidden;
-}
-
-button { font-family: inherit; cursor: pointer; transition: all 0.15s; }
-input, select { font-family: inherit; outline: none; transition: border 0.15s; }
-input:focus, select:focus { border-color: var(--azul) !important; box-shadow: 0 0 0 3px rgba(0,94,166,0.12); }
-
-::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--azul-medio); border-radius: 10px; }
-
-/* Animaciones */
-@keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
-.fade-in { animation: fadeIn 0.2s ease; }
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--gris-bg);color:var(--texto);height:100vh;overflow:hidden}
+button{font-family:inherit;cursor:pointer;transition:all .15s}
+input,select{font-family:inherit;outline:none;transition:border .15s}
+input:focus,select:focus{border-color:var(--azul)!important;box-shadow:0 0 0 3px rgba(0,94,166,.12)}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--azul-medio);border-radius:10px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn .2s ease}
 </style>
 </head>
 <body>
 <div id="root" style="height:100vh"></div>
-
 <script type="text/babel">
-const { useState, useMemo, useCallback, useEffect } = React;
+const{useState,useMemo,useCallback,useEffect}=React;
 
-/* ── Paleta nodos ────────────────────────────────── */
-const COLORS = {
-  JG : { bg:"#9B1C1C", text:"#fff", light:"#FEE2E2", label:"Jefatura" },
-  VJG: { bg:"#9B1C1C", text:"#fff", light:"#FEE2E2", label:"Vicejefatura" },
-  MIN: { bg:"#92400E", text:"#fff", light:"#FEF3C7", label:"Ministerio" },
-  SEC: { bg:"#78350F", text:"#fff", light:"#FEF9C3", label:"Secretaría" },
-  SS : { bg:"#1E3A5F", text:"#fff", light:"#DBEAFE", label:"Subsecretaría" },
-  DG : { bg:"#14532D", text:"#fff", light:"#DCFCE7", label:"Dir. General" },
-  ORG: { bg:"#374151", text:"#fff", light:"#F3F4F6", label:"Organismo desc." },
+const COLORS={
+  JG :{bg:"#9B1C1C",text:"#fff",light:"#FEE2E2",label:"Jefatura"},
+  VJG:{bg:"#9B1C1C",text:"#fff",light:"#FEE2E2",label:"Vicejefatura"},
+  MIN:{bg:"#92400E",text:"#fff",light:"#FEF3C7",label:"Ministerio"},
+  SEC:{bg:"#78350F",text:"#fff",light:"#FEF9C3",label:"Secretaría"},
+  SS :{bg:"#1E3A5F",text:"#fff",light:"#DBEAFE",label:"Subsecretaría"},
+  DG :{bg:"#14532D",text:"#fff",light:"#DCFCE7",label:"Dir. General"},
+  GG :{bg:"#065F46",text:"#fff",light:"#D1FAE5",label:"Gerencia General"},
+  GO :{bg:"#064E3B",text:"#fff",light:"#D1FAE5",label:"Gerencia Operativa"},
+  ORG:{bg:"#374151",text:"#fff",light:"#F3F4F6",label:"Organismo desc."},
 };
 
-/* ── Datos ────────────────────────────────────────── */
-const INITIAL = {
+const INITIAL={
   id:"JG",nombre:"Jefe de Gobierno",titular:"Jorge Macri",tipo:"JG",children:[
   {id:"VJG",nombre:"Vicejefatura de Gobierno",titular:"Clara Muzzio",tipo:"VJG",children:[
     {id:"SSAMB",nombre:"SS. Ambiente",titular:"Natalia Persini",tipo:"SS",children:[
@@ -419,7 +389,7 @@ const INITIAL = {
 ]};
 
 /* ── Helpers ─────────────────────────────────────── */
-const STORAGE_KEY = "gcba_org_v1";
+const STORAGE_KEY="gcba_org_v1";
 function loadData(){try{const s=localStorage.getItem(STORAGE_KEY);return s?JSON.parse(s):INITIAL;}catch{return INITIAL;}}
 function saveData(d){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}catch{}}
 function flatList(t,a=[]){a.push(t);t.children.forEach(c=>flatList(c,a));return a;}
@@ -429,8 +399,8 @@ function removeNode(t,id){return{...t,children:t.children.filter(c=>c.id!==id).m
 function addChild(t,pid,child){return updateNode(t,pid,n=>({...n,children:[...n.children,child]}));}
 
 /* ── SVG export ──────────────────────────────────── */
-const CF={JG:"#9B1C1C",VJG:"#9B1C1C",MIN:"#92400E",SEC:"#78350F",SS:"#1E3A5F",DG:"#14532D",ORG:"#374151"};
-const CT={JG:"#fff",VJG:"#fff",MIN:"#fff",SEC:"#fff",SS:"#fff",DG:"#fff",ORG:"#fff"};
+const CF={JG:"#9B1C1C",VJG:"#9B1C1C",MIN:"#92400E",SEC:"#78350F",SS:"#1E3A5F",DG:"#14532D",GG:"#065F46",GO:"#064E3B",ORG:"#374151"};
+const CT={JG:"#fff",VJG:"#fff",MIN:"#fff",SEC:"#fff",SS:"#fff",DG:"#fff",GG:"#fff",GO:"#fff",ORG:"#fff"};
 const fv=v=>Number(v).toFixed(1);
 
 function wrapTxt(t,mx){
@@ -440,60 +410,46 @@ function wrapTxt(t,mx){
   if(c)ls.push(c.trim());return ls;
 }
 
-// Separa hijos jerárquicos de organismos fuera de nivel (dashed)
 function splitChildren(node){
-  const hier=node.children.filter(c=>!c.dashed);
-  const orgs=node.children.filter(c=>c.dashed);
-  return{hier,orgs};
+  return{
+    hier:node.children.filter(c=>!c.dashed),
+    orgs:node.children.filter(c=>c.dashed)
+  };
 }
 
-// Mide el ancho de un nodo según su tipo:
-// - JG/MIN/SEC: hijos en fila horizontal
-// - SS: una columna (ancho = BW)
-// - DG y demás: hoja (ancho = BW)
 function mW(node,BW,HGAP){
   const{hier}=splitChildren(node);
-  if(!hier.length) return BW;
-  if(node.tipo==="SS"||node.tipo==="DG"||node.tipo==="ORG") return BW; // columna vertical → ancho fijo
-  return Math.max(BW, hier.reduce((s,c)=>s+mW(c,BW,HGAP),0)+HGAP*(hier.length-1));
+  if(!hier.length)return BW;
+  // JG: solo muestra hijos directos (nivel 1), sin expandir subárboles
+  if(node.tipo==="JG") return Math.max(BW, hier.length*BW + HGAP*(hier.length-1));
+  if(node.tipo==="SS"||node.tipo==="DG"||node.tipo==="GG"||node.tipo==="GO"||node.tipo==="ORG")return BW;
+  return Math.max(BW,hier.reduce((s,c)=>s+mW(c,BW,HGAP),0)+HGAP*(hier.length-1));
 }
 
-// Construye layout:
-// - Nodos JG/MIN/SEC/VJG: hijos en fila horizontal
-// - Nodos SS: hijos (DGs) en columna vertical
 function buildHierLayout(node,mx,my,BW,BH,HGAP,VGAP,rects=[],lines=[]){
   rects.push({node,x:mx-BW/2,y:my,dashed:false});
   const{hier}=splitChildren(node);
-  if(!hier.length) return;
-
-  const useColumn = node.tipo==="SS";
-
+  if(!hier.length)return;
+  const useColumn=node.tipo==="SS"||node.tipo==="GG"||node.tipo==="GO";
+  // JG: solo despliega hijos directos, sin recursión
+  const isJG=node.tipo==="JG";
   if(useColumn){
-    // DGs en columna vertical — líneas salen SIEMPRE desde el centro inferior de la SS
     const CVGAP=10;
-    const ssBottomX=mx;
-    const ssBottomY=my+BH;
     hier.forEach((ch,i)=>{
       const cy=my+BH+VGAP+i*(BH+CVGAP);
-      const chMidX=mx;
-      const chTopY=cy;
-      // Línea desde fondo de SS hasta tope de cada DG
-      lines.push(`<line x1="${fv(ssBottomX)}" y1="${fv(ssBottomY)}" x2="${fv(chMidX)}" y2="${fv(chTopY)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
+      lines.push(`<line x1="${fv(mx)}" y1="${fv(my+BH)}" x2="${fv(mx)}" y2="${fv(cy)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
       rects.push({node:ch,x:mx-BW/2,y:cy,dashed:false});
-      // Sub-hijos del DG (si los hay) también en columna
       const{hier:subHier}=splitChildren(ch);
-      if(subHier.length){
-        const chBottomY=cy+BH;
+      if(subHier.length&&!isJG){
         subHier.forEach((sub,j)=>{
           const sy=cy+BH+VGAP+j*(BH+CVGAP);
-          lines.push(`<line x1="${fv(mx)}" y1="${fv(chBottomY)}" x2="${fv(mx)}" y2="${fv(sy)}" stroke="#CBD5E0" stroke-width="0.9"/>`);
+          lines.push(`<line x1="${fv(mx)}" y1="${fv(cy+BH)}" x2="${fv(mx)}" y2="${fv(sy)}" stroke="#CBD5E0" stroke-width="0.9"/>`);
           rects.push({node:sub,x:mx-BW/2,y:sy,dashed:false});
         });
       }
     });
   } else {
-    // Hijos en fila horizontal
-    const ws=hier.map(c=>mW(c,BW,HGAP));
+    const ws=isJG?hier.map(()=>BW):hier.map(c=>mW(c,BW,HGAP));
     const tot=ws.reduce((s,k)=>s+k,0)+HGAP*(hier.length-1);
     let cx=mx-tot/2;
     const midY=my+BH+VGAP/2;
@@ -505,13 +461,17 @@ function buildHierLayout(node,mx,my,BW,BH,HGAP,VGAP,rects=[],lines=[]){
     hier.forEach((ch,i)=>{
       const cmx=cx+ws[i]/2;
       lines.push(`<line x1="${fv(cmx)}" y1="${fv(midY)}" x2="${fv(cmx)}" y2="${fv(my+BH+VGAP)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
-      buildHierLayout(ch,cmx,my+BH+VGAP,BW,BH,HGAP,VGAP,rects,lines);
+      // JG: solo coloca el nodo hijo, sin recursar
+      if(isJG){
+        rects.push({node:ch,x:cmx-BW/2,y:my+BH+VGAP,dashed:false});
+      } else {
+        buildHierLayout(ch,cmx,my+BH+VGAP,BW,BH,HGAP,VGAP,rects,lines);
+      }
       cx+=ws[i]+HGAP;
     });
   }
 }
 
-// Renderiza un box SVG
 function svgBox(x,y,node,BW,BH,dashed=false){
   const fill=CF[node.tipo]||"#374151",tc=CT[node.tipo]||"#fff";
   const nl=wrapTxt(node.nombre,21),tl=wrapTxt(node.titular||"",23);
@@ -525,175 +485,123 @@ function svgBox(x,y,node,BW,BH,dashed=false){
   return t;
 }
 
-// Recolecta orgs fuera de nivel con referencia a su padre
-function collectOrgs(node, parentNode=null, acc=[]){
+function collectOrgs(node,acc=[]){
   node.children.forEach(ch=>{
-    if(ch.dashed) acc.push({org:ch, parent:node});
-    else collectOrgs(ch, node, acc);
+    if(ch.dashed)acc.push(ch);
+    else collectOrgs(ch,acc);
   });
   return acc;
 }
 
 function genPageSVG(root,pn,tot){
-  const PW=1123,PH=1587;
-  const MAR=50,HH=88,FH=52,SEP=28; // SEP = espacio para la línea separadora de orgs
-  const AVAIL_W=PW-MAR*2;
-  const AVAIL_H=PH-HH-FH-MAR;
-
-  // Separar organismos fuera de nivel
-  const orgs=collectOrgs(root, null);
+  const today=new Date();
+  const fecha=`${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
+  const PW=1123,PH=1587,MAR=50,HH=88,FH=52,SEP=28;
+  const AVAIL_W=PW-MAR*2,AVAIL_H=PH-HH-FH-MAR;
+  const orgs=collectOrgs(root);
   const hasOrgs=orgs.length>0;
-
-  // Reservar espacio para la sección de orgs al fondo si los hay
-  // Calculamos cuántas filas necesitan los orgs con un tamaño tentativo
-  const ORG_COLS=Math.min(orgs.length,5);
-  const ORG_ROWS=Math.ceil(orgs.length/ORG_COLS);
-  const ORG_SECTION_H=hasOrgs?(SEP+20+ORG_ROWS*(62+10)):0;
-
+  const ORG_COLS=Math.min(orgs.length||1,5);
+  const ORG_ROWS=Math.ceil((orgs.length||1)/ORG_COLS);
+  const ORG_SECTION_H=hasOrgs?(SEP+20+ORG_ROWS*72):0;
   const HIER_H=AVAIL_H-ORG_SECTION_H;
-
-  // Construir layout jerárquico sin escala aún
   const BW0=180,BH0=58,HGAP0=14,VGAP0=66;
   const rects0=[],lines0=[];
-  const rootW0=mW(root,BW0,HGAP0);
-  buildHierLayout(root,rootW0/2,0,BW0,BH0,HGAP0,VGAP0,rects0,lines0);
-
-  // Normalizar x al origen
+  buildHierLayout(root,mW(root,BW0,HGAP0)/2,0,BW0,BH0,HGAP0,VGAP0,rects0,lines0);
   const minX0=rects0.length?Math.min(...rects0.map(r=>r.x)):0;
   rects0.forEach(r=>r.x-=minX0);
   const rawW=rects0.length?Math.max(...rects0.map(r=>r.x+BW0)):BW0;
   const rawH=rects0.length?Math.max(...rects0.map(r=>r.y+BH0)):BH0;
-
-  // Escala para que el árbol jerárquico quepa en HIER_H y AVAIL_W
-  const scaleX=AVAIL_W/rawW;
-  const scaleH=HIER_H/rawH;
-  const scale=Math.min(scaleX,scaleH,1);
-
-  const scaledW=rawW*scale;
-  const scaledH=rawH*scale;
-  const ox=MAR+(AVAIL_W-scaledW)/2;
-  const oy=HH+(HIER_H-scaledH)/2;
-
-  // Header color
+  const scale=Math.min(AVAIL_W/rawW,HIER_H/rawH,1);
+  const scaledW=rawW*scale,scaledH=rawH*scale;
+  const ox=MAR+(AVAIL_W-scaledW)/2,oy=HH+(HIER_H-scaledH)/2;
   const hc=CF[root.tipo]||"#1E3A5F";
-
-  // Construir SVG del árbol jerárquico
-  let hierSVG=`<g transform="translate(${fv(ox)},${fv(oy)}) scale(${scale.toFixed(5)})">`;
-  hierSVG+=lines0.join("");
-  hierSVG+=rects0.map(r=>svgBox(r.x,r.y,r.node,BW0,BH0,false)).join("");
-  hierSVG+=`</g>`;
-
-  // Sección de organismos fuera de nivel
+  // orgs SVG se construye ANTES que el hierSVG para que quede detrás
   let orgsSVG="";
   if(hasOrgs){
     const sepY=HH+HIER_H+8;
     const OBW=Math.min(180,Math.floor((AVAIL_W-(ORG_COLS-1)*10)/ORG_COLS));
-    const OBH=62,OGAP=10;
+    const OBH=54,OGAP=10;
     const orgRowW=ORG_COLS*OBW+(ORG_COLS-1)*OGAP;
     const orgStartX=MAR+(AVAIL_W-orgRowW)/2;
-
-    // Línea separadora con label
     orgsSVG+=`<line x1="${MAR}" y1="${fv(sepY)}" x2="${fv(PW-MAR)}" y2="${fv(sepY)}" stroke="#A0AEC0" stroke-width="1" stroke-dasharray="6,4"/>`;
-    orgsSVG+=`<text x="${fv(PW/2)}" y="${fv(sepY-4)}" text-anchor="middle" font-size="7.5" fill="#A0AEC0" font-family="Inter,Arial,sans-serif" letter-spacing="1">ORGANISMOS DESCENTRALIZADOS Y FUERA DE NIVEL</text>`;
-
-    let orgY=sepY+16;
-
-    // Posición del nodo raíz escalado (para anclar las líneas)
-    // El primer rect siempre es el root, centrado en ox + scaledW/2
-    const rootCX = ox + scaledW/2;
-    const rootBottomY = oy + BH0 * scale; // fondo del nodo raíz escalado
-
-    orgs.forEach(({org,parent},i)=>{
-      const col=i%ORG_COLS;
-      const row=Math.floor(i/ORG_COLS);
+    orgsSVG+=`<text x="${fv(PW/2)}" y="${fv(sepY-5)}" text-anchor="middle" font-size="7.5" fill="#A0AEC0" font-family="Inter,Arial,sans-serif" letter-spacing="1">ORGANISMOS DESCENTRALIZADOS Y FUERA DE NIVEL</text>`;
+    // Líneas punteadas por el costado derecho — no cruzan el árbol
+    const rootCX=ox+scaledW/2;
+    const rootBottomY=oy+BH0*scale;
+    // Costado derecho: columna vertical a la derecha del árbol
+    const sideX=PW-MAR+10; // ligeramente fuera del margen derecho
+    orgs.forEach((org,i)=>{
+      const col=i%ORG_COLS,row=Math.floor(i/ORG_COLS);
       const ox2=orgStartX+col*(OBW+OGAP);
-      const oy2=orgY+row*(OBH+22+OGAP);
+      const oy2=sepY+18+row*(OBH+OGAP);
       const orgCX=ox2+OBW/2;
       const orgTopY=oy2;
-
-      // Línea punteada desde fondo del nodo raíz hasta tope del organismo
-      orgsSVG+=`<line x1="${fv(rootCX)}" y1="${fv(rootBottomY)}" x2="${fv(orgCX)}" y2="${fv(orgTopY)}" stroke="#A0AEC0" stroke-width="1" stroke-dasharray="5,4"/>`;
-
+      // Recorrido: raíz → baja por costado derecho → entra horizontal al nodo
+      orgsSVG+=`<polyline points="${fv(rootCX)},${fv(rootBottomY)} ${fv(sideX)},${fv(rootBottomY)} ${fv(sideX)},${fv(orgTopY+OBH/2)} ${fv(ox2+OBW)},${fv(orgTopY+OBH/2)}" fill="none" stroke="#CBD5E0" stroke-width="1" stroke-dasharray="5,4"/>`;
+    });
+    // Nodos encima de las líneas
+    orgs.forEach((org,i)=>{
+      const col=i%ORG_COLS,row=Math.floor(i/ORG_COLS);
+      const ox2=orgStartX+col*(OBW+OGAP);
+      const oy2=sepY+18+row*(OBH+OGAP);
       orgsSVG+=svgBox(ox2,oy2,org,OBW,OBH,true);
     });
   }
 
-  // Leyenda pie de página
+  let hierSVG=`<g transform="translate(${fv(ox)},${fv(oy)}) scale(${scale.toFixed(5)})">${lines0.join("")}${rects0.map(r=>svgBox(r.x,r.y,r.node,BW0,BH0,false)).join("")}</g>`;
   const leg=[["#9B1C1C","Jefatura"],["#92400E","Ministerio"],["#78350F","Secretaría"],["#1E3A5F","Subsecretaría"],["#14532D","Dir. Gral."],["#374151","Org. fuera de nivel"]];
   const lw=118,lx=(PW-(leg.length*lw+10))/2,ly=PH-34;
   let legSVG=leg.map((it,i)=>`<rect x="${fv(lx+i*lw)}" y="${fv(ly)}" width="10" height="10" rx="2" fill="${it[0]}"/><text x="${fv(lx+i*lw+14)}" y="${fv(ly+9)}" font-size="7.5" fill="#718096" font-family="Inter,Arial,sans-serif">${it[1]}</text>`).join("");
   legSVG+=`<text x="${fv(PW-MAR)}" y="${fv(ly+9)}" text-anchor="end" font-size="8" fill="#A0AEC0" font-family="Inter,Arial,sans-serif">${pn}/${tot}</text>`;
-
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}">
-<defs>
-  <linearGradient id="hg${pn}" x1="0" y1="0" x2="1" y2="0">
-    <stop offset="0%" stop-color="${hc}"/>
-    <stop offset="100%" stop-color="${hc}BB"/>
-  </linearGradient>
-</defs>
+<defs><linearGradient id="hg${pn}" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="${hc}"/><stop offset="100%" stop-color="${hc}BB"/></linearGradient></defs>
 <rect width="${PW}" height="${PH}" fill="#F7FAFC"/>
 <rect x="0" y="0" width="${PW}" height="${HH}" fill="url(#hg${pn})"/>
 <line x1="0" y1="${HH}" x2="${PW}" y2="${HH}" stroke="#E2E8F0" stroke-width="1"/>
 <text x="${fv(PW/2)}" y="42" text-anchor="middle" font-size="19" font-weight="700" fill="#fff" font-family="Inter,Arial,sans-serif">${root.nombre}</text>
-<text x="${fv(PW/2)}" y="63" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.78)" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · Última actualización: 20/5/2026</text>
-${hierSVG}
-${orgsSVG}
+<text x="${fv(PW/2)}" y="63" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.78)" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · Última actualización: ${fecha}</text>
+${hierSVG}${orgsSVG}
 <rect x="0" y="${PH-FH}" width="${PW}" height="${FH}" fill="#F7FAFC"/>
 <line x1="0" y1="${PH-FH}" x2="${PW}" y2="${PH-FH}" stroke="#E2E8F0" stroke-width="0.8"/>
-${legSVG}
-</svg>`;
+${legSVG}</svg>`;
 }
 
 function dlSVG(svgStr,fname){
   const blob=new Blob([svgStr],{type:"image/svg+xml;charset=utf-8"});
   const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");a.href=url;a.download=fname;
-  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  const a=document.createElement("a");
+  a.href=url;a.download=fname;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),100);
 }
 
 /* ── Panel item ──────────────────────────────────── */
 function PanelItem({node,onSelect,selectedId,depth=0}){
-  const [open,setOpen]=useState(depth<1);
+  const[open,setOpen]=useState(depth<1);
   const col=COLORS[node.tipo]||COLORS.ORG;
   const isSel=selectedId===node.id;
   return(
     <div style={{marginBottom:2}}>
       <div onClick={()=>{onSelect(node);if(node.children.length)setOpen(o=>!o);}}
-        style={{
-          display:"flex",alignItems:"center",gap:8,
-          padding:`${depth===0?"7px":"5px"} 10px`,
+        style={{display:"flex",alignItems:"center",gap:8,padding:`${depth===0?"7px":"5px"} 10px`,
           marginLeft:depth*12,borderRadius:8,cursor:"pointer",
           background:isSel?col.bg:depth===0?"rgba(0,94,166,0.06)":"transparent",
           border:`1.5px ${node.dashed?"dashed":"solid"} ${isSel?col.bg:depth===0?"rgba(0,94,166,0.2)":"transparent"}`,
-          transition:"all 0.15s",
-        }}
+          transition:"all 0.15s"}}
         onMouseEnter={e=>{if(!isSel)e.currentTarget.style.background="rgba(0,94,166,0.08)";}}
         onMouseLeave={e=>{if(!isSel)e.currentTarget.style.background=depth===0?"rgba(0,94,166,0.06)":"transparent";}}>
-        {/* Color dot */}
-        <div style={{width:8,height:8,borderRadius:2,flexShrink:0,
-          background:isSel?"rgba(255,255,255,0.9)":col.bg}}/>
+        <div style={{width:8,height:8,borderRadius:2,flexShrink:0,background:isSel?"rgba(255,255,255,0.9)":col.bg}}/>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{
-            fontSize:depth===0?12:11,
-            fontWeight:depth===0?600:400,
+          <div style={{fontSize:depth===0?12:11,fontWeight:depth===0?600:400,
             color:isSel?"#fff":depth===0?"#1A2B42":"#4A5568",
-            lineHeight:1.3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
-            {node.nombre}
-          </div>
+            lineHeight:1.3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{node.nombre}</div>
           {node.titular&&depth<=1&&(
             <div style={{fontSize:10,color:isSel?"rgba(255,255,255,0.75)":"#718096",
-              whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
-              {node.titular}
-            </div>
+              whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{node.titular}</div>
           )}
         </div>
-        {node.children.length>0&&(
-          <span style={{fontSize:9,color:isSel?"rgba(255,255,255,0.8)":col.bg,flexShrink:0,
-            background:isSel?"rgba(255,255,255,0.15)":col.bg+"18",
-            padding:"1px 5px",borderRadius:10,fontWeight:600}}>
-            {node.children.length}
-          </span>
-        )}
+        {node.children.length>0&&<span style={{fontSize:9,color:isSel?"rgba(255,255,255,0.8)":col.bg,flexShrink:0,background:isSel?"rgba(255,255,255,0.15)":col.bg+"18",padding:"1px 5px",borderRadius:10,fontWeight:600}}>{node.children.length}</span>}
         {node.children.length>0&&<span style={{fontSize:10,color:isSel?"#fff":col.bg,flexShrink:0}}>{open?"▾":"▸"}</span>}
       </div>
       {open&&node.children.map(ch=><PanelItem key={ch.id} node={ch} onSelect={onSelect} selectedId={selectedId} depth={depth+1}/>)}
@@ -706,8 +614,7 @@ function Modal({title,accentColor="#005EA6",children,onClose}){
   return(
     <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(15,30,60,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(2px)"}}>
       <div onClick={e=>e.stopPropagation()} className="fade-in"
-        style={{background:"#fff",borderRadius:16,padding:0,width:400,boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
-        {/* Modal header */}
+        style={{background:"#fff",borderRadius:16,width:400,boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
         <div style={{background:accentColor,padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div style={{fontSize:14,fontWeight:600,color:"#fff"}}>{title}</div>
           <button onClick={onClose} style={{background:"rgba(255,255,255,0.2)",border:"none",borderRadius:6,color:"#fff",width:28,height:28,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
@@ -723,12 +630,10 @@ function Field({label,value,onChange,type="text"}){
     <div style={{marginBottom:12}}>
       <label style={{fontSize:11,fontWeight:500,color:"#4A5568",display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.04em"}}>{label}</label>
       {type==="select"
-        ?<select value={value} onChange={onChange}
-          style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:"1.5px solid #D8E2EE",background:"#fff",color:"#1A2B42"}}>
+        ?<select value={value} onChange={onChange} style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:"1.5px solid #D8E2EE",background:"#fff",color:"#1A2B42"}}>
           {Object.entries(COLORS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
         </select>
-        :<input value={value} onChange={onChange}
-          style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:"1.5px solid #D8E2EE",color:"#1A2B42"}}/>
+        :<input value={value} onChange={onChange} style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:"1.5px solid #D8E2EE",color:"#1A2B42"}}/>
       }
     </div>
   );
@@ -737,9 +642,7 @@ function Field({label,value,onChange,type="text"}){
 function NodePreview({form}){
   const col=COLORS[form.tipo]||COLORS.ORG;
   return(
-    <div style={{background:col.bg,color:col.text,borderRadius:10,padding:"12px 14px",marginBottom:16,
-      border:form.dashed?"2px dashed rgba(255,255,255,0.4)":"none",
-      boxShadow:"0 2px 8px rgba(0,0,0,0.12)"}}>
+    <div style={{background:col.bg,color:col.text,borderRadius:10,padding:"12px 14px",marginBottom:16,border:form.dashed?"2px dashed rgba(255,255,255,0.4)":"none",boxShadow:"0 2px 8px rgba(0,0,0,0.12)"}}>
       <div style={{fontSize:11,fontWeight:500,opacity:0.7,marginBottom:2}}>{col.label}</div>
       <div style={{fontSize:13,fontWeight:700}}>{form.nombre||"—"}</div>
       {form.titular&&<div style={{fontSize:11,opacity:0.82,marginTop:2}}>{form.titular}</div>}
@@ -747,7 +650,6 @@ function NodePreview({form}){
   );
 }
 
-/* ── Botones ─────────────────────────────────────── */
 const Btn=({children,onClick,variant="secondary",small=false,style={}})=>{
   const variants={
     primary:{background:"#005EA6",color:"#fff",border:"none"},
@@ -757,81 +659,52 @@ const Btn=({children,onClick,variant="secondary",small=false,style={}})=>{
     ghost:{background:"transparent",color:"#4A5568",border:"1.5px solid #E2E8F0"},
   };
   return(
-    <button onClick={onClick}
-      style={{...variants[variant],borderRadius:8,padding:small?"4px 10px":"6px 14px",
-        fontSize:small?11:12,fontWeight:500,display:"flex",alignItems:"center",gap:5,...style}}
+    <button onClick={onClick} style={{...variants[variant],borderRadius:8,padding:small?"4px 10px":"6px 14px",fontSize:small?11:12,fontWeight:500,display:"flex",alignItems:"center",gap:5,...style}}
       onMouseEnter={e=>{e.currentTarget.style.opacity="0.85";}}
-      onMouseLeave={e=>{e.currentTarget.style.opacity="1";}}>
-      {children}
-    </button>
+      onMouseLeave={e=>{e.currentTarget.style.opacity="1";}}>{children}</button>
   );
 };
 
-/* ── Badge tipo ──────────────────────────────────── */
 function TypeBadge({tipo,dashed}){
   const col=COLORS[tipo]||COLORS.ORG;
   return(
-    <span style={{background:col.bg,color:col.text,fontSize:10,fontWeight:600,
-      padding:"3px 9px",borderRadius:20,letterSpacing:"0.03em",
-      border:dashed?"1.5px dashed rgba(255,255,255,0.4)":"none"}}>
+    <span style={{background:col.bg,color:col.text,fontSize:10,fontWeight:600,padding:"3px 9px",borderRadius:20,letterSpacing:"0.03em",border:dashed?"1.5px dashed rgba(255,255,255,0.4)":"none"}}>
       {col.label}{dashed?" · Dep. funcional":""}
     </span>
   );
 }
 
-/* ── Child card ──────────────────────────────────── */
 function ChildCard({node,onClick}){
   const col=COLORS[node.tipo]||COLORS.ORG;
   return(
     <div onClick={()=>onClick(node)}
-      style={{
-        background:"#fff",borderRadius:12,padding:"12px 14px",cursor:"pointer",
-        border:`1.5px solid ${node.dashed?"#CBD5E0":col.bg+"33"}`,
-        borderLeft:`4px solid ${col.bg}`,
-        boxShadow:"0 1px 4px rgba(0,0,0,0.06)",
-        transition:"all 0.15s",
-      }}
+      style={{background:"#fff",borderRadius:12,padding:"12px 14px",cursor:"pointer",border:`1.5px solid ${node.dashed?"#CBD5E0":col.bg+"33"}`,borderLeft:`4px solid ${col.bg}`,boxShadow:"0 1px 4px rgba(0,0,0,0.06)",transition:"all 0.15s"}}
       onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 16px rgba(0,94,166,0.12)";e.currentTarget.style.borderColor=col.bg;}}
       onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 4px rgba(0,0,0,0.06)";e.currentTarget.style.borderColor=node.dashed?"#CBD5E0":col.bg+"33";}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:11,fontWeight:700,color:col.bg,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.04em"}}>
-            {col.label}
-          </div>
+          <div style={{fontSize:11,fontWeight:700,color:col.bg,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.04em"}}>{col.label}</div>
           <div style={{fontSize:12,fontWeight:600,color:"#1A2B42",lineHeight:1.35}}>{node.nombre}</div>
           {node.titular&&<div style={{fontSize:11,color:"#718096",marginTop:3}}>{node.titular}</div>}
         </div>
-        {node.children.length>0&&(
-          <span style={{background:col.bg+"18",color:col.bg,fontSize:10,fontWeight:600,
-            padding:"2px 7px",borderRadius:20,flexShrink:0,marginTop:2}}>
-            {node.children.length} dep.
-          </span>
-        )}
+        {node.children.length>0&&<span style={{background:col.bg+"18",color:col.bg,fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:20,flexShrink:0,marginTop:2}}>{node.children.length} dep.</span>}
       </div>
-      {node.dashed&&<div style={{fontSize:10,color:"#718096",marginTop:6,display:"flex",alignItems:"center",gap:4}}>
-        <span style={{borderTop:"1.5px dashed #A0AEC0",width:14,display:"inline-block"}}/>
-        Dependencia funcional
-      </div>}
+      {node.dashed&&<div style={{fontSize:10,color:"#718096",marginTop:6,display:"flex",alignItems:"center",gap:4}}><span style={{borderTop:"1.5px dashed #A0AEC0",width:14,display:"inline-block"}}/>Dependencia funcional</div>}
     </div>
   );
 }
 
 /* ── App ─────────────────────────────────────────── */
 function App(){
-  const [data,setData]=useState(()=>loadData());
-  const [selected,setSelected]=useState(null);
-  const [search,setSearch]=useState("");
-  const [modal,setModal]=useState(null);
-  const [editForm,setEditForm]=useState({});
-  const [addForm,setAddForm]=useState({nombre:"",titular:"",tipo:"DG",dashed:false});
-  const [saved,setSaved]=useState(false);
+  const[data,setData]=useState(()=>loadData());
+  const[selected,setSelected]=useState(null);
+  const[search,setSearch]=useState("");
+  const[modal,setModal]=useState(null);
+  const[editForm,setEditForm]=useState({});
+  const[addForm,setAddForm]=useState({nombre:"",titular:"",tipo:"DG",dashed:false});
+  const[saved,setSaved]=useState(false);
 
-  useEffect(()=>{
-    saveData(data);
-    setSaved(true);
-    const t=setTimeout(()=>setSaved(false),1800);
-    return()=>clearTimeout(t);
-  },[data]);
+  useEffect(()=>{saveData(data);setSaved(true);const t=setTimeout(()=>setSaved(false),1800);return()=>clearTimeout(t);},[data]);
 
   const allNodes=useMemo(()=>flatList(data),[data]);
   const results=useMemo(()=>{
@@ -842,47 +715,29 @@ function App(){
 
   const select=useCallback(node=>setSelected(s=>s?.id===node.id?null:node),[]);
 
-  const saveEdit=()=>{
-    const nd=updateNode(data,selected.id,n=>({...n,...editForm}));
-    setData(nd);setSelected(findNode(nd,selected.id));setModal(null);
-  };
-  const saveAdd=()=>{
-    if(!addForm.nombre.trim())return;
-    const child={...addForm,id:"n_"+Date.now(),children:[]};
-    const nd=addChild(data,selected.id,child);
-    setData(nd);setSelected(findNode(nd,selected.id));setModal(null);
-  };
-  const del=()=>{
-    if(!selected||selected.id==="JG")return;
-    if(!confirm(`¿Eliminar "${selected.nombre}" y todas sus dependencias?`))return;
-    setData(removeNode(data,selected.id));setSelected(null);
-  };
-  const reset=()=>{
-    if(!confirm("¿Restablecer el organigrama al estado original? Se perderán todos los cambios."))return;
-    setData(INITIAL);setSelected(null);localStorage.removeItem(STORAGE_KEY);
-  };
+  const saveEdit=()=>{const nd=updateNode(data,selected.id,n=>({...n,...editForm}));setData(nd);setSelected(findNode(nd,selected.id));setModal(null);};
+  const saveAdd=()=>{if(!addForm.nombre.trim())return;const child={...addForm,id:"n_"+Date.now(),children:[]};const nd=addChild(data,selected.id,child);setData(nd);setSelected(findNode(nd,selected.id));setModal(null);};
+  const del=()=>{if(!selected||selected.id==="JG")return;if(!confirm(`¿Eliminar "${selected.nombre}" y todas sus dependencias?`))return;setData(removeNode(data,selected.id));setSelected(null);};
+  const reset=()=>{if(!confirm("¿Restablecer el organigrama al estado original? Se perderán todos los cambios."))return;setData(INITIAL);setSelected(null);localStorage.removeItem(STORAGE_KEY);};
 
   const dlAll=()=>{
     const subs=[data,...data.children];
     const PH=1587,PW=1123;
     const pages=subs.map((s,i)=>genPageSVG(s,i+1,subs.length));
-    const combined=`<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH*pages.length}" viewBox="0 0 ${PW} ${PH*pages.length}">
-${pages.map((p,i)=>`<g transform="translate(0,${i*PH})">${p.replace(/<\/?svg[^>]*>/g,"")}</g>`).join("\n")}
-</svg>`;
+    const combined=`<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH*pages.length}" viewBox="0 0 ${PW} ${PH*pages.length}">${pages.map((p,i)=>`<g transform="translate(0,${i*PH})">${p.replace(/<\/?svg[^>]*>/g,"")}</g>`).join("")}</svg>`;
     dlSVG(combined,"organigrama-gcba-completo.svg");
   };
   const dlSection=()=>{if(!selected)return;dlSVG(genPageSVG(selected,1,1),`organigrama-${selected.id.toLowerCase()}.svg`);};
 
   const ef=k=>e=>setEditForm(f=>({...f,[k]:e.target.type==="checkbox"?e.target.checked:e.target.value}));
   const af=k=>e=>setAddForm(f=>({...f,[k]:e.target.type==="checkbox"?e.target.checked:e.target.value}));
-
   const selCol=selected?(COLORS[selected.tipo]||COLORS.ORG):null;
+
+  const today=new Date();
+  const fechaApp=`${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
 
   return(
     <div style={{display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden",background:"#F2F5F9"}}>
-
-      {/* Modales */}
       {modal==="edit"&&selected&&(
         <Modal title="Editar nodo" accentColor={selCol?.bg||"#005EA6"} onClose={()=>setModal(null)}>
           <NodePreview form={editForm}/>
@@ -916,15 +771,7 @@ ${pages.map((p,i)=>`<g transform="translate(0,${i*PH})">${p.replace(/<\/?svg[^>]
         </Modal>
       )}
 
-      {/* ── HEADER ── */}
-      <header style={{
-        background:"#003D6E",
-        padding:"0 20px",
-        display:"flex",alignItems:"center",gap:16,
-        height:56,flexShrink:0,
-        boxShadow:"0 2px 8px rgba(0,0,0,0.15)",
-      }}>
-        {/* Logo / título */}
+      <header style={{background:"#003D6E",padding:"0 20px",display:"flex",alignItems:"center",gap:16,height:56,flexShrink:0,boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           <div style={{width:36,height:36,borderRadius:8,background:"#F5C400",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -937,75 +784,38 @@ ${pages.map((p,i)=>`<g transform="translate(0,${i*PH})">${p.replace(/<\/?svg[^>]
             <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",fontWeight:400}}>Ciudad Autónoma de Buenos Aires</div>
           </div>
         </div>
-
-        {/* Buscador */}
         <div style={{flex:1,maxWidth:320,position:"relative"}}>
           <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:14,color:"rgba(255,255,255,0.4)"}}>🔍</span>
           <input placeholder="Buscar organismo o titular..." value={search} onChange={e=>setSearch(e.target.value)}
-            style={{width:"100%",fontSize:12,padding:"7px 10px 7px 32px",borderRadius:8,
-              border:"1.5px solid rgba(255,255,255,0.2)",background:"rgba(255,255,255,0.1)",
-              color:"#fff"}}
+            style={{width:"100%",fontSize:12,padding:"7px 10px 7px 32px",borderRadius:8,border:"1.5px solid rgba(255,255,255,0.2)",background:"rgba(255,255,255,0.1)",color:"#fff"}}
             onFocus={e=>{e.target.style.background="rgba(255,255,255,0.18)";e.target.style.borderColor="rgba(255,255,255,0.4)";}}
             onBlur={e=>{e.target.style.background="rgba(255,255,255,0.1)";e.target.style.borderColor="rgba(255,255,255,0.2)";}}/>
         </div>
-
         <div style={{display:"flex",gap:8,alignItems:"center",marginLeft:"auto"}}>
-          {/* Indicador de guardado */}
-          {saved&&<span style={{fontSize:11,color:"rgba(255,255,255,0.6)",display:"flex",alignItems:"center",gap:4}}>
-            <span style={{color:"#68D391"}}>✓</span> Guardado
-          </span>}
-          <Btn variant="ghost" onClick={dlAll}
-            style={{color:"#fff",borderColor:"rgba(255,255,255,0.25)",background:"rgba(255,255,255,0.08)",fontSize:11}}>
-            🖨 Descargar todo
-          </Btn>
-          <Btn variant="ghost" onClick={reset}
-            style={{color:"rgba(255,255,255,0.6)",borderColor:"rgba(255,255,255,0.15)",background:"transparent",fontSize:11}}>
-            ↺ Restablecer
-          </Btn>
+          {saved&&<span style={{fontSize:11,color:"rgba(255,255,255,0.6)",display:"flex",alignItems:"center",gap:4}}><span style={{color:"#68D391"}}>✓</span> Guardado</span>}
+          <Btn variant="ghost" onClick={dlAll} style={{color:"#fff",borderColor:"rgba(255,255,255,0.25)",background:"rgba(255,255,255,0.08)",fontSize:11}}>🖨 Descargar todo</Btn>
+          <Btn variant="ghost" onClick={reset} style={{color:"rgba(255,255,255,0.6)",borderColor:"rgba(255,255,255,0.15)",background:"transparent",fontSize:11}}>↺ Restablecer</Btn>
         </div>
       </header>
 
-      {/* ── BODY ── */}
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
-
-        {/* ── PANEL IZQUIERDO ── */}
-        <aside style={{
-          width:288,flexShrink:0,
-          display:"flex",flexDirection:"column",
-          background:"#fff",
-          borderRight:"1px solid #D8E2EE",
-        }}>
-          {/* Leyenda */}
+        <aside style={{width:288,flexShrink:0,display:"flex",flexDirection:"column",background:"#fff",borderRight:"1px solid #D8E2EE"}}>
           <div style={{padding:"12px 12px 8px",borderBottom:"1px solid #EDF2F7",flexShrink:0}}>
-            <div style={{fontSize:10,fontWeight:600,color:"#718096",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>
-              Tipo de organismo
-            </div>
+            <div style={{fontSize:10,fontWeight:600,color:"#718096",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>Tipo de organismo</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
               {Object.entries(COLORS).map(([k,v])=>(
-                <span key={k} style={{background:v.bg,color:v.text,fontSize:9,fontWeight:600,
-                  padding:"2px 7px",borderRadius:20,letterSpacing:"0.02em"}}>
-                  {v.label}
-                </span>
+                <span key={k} style={{background:v.bg,color:v.text,fontSize:9,fontWeight:600,padding:"2px 7px",borderRadius:20,letterSpacing:"0.02em"}}>{v.label}</span>
               ))}
             </div>
           </div>
-          {/* Árbol */}
           <div style={{flex:1,overflowY:"auto",padding:"8px 8px"}}>
             {search.trim()?(
               <div>
-                <div style={{fontSize:10,color:"#718096",marginBottom:8,fontWeight:500}}>
-                  {results.length} resultado{results.length!==1?"s":""}
-                </div>
+                <div style={{fontSize:10,color:"#718096",marginBottom:8,fontWeight:500}}>{results.length} resultado{results.length!==1?"s":""}</div>
                 {results.slice(0,30).map(n=>{
-                  const col=COLORS[n.tipo]||COLORS.ORG;
-                  const isSel=selected?.id===n.id;
+                  const col=COLORS[n.tipo]||COLORS.ORG;const isSel=selected?.id===n.id;
                   return(
-                    <div key={n.id} onClick={()=>select(n)}
-                      style={{padding:"7px 10px",borderRadius:8,cursor:"pointer",marginBottom:3,
-                        background:isSel?col.bg:"#F7FAFC",
-                        border:`1.5px solid ${isSel?col.bg:"#E2E8F0"}`,
-                        borderLeft:`4px solid ${col.bg}`,
-                      }}>
+                    <div key={n.id} onClick={()=>select(n)} style={{padding:"7px 10px",borderRadius:8,cursor:"pointer",marginBottom:3,background:isSel?col.bg:"#F7FAFC",border:`1.5px solid ${isSel?col.bg:"#E2E8F0"}`,borderLeft:`4px solid ${col.bg}`}}>
                       <div style={{fontSize:11,fontWeight:600,color:isSel?"#fff":col.bg}}>{n.nombre}</div>
                       {n.titular&&<div style={{fontSize:10,color:isSel?"rgba(255,255,255,0.75)":"#718096"}}>{n.titular}</div>}
                     </div>
@@ -1018,18 +828,10 @@ ${pages.map((p,i)=>`<g transform="translate(0,${i*PH})">${p.replace(/<\/?svg[^>]
           </div>
         </aside>
 
-        {/* ── PANEL DERECHO ── */}
         <main style={{flex:1,overflowY:"auto",padding:"20px 24px"}}>
           {selected?(
             <div className="fade-in">
-              {/* Card del nodo seleccionado */}
-              <div style={{
-                background:"#fff",borderRadius:16,
-                overflow:"hidden",
-                boxShadow:"0 2px 12px rgba(0,0,0,0.07)",
-                marginBottom:20,
-              }}>
-                {/* Banda de color superior */}
+              <div style={{background:"#fff",borderRadius:16,overflow:"hidden",boxShadow:"0 2px 12px rgba(0,0,0,0.07)",marginBottom:20}}>
                 <div style={{background:selCol.bg,height:6}}/>
                 <div style={{padding:"18px 20px"}}>
                   <div style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
@@ -1037,47 +839,31 @@ ${pages.map((p,i)=>`<g transform="translate(0,${i*PH})">${p.replace(/<\/?svg[^>]
                       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
                         <TypeBadge tipo={selected.tipo} dashed={selected.dashed}/>
                       </div>
-                      <div style={{fontSize:20,fontWeight:700,color:"#1A2B42",lineHeight:1.2,marginBottom:4}}>
-                        {selected.nombre}
-                      </div>
+                      <div style={{fontSize:20,fontWeight:700,color:"#1A2B42",lineHeight:1.2,marginBottom:4}}>{selected.nombre}</div>
                       {selected.titular&&(
                         <div style={{fontSize:13,color:"#718096",display:"flex",alignItems:"center",gap:6}}>
-                          <span style={{width:16,height:16,borderRadius:"50%",background:selCol.bg+"22",
-                            display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:9}}>👤</span>
+                          <span style={{width:16,height:16,borderRadius:"50%",background:selCol.bg+"22",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:9}}>👤</span>
                           {selected.titular}
                         </div>
                       )}
                       <div style={{marginTop:10,display:"flex",gap:8,flexWrap:"wrap"}}>
-                        <span style={{fontSize:11,color:"#4A5568",background:"#EDF2F7",padding:"3px 10px",borderRadius:20,fontWeight:500}}>
-                          {selected.children.length} dependencia{selected.children.length!==1?"s directas":"directa"}
-                        </span>
+                        <span style={{fontSize:11,color:"#4A5568",background:"#EDF2F7",padding:"3px 10px",borderRadius:20,fontWeight:500}}>{selected.children.length} dependencia{selected.children.length!==1?"s directas":"directa"}</span>
                       </div>
                     </div>
-                    {/* Acciones */}
                     <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-                      <Btn variant="secondary" small onClick={()=>{
-                        setEditForm({nombre:selected.nombre,titular:selected.titular||"",tipo:selected.tipo,dashed:!!selected.dashed});
-                        setModal("edit");
-                      }}>✏️ Editar</Btn>
-                      <Btn variant="secondary" small onClick={()=>{
-                        setAddForm({nombre:"",titular:"",tipo:"DG",dashed:false});
-                        setModal("add");
-                      }}>➕ Agregar</Btn>
+                      <Btn variant="secondary" small onClick={()=>{setEditForm({nombre:selected.nombre,titular:selected.titular||"",tipo:selected.tipo,dashed:!!selected.dashed});setModal("edit");}}>✏️ Editar</Btn>
+                      <Btn variant="secondary" small onClick={()=>{setAddForm({nombre:"",titular:"",tipo:"DG",dashed:false});setModal("add");}}>➕ Agregar</Btn>
                       {selected.id!=="JG"&&<Btn variant="danger" small onClick={del}>🗑 Eliminar</Btn>}
                       <Btn variant="primary" small onClick={dlSection}>🖨 Descargar</Btn>
                     </div>
                   </div>
                 </div>
               </div>
-
-              {/* Dependencias */}
               {selected.children.length>0&&(
                 <>
-                  <div style={{fontSize:11,fontWeight:700,color:"#718096",marginBottom:12,
-                    textTransform:"uppercase",letterSpacing:"0.07em",display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#718096",marginBottom:12,textTransform:"uppercase",letterSpacing:"0.07em",display:"flex",alignItems:"center",gap:8}}>
                     Dependencias directas
-                    <span style={{background:"#E2E8F0",color:"#4A5568",fontSize:10,fontWeight:600,
-                      padding:"1px 8px",borderRadius:20}}>{selected.children.length}</span>
+                    <span style={{background:"#E2E8F0",color:"#4A5568",fontSize:10,fontWeight:600,padding:"1px 8px",borderRadius:20}}>{selected.children.length}</span>
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:10}}>
                     {selected.children.map(ch=><ChildCard key={ch.id} node={ch} onClick={select}/>)}
@@ -1086,11 +872,8 @@ ${pages.map((p,i)=>`<g transform="translate(0,${i*PH})">${p.replace(/<\/?svg[^>]
               )}
             </div>
           ):(
-            /* Estado vacío */
-            <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
-              height:"100%",color:"#A0AEC0",textAlign:"center",gap:12}}>
-              <div style={{width:64,height:64,borderRadius:16,background:"#EDF2F7",
-                display:"flex",alignItems:"center",justifyContent:"center",fontSize:28}}>🏛️</div>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100%",color:"#A0AEC0",textAlign:"center",gap:12}}>
+              <div style={{width:64,height:64,borderRadius:16,background:"#EDF2F7",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28}}>🏛️</div>
               <div>
                 <div style={{fontSize:15,fontWeight:600,color:"#4A5568",marginBottom:4}}>Seleccioná un organismo</div>
                 <div style={{fontSize:13,color:"#A0AEC0"}}>Hacé clic en cualquier nodo del panel izquierdo<br/>para ver sus detalles y dependencias.</div>
@@ -1100,10 +883,8 @@ ${pages.map((p,i)=>`<g transform="translate(0,${i*PH})">${p.replace(/<\/?svg[^>]
         </main>
       </div>
 
-      {/* Footer */}
-      <div style={{background:"#fff",borderTop:"1px solid #E2E8F0",padding:"6px 20px",
-        display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
-        <span style={{fontSize:10,color:"#A0AEC0"}}>Gobierno de la Ciudad Autónoma de Buenos Aires · Última actualización: 20/5/2026</span>
+      <div style={{background:"#fff",borderTop:"1px solid #E2E8F0",padding:"6px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
+        <span style={{fontSize:10,color:"#A0AEC0"}}>Gobierno de la Ciudad Autónoma de Buenos Aires · Última actualización: {fechaApp}</span>
         <span style={{fontSize:10,color:"#A0AEC0"}}>{flatList(data).length} organismos en el organigrama</span>
       </div>
     </div>
