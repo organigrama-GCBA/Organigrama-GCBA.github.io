@@ -552,8 +552,9 @@ function svgBox(x,y,node,W,H,dashed,fsN,fsT){
   return s;
 }
 
-// Genera SVG A3 para un nodo raíz usando posiciones del editor (localStorage)
-// o layout D3 automático si no hay posiciones guardadas.
+// Genera SVG A3 — el árbol siempre llena el A3 completo.
+// Si hay posiciones del editor guardadas: las usa y escala al A3.
+// Si no: calcula layout D3 y ajusta tamaño de nodo para llenar el A3.
 function genSVGA3(root,pn=1,tot=1){
   const PW=1587,PH=1123,MAR=40,HH=68,FH=34;
   const AW=PW-MAR*2,AH=PH-HH-FH-MAR;
@@ -561,132 +562,111 @@ function genSVGA3(root,pn=1,tot=1){
   const today=new Date();
   const fecha=`${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
 
-  // Leer posiciones guardadas del editor para este nodo raíz
-  const allSavedPos=JSON.parse(localStorage.getItem("gcba_org_positions_v1")||"{}");
-  const savedPos=allSavedPos[root.id]||null;
-
-  // Leer waypoints
-  const allWaypoints=JSON.parse(localStorage.getItem("gcba_org_waypoints_v1")||"{}");
-  const waypoints=allWaypoints[root.id]||{};
-
   const isJG=root.tipo==="JG";
-  let nodes=[],links=[];
-  let NW,NH,sc;
+  const savedPos=JSON.parse(localStorage.getItem("gcba_org_positions_v1")||"{}")[root.id]||null;
+  const waypoints=JSON.parse(localStorage.getItem("gcba_org_waypoints_v1")||"{}")[root.id]||{};
+
+  let nodes=[],links=[],NW,NH;
 
   if(savedPos&&Object.keys(savedPos).length>0){
-    // ── MODO: posiciones del editor visual ──
-    // Recopilar nodos visibles (misma lógica que el editor: JG solo 1 nivel)
-    function collectVisible(node,depth=0,acc=[]){
-      acc.push(node);
-      if(isJG&&depth>=1)return acc;
-      (node.children||[]).forEach(c=>collectVisible(c,depth+1,acc));
-      return acc;
-    }
-    const visible=collectVisible(root);
+    // ── Posiciones del editor ──────────────────────────────
+    // Recopilar nodos visibles (JG: 1 nivel)
+    const visible=[];
+    (function collect(node,depth){
+      visible.push(node);
+      if(isJG&&depth>=1)return;
+      (node.children||[]).forEach(c=>collect(c,depth+1));
+    })(root,0);
     const visIds=new Set(visible.map(n=>n.id));
 
-    nodes=visible.map(n=>({
-      x:savedPos[n.id]?.x??0,
-      y:savedPos[n.id]?.y??0,
-      data:n,depth:n.id===root.id?0:1
-    }));
+    nodes=visible.map(n=>({x:savedPos[n.id]?.x??0,y:savedPos[n.id]?.y??0,data:n}));
 
-    // Links entre nodos visibles
-    function buildLinks(node,depth=0){
-      (node.children||[]).filter(c=>visIds.has(c.id)).forEach(ch=>{
-        const src=nodes.find(n=>n.data.id===node.id);
-        const tgt=nodes.find(n=>n.data.id===ch.id);
-        if(src&&tgt)links.push({source:src,target:tgt});
-        if(!(isJG&&depth>=1))buildLinks(ch,depth+1);
+    // Links
+    (function walk(node,depth){
+      (node.children||[]).forEach(ch=>{
+        if(!visIds.has(ch.id))return;
+        const s=nodes.find(n=>n.data.id===node.id),t=nodes.find(n=>n.data.id===ch.id);
+        if(s&&t)links.push({s,t});
+        if(!(isJG&&depth>=1))walk(ch,depth+1);
       });
-    }
-    buildLinks(root);
+    })(root,0);
 
-    // Normalizar a origen
+    // Normalizar a (0,0)
     const mnX=d3.min(nodes,n=>n.x),mnY=d3.min(nodes,n=>n.y);
     nodes.forEach(n=>{n.x-=mnX;n.y-=mnY;});
 
-    // Calcular bounding box del contenido
-    const NW_ed=158,NH_ed=50; // tamaño de nodo en el editor
-    const tW=d3.max(nodes,n=>n.x)+NW_ed,tH=d3.max(nodes,n=>n.y)+NH_ed;
-
-    // Escalar para llenar el A3
-    sc=Math.min(AW/tW,AH/tH)*0.92;
+    // Escalar para que el contenido llene el A3
+    // El editor usa NW=158,NH=50. Escalamos para que bbox llene AW×AH
+    const ED_NW=158,ED_NH=50;
+    const tW=d3.max(nodes,n=>n.x)+ED_NW,tH=d3.max(nodes,n=>n.y)+ED_NH;
+    const sc=Math.min(AW/tW,AH/tH)*0.94;
     nodes.forEach(n=>{n.x*=sc;n.y*=sc;});
-    NW=NW_ed*sc;NH=NH_ed*sc;
+    NW=ED_NW*sc;NH=ED_NH*sc;
 
   }else{
-    // ── MODO: layout D3 automático ──
-    NW=160;NH=52;
-    const HGAP=10,VGAP=28;
-
-    if(isJG){
-      // JG: 2 filas — ministerios arriba, secretarías abajo
-      const hier=(root.children||[]).filter(c=>!c.dashed);
-      const mins=hier.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
-      const secs=hier.filter(c=>c.tipo==="SEC");
-      const orgsDir=hier.filter(c=>c.tipo==="ORG");
-      const col=Math.max(mins.length,1);
-      NW=Math.min(180,Math.floor((AW-(col-1)*HGAP)/col));
-      NH=Math.min(60,Math.round(NW/2.8));
-      const HPAD=Math.round((AW-NW*col)/(col+1));
-      const rootY=0,minY=NH+VGAP,secY=minY+NH+VGAP;
-      const rn={x:AW/2,y:rootY,data:root,depth:0};
-      const makeRow=(items,rowY)=>{
-        const tot=items.length*(NW+HPAD)-HPAD;
-        let x=MAR+(AW-tot)/2+NW/2;
-        return items.map(c=>{const n={x,y:rowY,data:c,depth:1};x+=NW+HPAD;return n;});
-      };
-      const mn=makeRow(mins,minY);
-      const sn=makeRow(secs,secY);
-      const on=makeRow(orgsDir,secY+(secs.length?NH+VGAP:0));
-      nodes=[rn,...mn,...sn,...on];
-      links=[
-        ...mn.map(t=>({source:rn,target:t})),
-        ...sn.map(t=>({source:rn,target:t})),
-        ...on.map(t=>({source:rn,target:t}))
-      ];
-      sc=1;
-    }else{
-      // Otros: D3 tree
-      function toHier(node){const kids=(node.children||[]).filter(c=>!c.dashed);return{...node,_k:kids.map(toHier),children:undefined};}
-      const hier=d3.hierarchy(toHier(root),d=>d._k.length?d._k:null);
-      const cols=hier.leaves().length||1;
-      NW=Math.min(180,Math.max(70,Math.floor((AW-(cols-1)*HGAP)/cols)));
-      NH=Math.min(60,Math.round(NW/2.5));
-      d3.tree().nodeSize([NW+HGAP,NH+VGAP])(hier);
-      const allN=hier.descendants();
-      const allL=hier.links();
-      nodes=allN.map(n=>({x:n.x,y:n.y,data:n.data,depth:n.depth}));
-      links=allL.map(l=>({
-        source:nodes.find(n=>n.data.id===l.source.data.id),
-        target:nodes.find(n=>n.data.id===l.target.data.id)
-      })).filter(l=>l.source&&l.target);
-      // Normalizar
-      const mnX=d3.min(nodes,n=>n.x)-NW/2,mnY=d3.min(nodes,n=>n.y);
-      nodes.forEach(n=>{n.x-=mnX;n.y-=mnY;});
-      const tW=d3.max(nodes,n=>n.x+NW/2),tH=d3.max(nodes,n=>n.y+NH);
-      sc=Math.min(AW/tW,AH/tH)*0.92;
-      nodes.forEach(n=>{n.x*=sc;n.y*=sc;});
-      NW=NW*sc;NH=NH*sc;
+    // ── Layout D3 automático ───────────────────────────────
+    // Paso 1: medir el árbol con nodeSize unitario para contar columnas y filas
+    function toHier(node,depth){
+      if(isJG&&depth>=1)return{...node,_k:[],children:undefined};
+      const kids=(node.children||[]).filter(c=>!c.dashed);
+      return{...node,_k:kids.map(c=>toHier(c,depth+1)),children:undefined};
     }
+    const hier=d3.hierarchy(toHier(root,0),d=>d._k.length?d._k:null);
+    d3.tree().nodeSize([1,1])(hier);
+    const allD3=hier.descendants();
+    const spanX=(d3.max(allD3,n=>n.x)-d3.min(allD3,n=>n.x))+1;
+    const spanY=(d3.max(allD3,n=>n.depth)||1)+1;
+
+    // Paso 2: calcular NW/NH para que spanX×spanY llene AW×AH
+    const HGAP=10,VGAP=24;
+    NW=Math.max(60,Math.floor((AW-(spanX-1)*HGAP)/spanX));
+    NH=Math.max(28,Math.floor((AH-(spanY-1)*VGAP)/spanY));
+    // Ajustar relación aspecto: NW:NH ~ 3:1
+    NH=Math.min(NH,Math.round(NW/2.8));
+    NH=Math.max(NH,28);
+    NW=Math.min(NW,240);
+
+    // Paso 3: layout con los tamaños calculados
+    const HPAD=Math.max(HGAP,Math.round((AW-NW*spanX)/(spanX+1)));
+    const VPAD=Math.max(VGAP,Math.round((AH-NH*spanY)/(spanY+1)));
+
+    d3.tree().nodeSize([NW+HPAD,NH+VPAD])(hier);
+    const allN=hier.descendants();
+    nodes=allN.map(n=>({x:n.x,y:n.y,data:n.data,depth:n.depth}));
+    const allL=hier.links();
+    links=allL.map(l=>({
+      s:nodes.find(n=>n.data.id===l.source.data.id),
+      t:nodes.find(n=>n.data.id===l.target.data.id)
+    })).filter(l=>l.s&&l.t);
+
+    // Normalizar a (0,0)
+    const mnX=d3.min(nodes,n=>n.x)-NW/2,mnY=d3.min(nodes,n=>n.y);
+    nodes.forEach(n=>{n.x-=mnX;n.y-=mnY;});
+
+    // Escalar para llenar el A3
+    const tW=d3.max(nodes,n=>n.x+NW/2),tH=d3.max(nodes,n=>n.y+NH);
+    const sc=Math.min(AW/tW,AH/tH)*0.94;
+    nodes.forEach(n=>{n.x*=sc;n.y*=sc;});
+    NW*=sc;NH*=sc;
   }
 
-  // Offset para centrar en el A3
+  // Centrar en el A3
   const usedW=d3.max(nodes,n=>n.x)+NW,usedH=d3.max(nodes,n=>n.y)+NH;
   const ox=MAR+(AW-usedW)/2,oy=HH+(AH-usedH)/2;
 
-  // ── Dibujar líneas ──────────────────────────────────────
-  const sw=Math.max(0.8,NW/200);
-  function linkPath(src,tgt,wps){
-    const sx=src.x,sy=src.y+NH,tx=tgt.x,ty=tgt.y;
-    if(wps&&wps.length>0){
-      const scWP=NW/158; // escalar waypoints como los nodos
+  // Tamaños de fuente proporcionales al nodo
+  const fsN=Math.max(5.5,Math.min(11,NW/13));
+  const fsT=Math.max(5,Math.min(9,NW/17));
+  const sw=Math.max(0.6,NW/220);
+
+  // Líneas
+  function lPath(s,t,wps){
+    const sx=s.x,sy=s.y+NH,tx=t.x,ty=t.y;
+    if(wps?.length){
+      const scWP=NW/158;
       const pts=[{x:sx,y:sy},...wps.map(p=>({x:p.x*scWP,y:p.y*scWP})),{x:tx,y:ty}];
       let d=`M${fv(pts[0].x)},${fv(pts[0].y)}`;
-      for(let i=1;i<pts.length;i++){
-        d+=`L${fv(pts[i].x)},${fv(pts[i-1].y)}L${fv(pts[i].x)},${fv(pts[i].y)}`;
-      }
+      for(let i=1;i<pts.length;i++){d+=`L${fv(pts[i].x)},${fv(pts[i-1].y)}L${fv(pts[i].x)},${fv(pts[i].y)}`;}
       return`<path d="${d}" fill="none" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
     }
     const my=sy+(ty-sy)/2;
@@ -695,20 +675,14 @@ function genSVGA3(root,pn=1,tot=1){
            `<line x1="${fv(tx)}" y1="${fv(my)}" x2="${fv(tx)}" y2="${fv(ty)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
   }
 
-  let linesSVG="";
+  let linesSVG="",nodesSVG="";
   links.forEach(lk=>{
-    if(!lk.source||!lk.target)return;
-    const sid=lk.source.data?.id,tid=lk.target.data?.id;
-    const wps=waypoints[`${sid}-${tid}`]||[];
-    linesSVG+=linkPath(lk.source,lk.target,wps);
+    if(!lk.s||!lk.t)return;
+    const wps=waypoints[`${lk.s.data?.id}-${lk.t.data?.id}`]||[];
+    linesSVG+=lPath(lk.s,lk.t,wps);
   });
+  nodes.forEach(n=>{nodesSVG+=svgBox(n.x-NW/2,n.y,n.data,NW,NH,!!n.data?.dashed,fsN,fsT);});
 
-  // ── Dibujar nodos ───────────────────────────────────────
-  const fsN=Math.max(6,Math.min(12,NW/14)),fsT=Math.max(5,Math.min(10,NW/18));
-  let nodesSVG="";
-  nodes.forEach(n=>{nodesSVG+=svgBox(n.x-NW/2,n.y,n.data,NW,NH,!!n.data.dashed,fsN,fsT);});
-
-  // ── Leyenda ─────────────────────────────────────────────
   const leg=[["#9B1C1C","Jefatura"],["#92400E","Ministerio"],["#78350F","Secretaría"],
              ["#1E3A5F","Subsecretaría"],["#14532D","Dir. General"],["#374151","Org. desc."]];
   const lw=118,lx=(PW-leg.length*lw)/2,ly=PH-FH+11;
@@ -716,9 +690,9 @@ function genSVGA3(root,pn=1,tot=1){
     `<rect x="${fv(lx+i*lw)}" y="${fv(ly)}" width="9" height="9" rx="2" fill="${it[0]}"/>` +
     `<text x="${fv(lx+i*lw+13)}" y="${fv(ly+8)}" font-size="8" fill="#718096" font-family="Inter,Arial,sans-serif">${it[1]}</text>`
   ).join("");
-  const pgSVG=tot>1?`<text x="${fv(PW-MAR)}" y="${fv(ly+8)}" text-anchor="end" font-size="8" fill="#A0AEC0" font-family="Inter,Arial,sans-serif">${pn}/${tot}</text>`:"";
-
+  const pgSVG=tot>1?`<text x="${fv(PW-MAR)}" y="${fv(ly+8)}" text-anchor="end" font-size="8" fill="#A0AEC0">${pn}/${tot}</text>`:"";
   const hc=getColor(root);
+
   return`<svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}">
 <defs><linearGradient id="hg${pn}" x1="0" y1="0" x2="1" y2="0">
   <stop offset="0%" stop-color="${hc}"/><stop offset="100%" stop-color="${hc}CC"/>
@@ -860,16 +834,19 @@ function App(){
   // Mostrar/ocultar editor
   useEffect(()=>{
     const pane=document.getElementById("ed-pane");
-    const root=document.getElementById("root");
+    const rootEl=document.getElementById("root");
     if(activeTab==="editor"){
       pane.classList.add("visible");
-      root.style.display="none";
-      window.dispatchEvent(new CustomEvent("editorActivated",{detail:data}));
+      rootEl.style.display="none";
+      // Pequeño delay para que el canvas tenga dimensiones reales
+      setTimeout(()=>{
+        window.dispatchEvent(new CustomEvent("editorActivated",{detail:data}));
+      },50);
     }else{
       pane.classList.remove("visible");
-      root.style.display="";
+      rootEl.style.display="";
     }
-  },[activeTab]);
+  },[activeTab,data]);
 
   const filtered=useMemo(()=>{
     if(!search.trim())return null;
@@ -1295,8 +1272,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
           const pt=svgEl.createSVGPoint();
           pt.x=e.clientX;pt.y=e.clientY;
           const gp=pt.matrixTransform(svgEl.getScreenCTM().inverse());
-          const p={x:(gp.x-edTransform.x)/edTransform.k,(gp.y-edTransform.y)/edTransform.k};
-          // Corrección: dividir por k ya está en gp
+          // gp ya está en coordenadas del SVG; convertir a coordenadas del grupo (deshacer zoom/pan)
           const wp={x:(gp.x-edTransform.x)/edTransform.k,y:(gp.y-edTransform.y)/edTransform.k};
           const k=d.sid+"-"+d.tid;
           if(!edWaypoints[k])edWaypoints[k]=[];
@@ -1576,4 +1552,3 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 </body>
 </html>
-        
