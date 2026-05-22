@@ -1434,7 +1434,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     const nodeG=g.append("g");
     const ng=nodeG.selectAll("g.c-node").data(nodes,d=>d.id).enter()
       .append("g").attr("class",d=>"c-node"+(edSelectedIds.has(d.id)?" sel":""))
-      .attr("transform",d=>{const p=edPositions[d.id]||{x:0,y:0};return`translate(${p.x-NW/2},${p.y})`;})
+      .attr("transform",d=>{const p=edPositions[d.id]||{x:0,y:0};return`translate(${p.x-(p.w||NW)/2},${p.y})`;})
       .style("cursor","pointer")
       .on("click",(e,d)=>{
         e.stopPropagation();
@@ -1456,7 +1456,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
         const dx=e.dx/edTransform.k,dy=e.dy/edTransform.k;
         edSelectedIds.forEach(id=>{if(edPositions[id]){edPositions[id].x+=dx;edPositions[id].y+=dy;}});
         d3.selectAll(".c-node").filter(n=>edSelectedIds.has(n.id))
-          .attr("transform",n=>{const p=edPositions[n.id]||{x:0,y:0};return`translate(${p.x-NW/2},${p.y})`;});
+          .attr("transform",n=>{const p=edPositions[n.id]||{x:0,y:0};return`translate(${p.x-(p.w||NW)/2},${p.y})`;});
         drawLinks();drawWPs();
       })
       .on("end",()=>{savePosForArea();recalcNodeSize();renderCanvas();showSaved();})
@@ -1522,10 +1522,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       const pos=edPositions[selId];
       if(!pos)return;
       const nw=pos.w||NW,nh=pos.h||NH;
-      const hx=pos.x+nw/2-5, hy=pos.y+nh-5;
+      const hx=pos.x+nw/2-5, hy=pos.y+nh-5;  // relative to group: x=nw-5, y=nh-5
       // Handle visual
+      // Handle is in SVG absolute coords (same space as node centers)
       resizeG.append("rect")
-        .attr("x",hx).attr("y",hy).attr("width",10).attr("height",10)
+        .attr("x",pos.x+nw/2-10).attr("y",pos.y+nh-10).attr("width",10).attr("height",10)
         .attr("rx",2).attr("fill","#4f7ef8").attr("stroke","#fff").attr("stroke-width",1.5)
         .style("cursor","se-resize");
       // Drag to resize
@@ -1537,6 +1538,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
           p.h=Math.max(30,Math.round((p.h||NH)+dy));
           // Redraw node
           d3.selectAll(".c-node").filter(n=>n.id===selId)
+            .attr("transform",`translate(${p.x-p.w/2},${p.y})`)
             .select("rect").attr("width",p.w).attr("height",p.h);
           d3.selectAll(".c-node").filter(n=>n.id===selId).each(function(d){
             d3.select(this).selectAll("text").remove();
@@ -1557,8 +1559,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
             if(hasTit2){ty+=lns.length*alh+ag;const chT=Math.floor(nwL/(aft*0.52));const sh=d.titular.length>chT?d.titular.slice(0,chT-1)+"…":d.titular;g3.append("text").attr("x",nwL/2).attr("y",ty).attr("text-anchor","middle").attr("font-size",aft.toFixed(1)).attr("fill","rgba(255,255,255,0.75)").attr("font-family","Inter,sans-serif").text(sh);}
           });
           // Move resize handle
-          const hx2=pos.x+pos.w/2-5,hy2=pos.y+pos.h-5;
-          d3.select(this).attr("x",hx2).attr("y",hy2);
+          d3.select(this).attr("x",pos.x+pos.w/2-10).attr("y",pos.y+pos.h-10);
           drawLinks();drawWPs();
         })
         .on("end",()=>{savePosForArea();showSaved();})
@@ -1686,10 +1687,26 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
   function exportAreaA3(){
     const viewRoot=findN(edData,edViewId)||edData;
-    if(!window.__genSVGA3){alert("Esperá que cargue la app.");return;}
-    const svg=window.__genSVGA3(viewRoot,1,1);
-    window.__dlSVG(svg,`organigrama-${edViewId}-A3.svg`);
-    showSaved();
+    if(!window.__genSVGA3){
+      // Babel puede no haber terminado — esperar y reintentar
+      setTimeout(()=>{
+        if(window.__genSVGA3){
+          window.__dlSVG(window.__genSVGA3(viewRoot,1,1),`organigrama-${edViewId}-A3.svg`);
+          showSaved();
+        } else {
+          alert("Error: la app no cargó correctamente. Recargá la página.");
+        }
+      },500);
+      return;
+    }
+    try{
+      const svg=window.__genSVGA3(viewRoot,1,1);
+      window.__dlSVG(svg,`organigrama-${edViewId}-A3.svg`);
+      showSaved();
+    }catch(err){
+      console.error("Export error:",err);
+      alert("Error al exportar: "+err.message);
+    }
   }
 
   function showSaved(){
