@@ -706,33 +706,10 @@ function genSVGA3(root,pn=1,tot=1){
     }
   }
 
-  // Organismos fuera de nivel (dashed) del nodo raíz — solo sus cajas, sin estructura interna
-  // Para JG: los dashed directos. Para otros: los dashed directos del root.
-  const dashedOrgs=(root.children||[]).filter(c=>c.dashed);
-  const hasOrgs=dashedOrgs.length>0;
-
-  // Reservar espacio inferior para los dashed si los hay
-  const ORG_GAP=20;     // separación entre jerarquía y sección de orgs
-  const ORG_MIN_H=60;   // altura mínima de cada caja org
-  const ORG_COLS=Math.min(dashedOrgs.length,8)||1;
-  const ORG_ROWS=Math.ceil(dashedOrgs.length/ORG_COLS);
-  const ORG_SECTION_H=hasOrgs?ORG_ROWS*ORG_MIN_H+(ORG_ROWS-1)*8+ORG_GAP+14:0;
-
-  // Reducir AH disponible para la jerarquía si hay orgs
-  const hierH=AH-ORG_SECTION_H;
-
-  // Re-escalar la jerarquía al espacio reducido
-  if(hasOrgs){
-    const usedH_now=d3.max(nodes,n=>n.y)+NH;
-    if(usedH_now>0){
-      const sc2=Math.min(1,(hierH/usedH_now));
-      if(sc2<1){nodes.forEach(n=>{n.x*=sc2;n.y*=sc2;});NW*=sc2;NH*=sc2;}
-    }
-  }
-
-  // Centrar jerarquía en su espacio
+  // Centrar jerarquía en el A3 completo (sin sección de orgs fuera de nivel)
+  const hierH=AH;
   const usedW=d3.max(nodes,n=>n.x)+NW,usedH=d3.max(nodes,n=>n.y)+NH;
-  const ox=MAR+(AW-usedW)/2,oy=HH+(hierH-usedH)/2;
+  const ox=MAR+(AW-usedW)/2,oy=HH+(AH-usedH)/2;
 
   // Tamaños de fuente proporcionales al nodo
   const fsN=Math.max(5.5,Math.min(11,NW/13));
@@ -763,27 +740,7 @@ function genSVGA3(root,pn=1,tot=1){
   });
   nodes.forEach(n=>{nodesSVG+=svgBox(n.x-NW/2,n.y,n.data,NW,NH,!!n.data?.dashed,fsN,fsT);});
 
-  // Sección organismos fuera de nivel
-  let orgsSVG="";
-  if(hasOrgs){
-    const sepY=HH+hierH+ORG_GAP;
-    // Línea separadora y título
-    orgsSVG+=`<line x1="${MAR}" y1="${fv(sepY)}" x2="${fv(PW-MAR)}" y2="${fv(sepY)}" stroke="#CBD5E0" stroke-width="0.8" stroke-dasharray="5,4"/>`;
-    orgsSVG+=`<text x="${fv(PW/2)}" y="${fv(sepY+11)}" text-anchor="middle" font-size="7.5" fill="#A0AEC0" font-family="Inter,Arial,sans-serif" letter-spacing="1.5">ORGANISMOS DESCENTRALIZADOS Y FUERA DE NIVEL</text>`;
-
-    const ORG_W=Math.min(180,Math.floor((AW-(ORG_COLS-1)*8)/ORG_COLS));
-    const ORG_H=Math.max(ORG_MIN_H,Math.min(70,Math.round(ORG_W/2.8)));
-    const orgStartX=MAR+(AW-(ORG_COLS*ORG_W+(ORG_COLS-1)*8))/2;
-    const fsO=Math.max(5.5,Math.min(10,ORG_W/14));
-    const fsOT=Math.max(5,Math.min(8.5,ORG_W/18));
-
-    dashedOrgs.forEach((org,i)=>{
-      const col=i%ORG_COLS,row=Math.floor(i/ORG_COLS);
-      const ox2=orgStartX+col*(ORG_W+8);
-      const oy2=sepY+16+row*(ORG_H+8);
-      orgsSVG+=svgBox(ox2,oy2,org,ORG_W,ORG_H,true,fsO,fsOT);
-    });
-  }
+  // (organismos fuera de nivel no se muestran en el A3 — tienen su propia página)
 
   const leg=[["#9B1C1C","Jefatura"],["#92400E","Ministerio"],["#78350F","Secretaría"],
              ["#1E3A5F","Subsecretaría"],["#14532D","Dir. General"],["#374151","Org. desc."]];
@@ -805,7 +762,6 @@ function genSVGA3(root,pn=1,tot=1){
 <text x="${fv(PW/2)}" y="${fv(HH*0.45)}" text-anchor="middle" font-size="22" font-weight="700" fill="#fff" font-family="Inter,Arial,sans-serif">${root.nombre}</text>
 <text x="${fv(PW/2)}" y="${fv(HH*0.78)}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.7)" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · ${fecha}</text>
 <g transform="translate(${fv(ox)},${fv(oy)})">${linesSVG}${nodesSVG}</g>
-${orgsSVG}
 <rect x="0" y="${PH-FH}" width="${PW}" height="${FH}" fill="#F8FAFC"/>
 <line x1="0" y1="${PH-FH}" x2="${PW}" y2="${PH-FH}" stroke="#E2E8F0" stroke-width="0.8"/>
 ${legSVG}${pgSVG}
@@ -1209,6 +1165,29 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
   function readLS(key){try{return JSON.parse(localStorage.getItem(key)||"{}");}catch{return{};}}
   function writeLS(key,val){try{localStorage.setItem(key,JSON.stringify(val));}catch{}}
   function savePosForArea(){writeLS(POS_KEY,{...readLS(POS_KEY),[edViewId]:edPositions});}
+
+  // Recalcular NW/NH óptimo para que los nodos llenen el A3 con las posiciones actuales
+  function recalcNodeSize(){
+    const positions=Object.values(edPositions);
+    if(positions.length<2)return;
+    const PW=1587,PH=1123,MAR=40,HH=68,FH=34;
+    const AW=PW-MAR*2,AH=PH-HH-FH-MAR;
+    // Bounding box de las posiciones actuales (en coordenadas del editor)
+    const xs=positions.map(p=>p.x),ys=positions.map(p=>p.y);
+    const spanW=Math.max(...xs)-Math.min(...xs)+edNW;
+    const spanH=Math.max(...ys)-Math.min(...ys)+edNH;
+    if(spanW<=0||spanH<=0)return;
+    // Calcular cuánto espacio tiene cada nodo en el A3
+    const scaleToA3=Math.min(AW/spanW,AH/spanH)*0.94;
+    const newNW=Math.round(edNW*scaleToA3);
+    const newNH=Math.round(edNH*scaleToA3);
+    if(Math.abs(newNW-edNW)>2||Math.abs(newNH-edNH)>2){
+      edNW=Math.max(60,Math.min(400,newNW));
+      edNH=Math.max(30,Math.min(200,newNH));
+      syncSizeInputs();
+      saveSizeForArea();
+    }
+  }
   function saveWPForArea(){writeLS(WP_KEY,{...readLS(WP_KEY),[edViewId]:edWaypoints});}
   const SIZE_KEY="gcba_org_nodesize_v1";
   function saveSizeForArea(){writeLS(SIZE_KEY,{...readLS(SIZE_KEY),[edViewId]:{nw:edNW,nh:edNH}});}
@@ -1455,7 +1434,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
           .attr("transform",n=>{const p=edPositions[n.id]||{x:0,y:0};return`translate(${p.x-NW/2},${p.y})`;});
         drawLinks();drawWPs();
       })
-      .on("end",()=>{savePosForArea();showSaved();})
+      .on("end",()=>{savePosForArea();recalcNodeSize();renderCanvas();showSaved();})
     );
 
     ng.append("rect").attr("width",NW).attr("height",NH).attr("rx",7)
@@ -1623,7 +1602,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
   wire("ed-zi",()=>{if(edZoom)d3.select("#ed-svg").call(edZoom.scaleBy,1.3);});
   wire("ed-zo",()=>{if(edZoom)d3.select("#ed-svg").call(edZoom.scaleBy,0.77);});
   wire("ed-zr",()=>{edTransform=d3.zoomIdentity;edFitted=false;renderCanvas();});
-  wire("ed-btn-save",()=>{savePosForArea();saveWPForArea();saveSizeForArea();showSaved();});
+  wire("ed-btn-save",()=>{savePosForArea();saveWPForArea();recalcNodeSize();saveSizeForArea();showSaved();});
   wire("ed-btn-apply-size",()=>{
     const nwEl=document.getElementById("ed-nw"),nhEl=document.getElementById("ed-nh");
     edNW=Math.max(60,Math.min(400,parseInt(nwEl?.value)||158));
