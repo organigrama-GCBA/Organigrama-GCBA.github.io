@@ -415,11 +415,7 @@ function dlSVG(svgStr,fname){
   URL.revokeObjectURL(url);
 }
 
-// ── Exponer al scope global para el editor D3 ──
-genSVGA3=genSVGA3;
-dlSVG=dlSVG;
-flatList=flatList;
-findNode=findNode;
+// genSVGA3, dlSVG, flatList, findNode — disponibles globalmente
 
 </script>
 
@@ -920,7 +916,7 @@ function App(){
       pane.classList.remove("visible");
       rootEl.style.display="";
     }
-  },[activeTab,data]);
+  },[activeTab]); // solo reaccionar a cambio de pestaña, no a cambio de datos
 
   const filtered=useMemo(()=>{
     if(!search.trim())return null;
@@ -1769,18 +1765,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
   function exportAreaA3(){
     const viewRoot=findN(edData,edViewId)||edData;
-    if(!genSVGA3){
-      // Babel puede no haber terminado — esperar y reintentar
-      setTimeout(()=>{
-        if(genSVGA3){
-          dlSVG(genSVGA3(viewRoot,1,1),`organigrama-${edViewId}-A3.svg`);
-          showSaved();
-        } else {
-          alert("Error: la app no cargó correctamente. Recargá la página.");
-        }
-      },500);
-      return;
-    }
+    // genSVGA3 disponible globalmente (script plain JS)
     try{
       // Debug: verificar qué posiciones están guardadas
       const savedDebug=JSON.parse(localStorage.getItem("gcba_org_positions_v1")||"{}");
