@@ -618,29 +618,8 @@ function genSVGA3(root,pn=1,tot=1){
       });
     })(root,0);
 
-    // Normalizar a (0,0)
-    const mnX=d3.min(nodes,n=>n.x),mnY=d3.min(nodes,n=>n.y);
-    nodes.forEach(n=>{n.x-=mnX;n.y-=mnY;});
-
-    // Escalar para que el contenido llene el A3
-    // El editor usa NW=158,NH=50. Escalamos para que bbox llene AW×AH
-    // (tamaño ya leído: ED_NW, ED_NH, ED_FS)
-    const tW=d3.max(nodes,n=>n.x)+ED_NW,tH=d3.max(nodes,n=>n.y)+ED_NH;
-    const sc=Math.min(AW/tW,AH/tH)*0.96;
-    nodes.forEach(n=>{n.x*=sc;n.y*=sc;});
-    NW=ED_NW*sc;NH=ED_NH*sc;
-    // Garantizar NH mínimo para que el texto entre
-    // Si NH es muy chico, escalar todo uniformemente manteniendo proporciones
-    const MIN_NH=Math.max(36, NW/2.2);
-    if(NH<MIN_NH){
-      const scUp=MIN_NH/NH;
-      // Solo escalar NH — ajustar posiciones Y proporcionalmente
-      nodes.forEach(n=>{n.y*=scUp;});
-      NH=MIN_NH;
-      // Re-escalar todo para que quepa en A3
-      const tH2=d3.max(nodes,n=>n.y)+NH;
-      if(tH2>AH){const sc2=AH/tH2*0.94;nodes.forEach(n=>{n.x*=sc2;n.y*=sc2;});NW*=sc2;NH*=sc2;}
-    }
+    // Las posiciones ya están en coordenadas A3 (el editor usa el mismo sistema)
+    NW=ED_NW; NH=ED_NH;
 
   }else{
     // ── Layout D3 automático ───────────────────────────────
@@ -723,10 +702,8 @@ function genSVGA3(root,pn=1,tot=1){
     }
   }
 
-  // Centrar jerarquía en el A3 completo (sin sección de orgs fuera de nivel)
-  const hierH=AH;
-  const usedW=d3.max(nodes,n=>n.x)+NW,usedH=d3.max(nodes,n=>n.y)+NH;
-  const ox=MAR+(AW-usedW)/2,oy=HH+(AH-usedH)/2;
+  // Posiciones ya en coordenadas A3 — offset es 0
+  const ox=0,oy=0;
 
   // Tamaños de fuente proporcionales al nodo
   const fsN=ED_FS>0?ED_FS:Math.max(7,Math.min(13,NW/11));
@@ -1327,38 +1304,118 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     const svgEl=document.getElementById("ed-svg");
     if(!area||!svgEl)return;
     const W=area.clientWidth,H=area.clientHeight;
-    // Usar tamaños configurables
-    const NW=edNW,NH=edNH;
     const svg=d3.select(svgEl).attr("width",W).attr("height",H);
     svg.selectAll("*").remove();
 
+    // ── Dimensiones del A3 (mismas que genSVGA3) ──
+    const PW=1587,PH=1123,MAR=40,HH=68,FH=34;
+    const AW=PW-MAR*2,AH=PH-HH-FH-MAR;
+
+    const viewRoot=findN(edData,edViewId)||edData;
+    const isJG=isJGView();
     const nodes=visibleNodes();
     const links=visibleLinks(nodes);
 
-    // Calcular layout D3 para posiciones iniciales
+    // ── Calcular layout inicial igual que genSVGA3 ──
+    // Esto asegura que editor y A3 tengan las mismas proporciones
+    const HGAP=10,VGAP=24;
+    let initNW=edNW,initNH=edNH;
+
+    if(isJG){
+      const direct=(viewRoot.children||[]).filter(c=>!c.dashed);
+      const row1=direct.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
+      const row2=direct.filter(c=>c.tipo==="SEC");
+      const useRow1=row1.length>0?row1:direct.filter(c=>c.tipo!=="SEC");
+      const spanX=Math.max(useRow1.length,row2.length,1);
+      const numRows=row2.length>0?3:2;
+      initNW=Math.max(80,Math.min(280,Math.floor((AW-(spanX-1)*HGAP)/spanX)));
+      initNH=Math.max(36,Math.min(Math.floor((AH-(numRows-1)*VGAP)/numRows),Math.round(initNW/2.6)));
+    } else {
+      function toHierCount(node){const kids=(node.children||[]).filter(c=>!c.dashed);return{...node,_k:kids.map(toHierCount),children:undefined};}
+      const hc=d3.hierarchy(toHierCount(viewRoot),d=>d._k.length?d._k:null);
+      const leafCount=hc.leaves().length||1;
+      const depthCount=(hc.height||1)+1;
+      initNW=Math.max(80,Math.min(280,Math.floor((AW-(leafCount-1)*HGAP)/leafCount)));
+      initNH=Math.max(36,Math.min(Math.floor((AH-(depthCount-1)*VGAP)/depthCount),Math.round(initNW/2.6)));
+    }
+    // Si el usuario cambió el tamaño globalmente, usar el suyo; sino el calculado
+    const NW=edNW!==158?edNW:initNW;
+    const NH=edNH!==50?edNH:initNH;
+
+    // ── Calcular posiciones D3 en coordenadas A3 ──
     function toH(node,depth){
-      const kids=isJGView()&&depth>=1?[]:(node.children||[]);
+      const kids=isJG&&depth>=1?[]:(node.children||[]).filter(c=>!c.dashed);
       return{...node,_k:kids.map(c=>toH(c,depth+1)),children:undefined};
     }
-    const viewRoot=findN(edData,edViewId)||edData;
     const d3root=d3.hierarchy(toH(viewRoot,0),d=>d._k.length?d._k:null);
-    d3.tree().nodeSize([NW+HPAD,NH+VPAD])(d3root);
-    const d3pos={};
-    d3root.each(n=>{d3pos[n.data.id]={x:n.x,y:n.y};});
-    const allD3=Object.values(d3pos);
-    const mnX=Math.min(...allD3.map(p=>p.x))-NW/2;
-    const mnY=Math.min(...allD3.map(p=>p.y));
-    Object.keys(d3pos).forEach(id=>{d3pos[id].x-=mnX;d3pos[id].y-=mnY;});
 
-    // Mezclar: usar posiciones guardadas donde existan, D3 para nodos nuevos
+    let d3pos={};
+    if(isJG){
+      // Layout manual JG en coordenadas A3
+      const direct=(viewRoot.children||[]).filter(c=>!c.dashed);
+      const row1=direct.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
+      const row2=direct.filter(c=>c.tipo==="SEC");
+      const useRow1=row1.length>0?row1:direct.filter(c=>c.tipo!=="SEC");
+      const spanX=Math.max(useRow1.length,row2.length,1);
+      const HPAD2=Math.max(HGAP,Math.round((AW-NW*spanX)/(spanX+1)));
+      const VPAD2=Math.max(VGAP,Math.round((AH-NH*(row2.length>0?3:2))/((row2.length>0?3:2)+1)));
+      const makeRow2=(items,rowY)=>{
+        const total=items.length*(NW+HPAD2)-HPAD2;
+        let x=MAR+(AW-total)/2+NW/2;
+        return items.forEach(c=>{d3pos[c.id]={x,y:rowY};x+=NW+HPAD2;});
+      };
+      d3pos[viewRoot.id]={x:PW/2,y:HH+10};
+      makeRow2(useRow1, HH+10+NH+VPAD2);
+      makeRow2(row2, HH+10+NH+VPAD2+NH+VPAD2);
+    } else {
+      const HPAD2=Math.max(HGAP,Math.round((AW-NW*(d3root.leaves().length||1))/(( d3root.leaves().length||1)+1)));
+      const VPAD2=Math.max(VGAP,Math.round((AH-NH*((d3root.height||1)+1))/(((d3root.height||1)+1)+1)));
+      d3.tree().nodeSize([NW+HPAD2,NH+VPAD2])(d3root);
+      d3root.each(n=>{d3pos[n.data.id]={x:n.x,y:n.y};});
+      // Normalizar: mínimo X = MAR+NW/2, mínimo Y = HH+10
+      const allP2=Object.values(d3pos);
+      const minX2=Math.min(...allP2.map(p=>p.x))-NW/2;
+      const minY2=Math.min(...allP2.map(p=>p.y));
+      Object.keys(d3pos).forEach(id=>{
+        d3pos[id].x=d3pos[id].x-minX2+MAR+NW/2+(AW-(Math.max(...allP2.map(p=>p.x))-Math.min(...allP2.map(p=>p.x))+NW))/2;
+        d3pos[id].y=d3pos[id].y-minY2+HH+10+(AH-(Math.max(...allP2.map(p=>p.y))-Math.min(...allP2.map(p=>p.y))+NH))/2;
+      });
+    }
+
+    // ── Mezclar posiciones: guardadas o D3 ──
     const saved=loadPosForArea(edViewId)||{};
     edPositions={};
     nodes.forEach(n=>{
-      edPositions[n.id]=saved[n.id]?{x:saved[n.id].x,y:saved[n.id].y,w:saved[n.id].w||edNW,h:saved[n.id].h||edNH}:{...(d3pos[n.id]||{x:0,y:0}),w:edNW,h:edNH};
+      if(saved[n.id]){
+        edPositions[n.id]={x:saved[n.id].x,y:saved[n.id].y,w:saved[n.id].w||NW,h:saved[n.id].h||NH};
+      } else {
+        edPositions[n.id]={...(d3pos[n.id]||{x:PW/2,y:HH+10}),w:NW,h:NH};
+      }
     });
     edWaypoints=loadWPForArea(edViewId);
 
     const g=svg.append("g").attr("class","canvas-root");
+    // ── Fondo A3 ──
+    g.append("rect").attr("x",0).attr("y",0).attr("width",PW).attr("height",PH)
+      .attr("fill","#F8FAFC").attr("rx",4)
+      .attr("filter","drop-shadow(0 4px 24px rgba(0,0,0,0.5))");
+    // Header
+    g.append("rect").attr("x",0).attr("y",0).attr("width",PW).attr("height",HH)
+      .attr("fill","#003D6E").attr("rx",4);
+    g.append("rect").attr("x",0).attr("y",HH-4).attr("width",PW).attr("height",4).attr("fill","#003D6E");
+    // Footer
+    g.append("rect").attr("x",0).attr("y",PH-FH).attr("width",PW).attr("height",FH).attr("fill","#F8FAFC");
+    g.append("line").attr("x1",0).attr("y1",PH-FH).attr("x2",PW).attr("y2",PH-FH).attr("stroke","#E2E8F0").attr("stroke-width",0.8);
+    // Título en el header
+    g.append("text").attr("x",PW/2).attr("y",HH*0.52).attr("text-anchor","middle")
+      .attr("font-size",18).attr("font-weight",700).attr("fill","#fff").attr("font-family","Inter,sans-serif")
+      .text((findN(edData,edViewId)||edData).nombre);
+    g.append("text").attr("x",PW/2).attr("y",HH*0.80).attr("text-anchor","middle")
+      .attr("font-size",9).attr("fill","rgba(255,255,255,0.7)").attr("font-family","Inter,sans-serif")
+      .text("Ciudad Autónoma de Buenos Aires");
+    // Margen guides (líneas punteadas tenues)
+    g.append("rect").attr("x",MAR).attr("y",HH+4).attr("width",AW).attr("height",AH-8)
+      .attr("fill","none").attr("stroke","rgba(0,0,255,0.08)").attr("stroke-dasharray","4,4");
     edZoom=d3.zoom().scaleExtent([0.04,3]).on("zoom",e=>{edTransform=e.transform;g.attr("transform",e.transform);});
     svg.call(edZoom).call(edZoom.transform,edTransform);
     g.attr("transform",edTransform);
@@ -1577,21 +1634,15 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
     svg.on("click",()=>{edSelectedIds.clear();d3.selectAll(".c-node").classed("sel",false);resizeG.selectAll("*").remove();renderInspector(null);document.getElementById("ed-actions").style.display="none";});
 
-    // Auto-fit si no hay posiciones guardadas para esta área
-    if(!Object.keys(saved).length||!edFitted){
+    // Auto-fit: encajar el A3 completo en la pantalla
+    if(!edFitted){
       edFitted=true;
-      const allP=Object.values(edPositions);
-      if(allP.length){
-        const mxX=Math.max(...allP.map(p=>p.x))+NW/2+30;
-        const myY=Math.max(...allP.map(p=>p.y))+NH+30;
-        const mnX2=Math.min(...allP.map(p=>p.x))-NW/2-30;
-        const mnY2=Math.min(...allP.map(p=>p.y))-30;
-        const sc=Math.min(W/(mxX-mnX2),H/(myY-mnY2),1)*0.88;
-        const tx=W/2-(mnX2+(mxX-mnX2)/2)*sc;
-        const ty=H/2-(mnY2+(myY-mnY2)/2)*sc;
-        edTransform=d3.zoomIdentity.translate(tx,ty).scale(sc);
-        svg.call(edZoom.transform,edTransform);
-      }
+      const padding=30;
+      const sc=Math.min((W-padding*2)/PW,(H-padding*2)/PH)*0.95;
+      const tx=(W-PW*sc)/2;
+      const ty=(H-PH*sc)/2;
+      edTransform=d3.zoomIdentity.translate(tx,ty).scale(sc);
+      svg.call(edZoom.transform,edTransform);
     }
   }
 
