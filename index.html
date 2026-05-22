@@ -2,158 +2,161 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Organigrama — Gobierno de la Ciudad de Buenos Aires</title>
+<title>Organigrama GCBA</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --azul:#005EA6;--azul-oscuro:#003D6E;--azul-claro:#E8F2FB;
-  --azul-medio:#B8D5EF;--amarillo:#F5C400;--gris-bg:#F2F5F9;
-  --gris-card:#FFFFFF;--gris-borde:#D8E2EE;--gris-texto:#4A5568;
-  --gris-suave:#718096;--texto:#1A2B42;
+  --azul:#003D6E;--azul2:#005EA6;--azul3:#0070C0;
+  --gris-bg:#F2F5F9;--gris-borde:#E2E8F0;--gris-texto:#718096;
+  --texto:#1A202C;--texto2:#4A5568;
+  /* editor */
+  --ed-bg:#0f1117;--ed-surface:#1a1d27;--ed-surface2:#232636;
+  --ed-border:#333650;--ed-border2:#444870;
+  --ed-accent:#4f7ef8;--ed-text:#e8eaf2;--ed-text2:#9da3c4;--ed-text3:#6b7199;
 }
-body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--gris-bg);color:var(--texto);height:100vh;overflow:hidden}
-button{font-family:inherit;cursor:pointer;transition:all .15s}
-input,select{font-family:inherit;outline:none;transition:border .15s}
-input:focus,select:focus{border-color:var(--azul)!important;box-shadow:0 0 0 3px rgba(0,94,166,.12)}
-::-webkit-scrollbar{width:5px;height:5px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:var(--azul-medio);border-radius:10px}
-@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.fade-in{animation:fadeIn .2s ease}
+body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);color:var(--texto);height:100vh;overflow:hidden}
 
-/* ── Editor D3 ── */
-#editor-pane{position:fixed;inset:0;top:56px;display:none;flex-direction:row;z-index:10;background:#0f1117;}
-#editor-pane.active{display:flex;}
-.ed-sidebar{width:240px;flex-shrink:0;background:#1a1d27;border-right:1px solid #333650;display:flex;flex-direction:column;overflow:hidden;}
-.ed-sidebar-hd{padding:10px 12px;border-bottom:1px solid #333650;font-size:10px;font-weight:600;color:#6b7199;text-transform:uppercase;letter-spacing:.06em;}
-.ed-node-list{flex:1;overflow-y:auto;padding:4px;}
-.ed-ni{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:6px;cursor:pointer;border:1px solid transparent;}
-.ed-ni:hover{background:#232636;}
-.ed-ni.sel{background:rgba(79,126,248,.15);border-color:#4f7ef8;}
+/* ── EDITOR PANE ── */
+#ed-pane{position:fixed;inset:0;display:none;flex-direction:column;background:var(--ed-bg);z-index:50;}
+#ed-pane.visible{display:flex;}
+#ed-toolbar{height:44px;background:var(--ed-surface);border-bottom:1px solid var(--ed-border);
+  display:flex;align-items:center;padding:0 12px;gap:8px;flex-shrink:0;}
+#ed-toolbar select{background:var(--ed-surface2);border:1px solid var(--ed-border2);color:var(--ed-text);
+  font-family:inherit;font-size:11.5px;padding:4px 8px;border-radius:6px;outline:none;}
+#ed-body{flex:1;display:flex;overflow:hidden;}
+.ed-sidebar{width:230px;flex-shrink:0;background:var(--ed-surface);border-right:1px solid var(--ed-border);
+  display:flex;flex-direction:column;overflow:hidden;}
+.ed-sidebar-hd{padding:9px 12px;border-bottom:1px solid var(--ed-border);
+  font-size:10px;font-weight:600;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.06em;}
+.ed-list{flex:1;overflow-y:auto;padding:4px;}
+.ed-ni{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:6px;
+  cursor:pointer;border:1px solid transparent;transition:background .1s;}
+.ed-ni:hover{background:var(--ed-surface2);}
+.ed-ni.sel{background:rgba(79,126,248,.15);border-color:var(--ed-accent);}
 .ed-dot{width:7px;height:7px;border-radius:2px;flex-shrink:0;}
-.ed-nm{font-size:11px;color:#e8eaf2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
-.ed-tp{font-size:9.5px;color:#6b7199;flex-shrink:0;}
-.ed-canvas{flex:1;position:relative;overflow:hidden;background:#0f1117;}
-.ed-canvas::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle,#333650 1px,transparent 1px);background-size:26px 26px;opacity:.3;pointer-events:none;}
-.ed-canvas svg{width:100%;height:100%;}
+.ed-nm{font-size:11px;color:var(--ed-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
+.ed-tp{font-size:9px;color:var(--ed-text3);flex-shrink:0;}
+#ed-canvas{flex:1;position:relative;overflow:hidden;}
+#ed-canvas::before{content:'';position:absolute;inset:0;
+  background-image:radial-gradient(circle,var(--ed-border) 1px,transparent 1px);
+  background-size:26px 26px;opacity:.3;pointer-events:none;}
+#ed-canvas svg{width:100%;height:100%;}
 .ed-zoom{position:absolute;bottom:14px;right:14px;display:flex;gap:3px;}
-.ed-zb{width:28px;height:28px;border-radius:7px;background:#1a1d27;border:1px solid #333650;color:#9da3c4;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
-.ed-zb:hover{border-color:#4f7ef8;color:#4f7ef8;}
-.ed-inspector{width:268px;flex-shrink:0;background:#1a1d27;border-left:1px solid #333650;display:flex;flex-direction:column;overflow:hidden;}
-.ed-ins-hd{padding:10px 12px;border-bottom:1px solid #333650;font-size:10px;font-weight:600;color:#6b7199;text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center;}
-.ed-ins-id{font-size:9px;color:#444870;font-family:monospace;}
+.ed-zb{width:28px;height:28px;border-radius:7px;background:var(--ed-surface);
+  border:1px solid var(--ed-border);color:var(--ed-text2);font-size:14px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.ed-zb:hover{border-color:var(--ed-accent);color:var(--ed-accent);}
+.ed-inspector{width:262px;flex-shrink:0;background:var(--ed-surface);
+  border-left:1px solid var(--ed-border);display:flex;flex-direction:column;overflow:hidden;}
+.ed-ins-hd{padding:9px 12px;border-bottom:1px solid var(--ed-border);
+  font-size:10px;font-weight:600;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.06em;
+  display:flex;justify-content:space-between;align-items:center;}
 .ed-ins-body{flex:1;overflow-y:auto;padding:12px;}
-.ed-ins-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:6px;color:#444870;}
+.ed-ins-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;gap:6px;color:var(--ed-text3);}
 .ed-ins-empty .ico{font-size:28px;opacity:.4;}
-.ed-ins-empty p{font-size:11px;}
-.ed-field{margin-bottom:12px;}
-.ed-field label{font-size:10px;font-weight:600;color:#6b7199;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;}
-.ed-field input,.ed-field select{width:100%;background:#232636;border:1px solid #333650;color:#e8eaf2;font-family:inherit;font-size:12px;padding:6px 9px;border-radius:6px;outline:none;}
-.ed-field input:focus,.ed-field select:focus{border-color:#4f7ef8;}
-.ed-field select option{background:#232636;}
+.ed-ins-empty p{font-size:11px;text-align:center;line-height:1.5;}
+.ed-field{margin-bottom:11px;}
+.ed-field label{font-size:10px;font-weight:600;color:var(--ed-text3);text-transform:uppercase;
+  letter-spacing:.05em;display:block;margin-bottom:4px;}
+.ed-field input,.ed-field select{width:100%;background:var(--ed-surface2);border:1px solid var(--ed-border);
+  color:var(--ed-text);font-family:inherit;font-size:12px;padding:6px 9px;border-radius:6px;outline:none;}
+.ed-field input:focus,.ed-field select:focus{border-color:var(--ed-accent);}
+.ed-field select option{background:var(--ed-surface2);}
 .ed-preview{border-radius:8px;padding:10px 12px;margin-bottom:12px;}
-.ed-preview .ed-plabel{font-size:9px;font-weight:600;opacity:.65;text-transform:uppercase;letter-spacing:.05em;}
-.ed-preview .ed-pnombre{font-size:12px;font-weight:700;line-height:1.3;color:#fff;}
-.ed-preview .ed-ptitular{font-size:10.5px;color:rgba(255,255,255,.75);}
-.ed-actions{padding:10px 12px;border-top:1px solid #333650;display:flex;flex-direction:column;gap:5px;}
-.ed-btn{padding:6px 12px;border-radius:7px;font-size:11.5px;font-weight:500;cursor:pointer;border:1px solid #333650;background:#232636;color:#e8eaf2;font-family:inherit;width:100%;text-align:left;}
-.ed-btn:hover{border-color:#4f7ef8;color:#4f7ef8;}
-.ed-btn.primary{background:#4f7ef8;border-color:#4f7ef8;color:#fff;}
+.ed-preview .ep-label{font-size:9px;font-weight:600;opacity:.65;text-transform:uppercase;letter-spacing:.05em;}
+.ed-preview .ep-nombre{font-size:12px;font-weight:700;line-height:1.3;color:#fff;}
+.ed-preview .ep-titular{font-size:10.5px;color:rgba(255,255,255,.75);}
+.ed-actions{padding:9px 12px;border-top:1px solid var(--ed-border);display:flex;flex-direction:column;gap:5px;}
+.ed-btn{padding:5px 12px;border-radius:7px;font-size:11.5px;font-weight:500;cursor:pointer;
+  border:1px solid var(--ed-border);background:var(--ed-surface2);color:var(--ed-text);
+  font-family:inherit;width:100%;text-align:left;}
+.ed-btn:hover{border-color:var(--ed-accent);color:var(--ed-accent);}
+.ed-btn.primary{background:var(--ed-accent);border-color:var(--ed-accent);color:#fff;}
 .ed-btn.primary:hover{opacity:.85;}
 .ed-btn.danger{border-color:#ef444455;color:#ef4444;}
-.ed-btn.danger:hover{background:#ef444415;}
-/* c-node/link */
 .c-node rect{transition:filter .12s;}
 .c-node:hover rect{filter:brightness(1.18);}
 .c-node.sel rect{stroke:#fff;stroke-width:2;}
-.c-link{fill:none;stroke:#444870;stroke-width:1.1;}
-.c-link.dashed{stroke-dasharray:5,3;stroke:#333650;}
+.c-link{fill:none;stroke:var(--ed-border2);stroke-width:1.1;}
+.c-link.dashed-link{stroke-dasharray:5,3;stroke:var(--ed-text3);}
+.ed-saved{font-size:11px;color:#22c55e;opacity:0;transition:opacity .3s;margin-right:4px;}
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-track{background:transparent;}
-::-webkit-scrollbar-thumb{background:#444870;border-radius:4px;}
+::-webkit-scrollbar-thumb{background:var(--ed-border2);border-radius:4px;}
+
+/* ── REACT APP ── */
+.app-wrap{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+.app-header{background:linear-gradient(135deg,#003D6E,#005EA6);padding:0 20px;height:56px;
+  display:flex;align-items:center;gap:16px;flex-shrink:0;}
+.app-tabs{display:flex;gap:2px;margin-left:12px;}
+.app-tab{padding:5px 14px;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;
+  font-family:inherit;border:1px solid transparent;transition:all .15s;
+  color:rgba(255,255,255,.65);background:transparent;}
+.app-tab.active{background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.3);}
+.app-tab:hover:not(.active){color:#fff;background:rgba(255,255,255,.08);}
+.app-body{flex:1;display:flex;overflow:hidden;}
+.sidebar{width:300px;flex-shrink:0;background:#fff;border-right:1px solid var(--gris-borde);
+  display:flex;flex-direction:column;overflow:hidden;}
+.main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;}
 </style>
 </head>
 <body>
-<div id="root" style="height:100vh"></div>
 
-<!-- Editor visual D3 — se muestra/oculta desde React -->
-<div id="editor-pane">
-  <!-- toolbar superior del editor -->
-  <div id="ed-toolbar" style="position:absolute;top:0;left:0;right:0;height:42px;background:#1a1d27;border-bottom:1px solid #333650;display:flex;align-items:center;padding:0 12px;gap:8px;z-index:20;">
-    <span style="font-size:10px;font-weight:600;color:#6b7199;text-transform:uppercase;letter-spacing:.06em;">Área:</span>
-    <select id="ed-area-sel" style="background:#232636;border:1px solid #444870;color:#e8eaf2;font-family:inherit;font-size:11.5px;padding:4px 8px;border-radius:6px;outline:none;min-width:240px;flex:1;max-width:360px;"></select>
-    <span style="font-size:10px;color:#6b7199;margin-left:8px;" title="Doble clic en una línea para agregar un punto de quiebre. Click derecho en el punto para eliminarlo.">💡 Doble clic en línea = agregar punto de quiebre · Click derecho = eliminar</span>
+<!-- EDITOR VISUAL D3 (oculto hasta que se active) -->
+<div id="ed-pane">
+  <div id="ed-toolbar">
+    <span style="font-size:10px;font-weight:600;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.06em;">Área:</span>
+    <select id="ed-area-sel" style="min-width:240px;flex:1;max-width:380px;"></select>
+    <span style="font-size:10px;color:var(--ed-text3);margin-left:8px;">· doble clic en línea = punto de quiebre · click derecho en punto = eliminar</span>
     <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
-      <span id="ed-saved-msg" style="font-size:11px;color:#22c55e;opacity:0;transition:opacity .3s;">✓ Guardado</span>
-      <button id="ed-save-layout" style="background:#4f7ef8;border:none;color:#fff;font-family:inherit;font-size:11.5px;font-weight:500;padding:5px 14px;border-radius:7px;cursor:pointer;">💾 Guardar layout</button>
-      <button id="ed-export-a3" style="background:#166534;border:none;color:#fff;font-family:inherit;font-size:11.5px;font-weight:500;padding:5px 14px;border-radius:7px;cursor:pointer;">🖨 Exportar A3</button>
-      <button id="ed-reset-layout-btn" onclick="window.edResetLayout&&window.edResetLayout()" style="background:#232636;border:1px solid #444870;color:#9da3c4;font-family:inherit;font-size:11.5px;padding:5px 12px;border-radius:7px;cursor:pointer;" title="Volver al layout automático D3">↺ Resetear</button>
-      <button onclick="window.__switchToOrganigrama&&window.__switchToOrganigrama()" style="background:#232636;border:1px solid #4f7ef8;color:#7c9fff;font-family:inherit;font-size:11.5px;font-weight:500;padding:5px 12px;border-radius:7px;cursor:pointer;" title="Volver al organigrama">← Organigrama</button>
+      <span class="ed-saved" id="ed-saved-msg">✓ Guardado</span>
+      <button class="ed-zb" id="ed-btn-save" title="Guardar posiciones" style="width:auto;padding:0 12px;font-size:11.5px;">💾 Guardar</button>
+      <button class="ed-zb" id="ed-btn-export" title="Exportar esta área como SVG A3" style="width:auto;padding:0 12px;font-size:11.5px;background:#166534;border-color:#166534;color:#fff;">🖨 Exportar A3</button>
+      <button class="ed-zb" id="ed-btn-reset" title="Resetear layout automático" style="font-size:11px;">↺</button>
+      <button class="ed-zb" id="ed-btn-back" style="width:auto;padding:0 12px;font-size:11.5px;border-color:var(--ed-accent);color:var(--ed-accent);">← Organigrama</button>
     </div>
   </div>
-  <div class="ed-sidebar" style="margin-top:42px;">
-    <div class="ed-sidebar-hd">Nodos</div>
-    <div class="ed-node-list" id="ed-node-list"></div>
-  </div>
-  <div class="ed-canvas" id="ed-canvas" style="margin-top:42px;">
-    <svg id="ed-svg"></svg>
-    <div class="ed-zoom">
-      <button class="ed-zb" id="ed-zi" title="Acercar">+</button>
-      <button class="ed-zb" id="ed-zr" title="Centrar vista">⌂</button>
-      <button class="ed-zb" id="ed-zo" title="Alejar">−</button>
-      <button class="ed-zb" id="ed-reset-layout" onclick="window.edResetLayout&&window.edResetLayout()" title="Restablecer layout automático" style="font-size:12px;">↺</button>
+  <div id="ed-body">
+    <div class="ed-sidebar">
+      <div class="ed-sidebar-hd">Nodos del área</div>
+      <div class="ed-list" id="ed-list"></div>
     </div>
-  </div>
-  <div class="ed-inspector" style="margin-top:42px;">
-    <div class="ed-ins-hd">Inspector <span class="ed-ins-id" id="ed-ins-id"></span></div>
-    <div class="ed-ins-body" id="ed-ins-body">
-      <div class="ed-ins-empty"><div class="ico">⬡</div><p>Seleccioná un nodo</p></div>
+    <div id="ed-canvas">
+      <svg id="ed-svg"></svg>
+      <div class="ed-zoom">
+        <button class="ed-zb" id="ed-zi">+</button>
+        <button class="ed-zb" id="ed-zr">⌂</button>
+        <button class="ed-zb" id="ed-zo">−</button>
+      </div>
     </div>
-    <div class="ed-actions" id="ed-actions" style="display:none">
-      <button class="ed-btn primary" id="ed-save">✓ Guardar cambios</button>
-      <button class="ed-btn" id="ed-move">↕ Mover a otro padre</button>
-      <button class="ed-btn danger" id="ed-del">✕ Eliminar nodo</button>
+    <div class="ed-inspector">
+      <div class="ed-ins-hd">Inspector <span id="ed-ins-id" style="font-family:monospace;font-size:9px;color:var(--ed-text3);"></span></div>
+      <div class="ed-ins-body" id="ed-ins-body">
+        <div class="ed-ins-empty">
+          <div class="ico">⬡</div>
+          <p>Clic = seleccionar<br>Shift+clic = seleccionar<br>nodo + dependientes</p>
+        </div>
+      </div>
+      <div class="ed-actions" id="ed-actions" style="display:none;">
+        <button class="ed-btn primary" id="ed-btn-node-save">✓ Guardar cambios</button>
+        <button class="ed-btn" id="ed-btn-move">↕ Mover a otro padre</button>
+        <button class="ed-btn danger" id="ed-btn-delete">✕ Eliminar nodo</button>
+      </div>
     </div>
   </div>
 </div>
 
+<!-- REACT APP -->
+<div id="root" style="height:100vh;"></div>
+
 <script type="text/babel">
-const{useState,useMemo,useCallback,useEffect}=React;
-
-// CUSTOM_TIPO_PREFIX se usa para identificar tipos personalizados
-const CUSTOM_TIPO_PREFIX = "CUSTOM:";
-
-const COLORS={
-  JG :{bg:"#9B1C1C",text:"#fff",light:"#FEE2E2",label:"Jefatura"},
-  VJG:{bg:"#9B1C1C",text:"#fff",light:"#FEE2E2",label:"Vicejefatura"},
-  MIN:{bg:"#92400E",text:"#fff",light:"#FEF3C7",label:"Ministerio"},
-  SEC:{bg:"#78350F",text:"#fff",light:"#FEF9C3",label:"Secretaría"},
-  SS :{bg:"#1E3A5F",text:"#fff",light:"#DBEAFE",label:"Subsecretaría"},
-  DG :{bg:"#14532D",text:"#fff",light:"#DCFCE7",label:"Dir. General"},
-  GG :{bg:"#065F46",text:"#fff",light:"#D1FAE5",label:"Gerencia General"},
-  GO :{bg:"#064E3B",text:"#fff",light:"#D1FAE5",label:"Gerencia Operativa"},
-  ORG:{bg:"#374151",text:"#fff",light:"#F3F4F6",label:"Organismo desc."},
-};
-
-function getColorForNode(node){
-  if(node.tipo && node.tipo.startsWith(CUSTOM_TIPO_PREFIX)){
-    return {bg:"#5B21B6",text:"#fff",light:"#EDE9FE",label:node.tipoLabel||node.tipo.replace(CUSTOM_TIPO_PREFIX,"")};
-  }
-  return COLORS[node.tipo]||COLORS.ORG;
-}
-
-function getColorForTipo(tipo, tipoLabel){
-  if(tipo && tipo.startsWith(CUSTOM_TIPO_PREFIX)){
-    return {bg:"#5B21B6",text:"#fff",light:"#EDE9FE",label:tipoLabel||tipo.replace(CUSTOM_TIPO_PREFIX,"")};
-  }
-  return COLORS[tipo]||COLORS.ORG;
-}
+const{useState,useEffect,useMemo,useCallback,useRef}=React;
 
 const INITIAL={
   id:"JG",nombre:"Jefe de Gobierno",titular:"Jorge Macri",tipo:"JG",children:[
@@ -500,1238 +503,725 @@ const INITIAL={
   ]},
 ]};
 
-/* ── Helpers ─────────────────────────────────────── */
+
 const STORAGE_KEY="gcba_org_v2";
 function loadData(){try{const s=localStorage.getItem(STORAGE_KEY);return s?JSON.parse(s):INITIAL;}catch{return INITIAL;}}
 function saveData(d){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}catch{}}
-function flatList(t,a=[]){a.push(t);t.children.forEach(c=>flatList(c,a));return a;}
-function findNode(t,id){if(t.id===id)return t;for(const c of t.children){const f=findNode(c,id);if(f)return f;}return null;}
-function findParent(t,id,parent=null){if(t.id===id)return parent;for(const c of t.children){const f=findParent(c,id,t);if(f!==undefined)return f;}return undefined;}
-function updateNode(t,id,fn){if(t.id===id)return fn(t);return{...t,children:t.children.map(c=>updateNode(c,id,fn))};}
-function removeNode(t,id){return{...t,children:t.children.filter(c=>c.id!==id).map(c=>removeNode(c,id))};}
-function addChild(t,pid,child){return updateNode(t,pid,n=>({...n,children:[...n.children,child]}));}
 
-/* Move node: remove from current parent, add to new parent */
-function moveNode(t, nodeId, newParentId) {
-  const node = findNode(t, nodeId);
-  if(!node) return t;
-  const withoutNode = removeNode(t, nodeId);
-  return addChild(withoutNode, newParentId, node);
-}
+// ── Utilidades de árbol ──────────────────────────────────
+function flatList(t,a=[]){a.push(t);(t.children||[]).forEach(c=>flatList(c,a));return a;}
+function findNode(t,id){if(!t)return null;if(t.id===id)return t;for(const c of(t.children||[])){const f=findNode(c,id);if(f)return f;}return null;}
+function updateNode(t,id,fn){if(t.id===id)return fn(t);return{...t,children:(t.children||[]).map(c=>updateNode(c,id,fn))};}
+function removeNode(t,id){return{...t,children:(t.children||[]).filter(c=>c.id!==id).map(c=>removeNode(c,id))};}
+function addChild(t,pid,child){return updateNode(t,pid,n=>({...n,children:[...(n.children||[]),child]}));}
+function moveNode(t,nodeId,newPid){const n=findNode(t,nodeId);if(!n)return t;return addChild(removeNode(t,nodeId),newPid,n);}
 
-/* ── SVG export con D3 ───────────────────────────── */
-const CF={JG:"#9B1C1C",VJG:"#9B1C1C",MIN:"#92400E",SEC:"#78350F",SS:"#1E3A5F",DG:"#14532D",GG:"#065F46",GO:"#064E3B",ORG:"#374151"};
+// ── Colores ──────────────────────────────────────────────
+const COLORS={
+  JG:{bg:"#9B1C1C",label:"Jefatura"},VJG:{bg:"#9B1C1C",label:"Vicejefatura"},
+  MIN:{bg:"#92400E",label:"Ministerio"},SEC:{bg:"#78350F",label:"Secretaría"},
+  SS:{bg:"#1E3A5F",label:"Subsecretaría"},DG:{bg:"#14532D",label:"Dir. General"},
+  GG:{bg:"#065F46",label:"Gerencia General"},GO:{bg:"#064E3B",label:"Gerencia Operativa"},
+  ORG:{bg:"#374151",label:"Organismo desc."}
+};
+function getColor(n){if(n?.tipo?.startsWith("CUSTOM:"))return"#5B21B6";return(COLORS[n?.tipo]||COLORS.ORG).bg;}
+function getLabel(n){if(n?.tipo?.startsWith("CUSTOM:"))return n.tipoLabel||n.tipo.replace("CUSTOM:","");return(COLORS[n?.tipo]||COLORS.ORG).label;}
+
+// ── SVG A3 ───────────────────────────────────────────────
 const fv=v=>Number(v).toFixed(1);
 
-function getSVGColor(node){
-  if(node.tipo&&node.tipo.startsWith(CUSTOM_TIPO_PREFIX))return"#5B21B6";
-  return CF[node.tipo]||"#374151";
-}
-
-function wrapTxt(t,maxChars){
+function wrapTxt(t,max){
   if(!t)return[];
-  const words=t.split(" ");const lines=[];let cur="";
-  for(const w of words){
-    const test=(cur?" "+w:w);
-    if(cur.length+test.length>maxChars&&cur){lines.push(cur);cur=w;}
-    else cur=(cur+test).trim();
-  }
-  if(cur)lines.push(cur);
-  return lines;
+  const ws=t.split(" ");const ls=[];let c="";
+  for(const w of ws){const test=c?" "+w:w;if(c.length+test.length>max&&c){ls.push(c);c=w;}else c=(c+test).trim();}
+  if(c)ls.push(c);return ls;
 }
 
-function svgBoxSized(x,y,node,BW,BH,dashed,fsN,fsT){
-  const fill=getSVGColor(node);
-  // Caracteres por línea basado en el ancho real del nodo y el tamaño de fuente
-  // ~0.55em por carácter es una buena estimación para Inter
-  const charsN=Math.max(6,Math.floor(BW/(fsN*0.55)));
-  const charsT=Math.max(6,Math.floor(BW/(fsT*0.54)));
-  const nl=wrapTxt(node.nombre,charsN);
-  const tl=wrapTxt(node.titular||"",charsT);
-  const lhN=fsN*1.3;   // interlineado nombre
-  const lhT=fsT*1.25;  // interlineado titular
-  const gap=tl.length?fsN*0.35:0; // gap entre nombre y titular
-  // Altura total del bloque de texto
-  const blockH=nl.length*lhN+gap+(tl.length?tl.length*lhT:0);
-  // Punto de inicio: centrado verticalmente en el nodo
-  // SVG text y= baseline, así que sumamos lhN para la primera línea
-  let yt=y+(BH-blockH)/2+lhN*0.85;
+function svgBox(x,y,node,W,H,dashed,fsN,fsT){
+  const fill=getColor(node);
+  const nl=wrapTxt(node.nombre,Math.max(6,Math.floor(W/(fsN*0.55))));
+  const tl=wrapTxt(node.titular||"",Math.max(6,Math.floor(W/(fsT*0.54))));
+  const lhN=fsN*1.3,lhT=fsT*1.25,gap=tl.length?fsN*0.35:0;
+  const blockH=nl.length*lhN+gap+tl.length*lhT;
+  let yt=y+(H-blockH)/2+lhN*0.85;
   const da=dashed?`stroke="rgba(255,255,255,0.5)" stroke-width="1.5" stroke-dasharray="5,3"`:"";
-  const rx=fv(Math.max(4,BH*0.12));
-  let t=`<rect x="${fv(x)}" y="${fv(y)}" width="${fv(BW)}" height="${fv(BH)}" rx="${rx}" fill="${fill}" ${da}/>`;
-  nl.forEach(l=>{
-    t+=`<text x="${fv(x+BW/2)}" y="${fv(yt)}" text-anchor="middle" font-size="${fv(fsN)}" font-weight="600" fill="#fff" font-family="Inter,Arial,sans-serif">${l}</text>`;
-    yt+=lhN;
-  });
+  let s=`<rect x="${fv(x)}" y="${fv(y)}" width="${fv(W)}" height="${fv(H)}" rx="${fv(Math.max(4,H*0.12))}" fill="${fill}" ${da}/>`;
+  nl.forEach(l=>{s+=`<text x="${fv(x+W/2)}" y="${fv(yt)}" text-anchor="middle" font-size="${fv(fsN)}" font-weight="600" fill="#fff" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=lhN;});
   yt+=gap;
-  tl.forEach(l=>{
-    t+=`<text x="${fv(x+BW/2)}" y="${fv(yt)}" text-anchor="middle" font-size="${fv(fsT)}" fill="rgba(255,255,255,0.82)" font-family="Inter,Arial,sans-serif">${l}</text>`;
-    yt+=lhT;
-  });
-  return t;
+  tl.forEach(l=>{s+=`<text x="${fv(x+W/2)}" y="${fv(yt)}" text-anchor="middle" font-size="${fv(fsT)}" fill="rgba(255,255,255,0.82)" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=lhT;});
+  return s;
 }
 
-function svgBox(x,y,node,BW,BH,dashed=false){
-  return svgBoxSized(x,y,node,BW,BH,dashed,Math.max(7,Math.min(11,BW/15)),Math.max(6,Math.min(9,BW/18)));
-}
+// Genera SVG A3 para un nodo raíz usando posiciones del editor (localStorage)
+// o layout D3 automático si no hay posiciones guardadas.
+function genSVGA3(root,pn=1,tot=1){
+  const PW=1587,PH=1123,MAR=40,HH=68,FH=34;
+  const AW=PW-MAR*2,AH=PH-HH-FH-MAR;
 
-// collectOrgs recursivo (todos los descendientes dashed)
-function collectOrgs(node,acc=[]){
-  node.children.forEach(ch=>{
-    if(ch.dashed)acc.push(ch);
-    else collectOrgs(ch,acc);
-  });
-  return acc;
-}
-
-// collectOrgs solo hijos directos dashed del nodo
-function collectOrgsRoot(node){
-  return node.children.filter(c=>c.dashed);
-}
-
-// Convierte árbol en jerarquía D3 (excluye dashed).
-// Si un nodo tiene hijos mixtos (contenedores SS/GG + hojas DG),
-// envuelve las hojas en un fantasma para que queden un nivel más profundo
-// (mismo nivel visual que los hijos de los contenedores).
-function toD3Tree(node){
-  const hier=node.children.filter(c=>!c.dashed);
-  if(!hier.length)return{...node,_children:[],children:undefined};
-  const CONTAINERS=["SS","GG","SEC","MIN"];
-  const hasContainer=hier.some(c=>CONTAINERS.includes(c.tipo));
-  const hasDirect=hier.some(c=>!CONTAINERS.includes(c.tipo)&&c.tipo!=="VJG"&&c.tipo!=="JG"&&c.tipo!=="ORG");
-  let kids;
-  if(hasContainer&&hasDirect){
-    const containers=hier.filter(c=>CONTAINERS.includes(c.tipo));
-    const directs=hier.filter(c=>!CONTAINERS.includes(c.tipo)&&c.tipo!=="VJG"&&c.tipo!=="JG"&&c.tipo!=="ORG");
-    const phantom={id:"__ph_"+node.id,nombre:"",titular:"",tipo:"__phantom__",
-      _children:directs.map(toD3Tree),children:undefined};
-    kids=[...containers.map(toD3Tree),phantom];
-  } else {
-    kids=hier.map(toD3Tree);
-  }
-  return{...node,_children:kids,children:undefined};
-}
-
-// Para JG: layout manual en 2-3 filas ajustado al A3
-// Recalcula NW/NH para que los nodos llenen el espacio disponible
-function layoutJG(root,NW,NH,HPAD,VPAD,AVAIL_W,HIER_H){
-  const hier=root.children.filter(c=>!c.dashed);
-  const mins=hier.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
-  const secs=hier.filter(c=>c.tipo==="SEC");
-
-  // Si se pasaron dimensiones del A3, recalcular NW/NH para llenar el espacio
-  if(AVAIL_W&&HIER_H){
-    const cols=mins.length||1;
-    const rows=secs.length>0?3:2;
-    const gap=12;
-    NW=Math.max(80, Math.floor((AVAIL_W-(cols-1)*gap)/cols));
-    NH=Math.max(40, Math.floor((HIER_H-(rows-1)*VPAD)/rows));
-    NW=Math.min(NW,220); NH=Math.min(NH,90);
-    HPAD=Math.max(gap,Math.round((AVAIL_W-NW*cols)/(cols+1)));
-  }
-
-  const row1Y=NH+VPAD;
-  const row2Y=row1Y+NH+VPAD;
-
-  const makeRow=(items,rowY)=>{
-    const total=items.length*(NW+HPAD)-HPAD;
-    let x=-(total/2)+NW/2;
-    return items.map(c=>{
-      const n={x,y:rowY,data:c,depth:1,_NW:NW,_NH:NH};
-      x+=NW+HPAD;
-      return n;
-    });
-  };
-
-  const rootNode={x:0,y:0,data:root,depth:0,_NW:NW,_NH:NH};
-  const minNodes=makeRow(mins,row1Y);
-  const secNodes=makeRow(secs,row2Y);
-  const allNodes=[rootNode,...minNodes,...secNodes];
-  const links=[
-    ...minNodes.map(t=>({source:rootNode,target:t,isSec:false})),
-    ...secNodes.map(t=>({source:rootNode,target:t,isSec:true}))
-  ];
-  // Devolver NW y NH recalculados para que genPageSVG los use
-  return{nodes:allNodes,links,NW,NH};
-}
-
-function genPageSVG(root,pn,tot){
   const today=new Date();
   const fecha=`${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
 
-  const PW=1587,PH=1123;
-  const MAR=40,HH=68,FH=34;
-  const AVAIL_W=PW-MAR*2;
-  const AVAIL_H=PH-HH-FH-MAR;
+  // Leer posiciones guardadas del editor para este nodo raíz
+  const allSavedPos=JSON.parse(localStorage.getItem("gcba_org_positions_v1")||"{}");
+  const savedPos=allSavedPos[root.id]||null;
+
+  // Leer waypoints
+  const allWaypoints=JSON.parse(localStorage.getItem("gcba_org_waypoints_v1")||"{}");
+  const waypoints=allWaypoints[root.id]||{};
 
   const isJG=root.tipo==="JG";
-  const orgs=isJG?collectOrgsRoot(root):collectOrgs(root);
-  const hasOrgs=orgs.length>0;
-  const ORG_COLS=Math.min(Math.max(orgs.length,1),8);
-  const ORG_ROWS=Math.ceil(orgs.length/ORG_COLS);
-  const ORG_SECTION_H=hasOrgs?(30+ORG_ROWS*52):0;
-  const HIER_H=AVAIL_H-ORG_SECTION_H;
+  let nodes=[],links=[];
+  let NW,NH,sc;
 
-  // ── Medir el árbol con layout unitario para calcular span ──
-  let rawSpanX, rawSpanY;
-  if(isJG){
-    const hier=root.children.filter(c=>!c.dashed);
-    const mins=hier.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
-    const secs=hier.filter(c=>c.tipo==="SEC");
-    // Para JG en A3: forzar 2 filas con nodos más grandes
-    // Usar solo los ministerios para calcular el span horizontal
-    rawSpanX=mins.length||1;
-    rawSpanY=secs.length>0?3:2; // JG + fila MIN + fila SEC (si hay)
-  } else {
-    const td=toD3Tree(root);
-    const h0=d3.hierarchy(td,d=>d._children);
-    d3.tree().nodeSize([1,1])(h0);
-    const n0=h0.descendants().filter(n=>n.data.tipo!=="__phantom__");
-    rawSpanX=(d3.max(n0,n=>n.x)-d3.min(n0,n=>n.x))+1;
-    rawSpanY=(d3.max(n0,n=>n.depth)||1)+1;
-  }
-
-  // ── Calcular tamaño de nodo ──────────────────────────────
-  // Gaps fijos mínimos
-  const HGAP=8, VGAP=22;
-  // Máximo ancho y alto que entra en el espacio disponible
-  const NW_max=Math.floor((AVAIL_W - HGAP*(rawSpanX-1)) / rawSpanX);
-  const NH_max=Math.floor((HIER_H  - VGAP*(rawSpanY-1)) / rawSpanY);
-
-  // Fuente objetivo: queremos poder mostrar ~20 caracteres en una línea
-  // a ~0.55em/char, eso da NW = 20*fs*0.55. Con fs mínimo de 7px: NW_min ≈ 77px
-  // Preferimos NW estrecho y NH generoso para que entre el texto verticalmente
-  // Relación objetivo: NW:NH = 2.2:1 (más alto que antes)
-  const ASPECT=2.2;
-  let NW=Math.min(NW_max, 220);
-  let NH=Math.min(NH_max, Math.round(NW/ASPECT));
-  // Si NH_max permite más altura, aprovecharlo
-  if(NH_max > NH){ NH=Math.min(NH_max, Math.round(NW/1.6)); }
-  NW=Math.max(NW,65); NH=Math.max(NH,30);
-  NW=Math.round(NW);  NH=Math.round(NH);
-
-  // Tamaños de fuente proporcionales al nodo
-  const fsN=Math.max(6.5, Math.min(12, NW/15));
-  const fsT=Math.max(5.5, Math.min(10, NW/18));
-
-  // NH mínimo garantizado para que 2 líneas de nombre + 1 titular entren
-  const lhN=fsN*1.3, lhT=fsT*1.25;
-  const textH=2*lhN + lhT + fsN*0.6; // 2 líneas nombre + gap + 1 titular
-  const minNH=Math.ceil(textH*1.25);  // 25% padding vertical
-  NH=Math.max(NH, minNH);
-
-  const HPAD=Math.max(HGAP, Math.round((AVAIL_W - NW*rawSpanX)/(rawSpanX+1)));
-  const VPAD=Math.max(VGAP, Math.round((HIER_H  - NH*rawSpanY)/(rawSpanY+1)));
-  const sw=Math.max(0.8, NW/220);
-
-  // ── Layout: posiciones del editor visual o automático D3 ──
-  // Leer posiciones SIEMPRE de localStorage (no de window.__edPositions que puede estar desactualizado)
-  const savedPos=(()=>{try{return(JSON.parse(localStorage.getItem('gcba_org_positions_v1')||"{}")[root.id])||null;}catch{return null;}})();
-  const lineStyleA3='orthogonal';
-  const useSaved=savedPos&&Object.keys(savedPos).length>0;
-
-  let nodes,links,SNW,SNH,sfsN,sfsT,sVPAD,ox,oy;
-
-  if(useSaved){
-    // Usar posiciones guardadas por el drag del editor visual
-    // Para JG: solo 1 nivel de profundidad
-    function collectHier(node,acc=[],depth=0){
+  if(savedPos&&Object.keys(savedPos).length>0){
+    // ── MODO: posiciones del editor visual ──
+    // Recopilar nodos visibles (misma lógica que el editor: JG solo 1 nivel)
+    function collectVisible(node,depth=0,acc=[]){
       acc.push(node);
       if(isJG&&depth>=1)return acc;
-      (node.children||[]).filter(c=>!c.dashed).forEach(c=>collectHier(c,acc,depth+1));
+      (node.children||[]).forEach(c=>collectVisible(c,depth+1,acc));
       return acc;
     }
-    const allTreeNodes=collectHier(root);
-    nodes=allTreeNodes.map(n=>({x:savedPos[n.id]?.x??0,y:savedPos[n.id]?.y??0,data:n,depth:n.id===root.id?0:1}));
-    links=[];
-    const savedNodeIds=new Set(allTreeNodes.map(n=>n.id));
-    function buildSavedLinks(node,depth=0){
-      const src=nodes.find(n=>n.data.id===node.id);
-      if(!src)return;
-      (node.children||[]).filter(c=>!c.dashed).forEach(ch=>{
-        if(!savedNodeIds.has(ch.id))return;
+    const visible=collectVisible(root);
+    const visIds=new Set(visible.map(n=>n.id));
+
+    nodes=visible.map(n=>({
+      x:savedPos[n.id]?.x??0,
+      y:savedPos[n.id]?.y??0,
+      data:n,depth:n.id===root.id?0:1
+    }));
+
+    // Links entre nodos visibles
+    function buildLinks(node,depth=0){
+      (node.children||[]).filter(c=>visIds.has(c.id)).forEach(ch=>{
+        const src=nodes.find(n=>n.data.id===node.id);
         const tgt=nodes.find(n=>n.data.id===ch.id);
-        if(tgt)links.push({source:src,target:tgt,isSec:false});
-        if(!(isJG&&depth>=1))buildSavedLinks(ch,depth+1);
+        if(src&&tgt)links.push({source:src,target:tgt});
+        if(!(isJG&&depth>=1))buildLinks(ch,depth+1);
       });
     }
-    buildSavedLinks(root);
-    // Normalizar y escalar
-    const mnX=d3.min(nodes,n=>n.x)-NW/2,mnY=d3.min(nodes,n=>n.y);
+    buildLinks(root);
+
+    // Normalizar a origen
+    const mnX=d3.min(nodes,n=>n.x),mnY=d3.min(nodes,n=>n.y);
     nodes.forEach(n=>{n.x-=mnX;n.y-=mnY;});
-    const tW=d3.max(nodes,n=>n.x+NW/2),tH=d3.max(nodes,n=>n.y+NH);
-    const sc=Math.min(AVAIL_W/tW,HIER_H/tH);
-    const scale2=sc;
+
+    // Calcular bounding box del contenido
+    const NW_ed=158,NH_ed=50; // tamaño de nodo en el editor
+    const tW=d3.max(nodes,n=>n.x)+NW_ed,tH=d3.max(nodes,n=>n.y)+NH_ed;
+
+    // Escalar para llenar el A3
+    sc=Math.min(AW/tW,AH/tH)*0.92;
     nodes.forEach(n=>{n.x*=sc;n.y*=sc;});
-    SNW=NW*sc;SNH=NH*sc;
-    sfsN=Math.max(6,Math.min(13,fsN*sc));sfsT=Math.max(5,Math.min(10,fsT*sc));sVPAD=VPAD*sc;
-    const fW=d3.max(nodes,n=>n.x+SNW/2),fH=d3.max(nodes,n=>n.y+SNH);
-    ox=MAR+(AVAIL_W-fW)/2;oy=HH+(HIER_H-fH)/2;
-  } else {
-    // Layout automático D3
+    NW=NW_ed*sc;NH=NH_ed*sc;
+
+  }else{
+    // ── MODO: layout D3 automático ──
+    NW=160;NH=52;
+    const HGAP=10,VGAP=28;
+
     if(isJG){
-      let jgResult=layoutJG(root,NW,NH,HPAD,VPAD,AVAIL_W,HIER_H);
-      nodes=jgResult.nodes;links=jgResult.links;
-      // Usar NW/NH recalculados por layoutJG
-      NW=jgResult.NW;NH=jgResult.NH;
-    } else {
-      const td=toD3Tree(root);
-      const hier=d3.hierarchy(td,d=>d._children);
-      d3.tree().nodeSize([NW+HPAD,NH+VPAD])(hier);
-      const allN=hier.descendants(),allL=hier.links();
-      nodes=allN.filter(n=>n.data.tipo!=="__phantom__");
-      const realLinks=allL.filter(l=>l.source.data.tipo!=="__phantom__"&&l.target.data.tipo!=="__phantom__");
-      const skipped=[];
-      allL.filter(l=>l.source.data.tipo==="__phantom__").forEach(l=>{if(l.source.parent)skipped.push({source:l.source.parent,target:l.target});});
-      links=[...realLinks,...skipped];
+      // JG: 2 filas — ministerios arriba, secretarías abajo
+      const hier=(root.children||[]).filter(c=>!c.dashed);
+      const mins=hier.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
+      const secs=hier.filter(c=>c.tipo==="SEC");
+      const orgsDir=hier.filter(c=>c.tipo==="ORG");
+      const col=Math.max(mins.length,1);
+      NW=Math.min(180,Math.floor((AW-(col-1)*HGAP)/col));
+      NH=Math.min(60,Math.round(NW/2.8));
+      const HPAD=Math.round((AW-NW*col)/(col+1));
+      const rootY=0,minY=NH+VGAP,secY=minY+NH+VGAP;
+      const rn={x:AW/2,y:rootY,data:root,depth:0};
+      const makeRow=(items,rowY)=>{
+        const tot=items.length*(NW+HPAD)-HPAD;
+        let x=MAR+(AW-tot)/2+NW/2;
+        return items.map(c=>{const n={x,y:rowY,data:c,depth:1};x+=NW+HPAD;return n;});
+      };
+      const mn=makeRow(mins,minY);
+      const sn=makeRow(secs,secY);
+      const on=makeRow(orgsDir,secY+(secs.length?NH+VGAP:0));
+      nodes=[rn,...mn,...sn,...on];
+      links=[
+        ...mn.map(t=>({source:rn,target:t})),
+        ...sn.map(t=>({source:rn,target:t})),
+        ...on.map(t=>({source:rn,target:t}))
+      ];
+      sc=1;
+    }else{
+      // Otros: D3 tree
+      function toHier(node){const kids=(node.children||[]).filter(c=>!c.dashed);return{...node,_k:kids.map(toHier),children:undefined};}
+      const hier=d3.hierarchy(toHier(root),d=>d._k.length?d._k:null);
+      const cols=hier.leaves().length||1;
+      NW=Math.min(180,Math.max(70,Math.floor((AW-(cols-1)*HGAP)/cols)));
+      NH=Math.min(60,Math.round(NW/2.5));
+      d3.tree().nodeSize([NW+HGAP,NH+VGAP])(hier);
+      const allN=hier.descendants();
+      const allL=hier.links();
+      nodes=allN.map(n=>({x:n.x,y:n.y,data:n.data,depth:n.depth}));
+      links=allL.map(l=>({
+        source:nodes.find(n=>n.data.id===l.source.data.id),
+        target:nodes.find(n=>n.data.id===l.target.data.id)
+      })).filter(l=>l.source&&l.target);
+      // Normalizar
+      const mnX=d3.min(nodes,n=>n.x)-NW/2,mnY=d3.min(nodes,n=>n.y);
+      nodes.forEach(n=>{n.x-=mnX;n.y-=mnY;});
+      const tW=d3.max(nodes,n=>n.x+NW/2),tH=d3.max(nodes,n=>n.y+NH);
+      sc=Math.min(AW/tW,AH/tH)*0.92;
+      nodes.forEach(n=>{n.x*=sc;n.y*=sc;});
+      NW=NW*sc;NH=NH*sc;
     }
-    const minX=d3.min(nodes,n=>n.x)-NW/2,minY=d3.min(nodes,n=>n.y);
-    nodes.forEach(n=>{n.x-=minX;n.y-=minY;});
-    const treeW=d3.max(nodes,n=>n.x+NW/2),treeH=d3.max(nodes,n=>n.y+NH);
-    const scale=Math.min(AVAIL_W/treeW,HIER_H/treeH);
-    nodes.forEach(n=>{n.x*=scale;n.y*=scale;});
-    SNW=NW*scale;SNH=NH*scale;
-    sfsN=Math.max(6,Math.min(13,fsN*scale));sfsT=Math.max(5,Math.min(10,fsT*scale));sVPAD=VPAD*scale;
-    const finalW=d3.max(nodes,n=>n.x+SNW/2),finalH=d3.max(nodes,n=>n.y+SNH);
-    ox=MAR+(AVAIL_W-finalW)/2;oy=HH+(HIER_H-finalH)/2;
   }
-  const hc=getSVGColor(root);
 
-  // ── Líneas jerárquicas ──────────────────────────────────
-  // Leer waypoints guardados para esta área
-  const a3Waypoints=(()=>{try{return(JSON.parse(localStorage.getItem('gcba_org_waypoints_v1')||"{}")[root.id])||{};}catch{return{};}})();
+  // Offset para centrar en el A3
+  const usedW=d3.max(nodes,n=>n.x)+NW,usedH=d3.max(nodes,n=>n.y)+NH;
+  const ox=MAR+(AW-usedW)/2,oy=HH+(AH-usedH)/2;
 
-  function wpKeyA3(sid,tid){return sid+"-"+tid;}
-
-  // Función de path según estilo guardado y waypoints
-  function a3LinkPath(sx,sy,tx,ty,isSec,sid,tid){
-    const wps=(a3Waypoints[wpKeyA3(sid,tid)]||[]);
-    if(wps.length>0&&useSaved){
-      // Waypoints solo tienen sentido cuando las posiciones vienen del editor (mismo espacio de coordenadas)
-      const scFactor=SNW/NW; // mismo factor de escala aplicado a los nodos
-      // Las posiciones del editor son en px del canvas sin escalar
-      // Necesitamos el mismo factor de escala que se aplicó a los nodos
-      const scaledPts=[{x:sx,y:sy+SNH},...wps.map(wp=>({x:wp.x*scFactor,y:wp.y*scFactor})),{x:tx,y:ty}];
-      let d=`M${fv(scaledPts[0].x)},${fv(scaledPts[0].y)}`;
-      for(let i=1;i<scaledPts.length;i++){
-        const prev=scaledPts[i-1], cur=scaledPts[i];
-        // Mismo algoritmo que el editor: horizontal al X del próximo, luego vertical
-        d+=`L${fv(cur.x)},${fv(prev.y)}L${fv(cur.x)},${fv(cur.y)}`;
+  // ── Dibujar líneas ──────────────────────────────────────
+  const sw=Math.max(0.8,NW/200);
+  function linkPath(src,tgt,wps){
+    const sx=src.x,sy=src.y+NH,tx=tgt.x,ty=tgt.y;
+    if(wps&&wps.length>0){
+      const scWP=NW/158; // escalar waypoints como los nodos
+      const pts=[{x:sx,y:sy},...wps.map(p=>({x:p.x*scWP,y:p.y*scWP})),{x:tx,y:ty}];
+      let d=`M${fv(pts[0].x)},${fv(pts[0].y)}`;
+      for(let i=1;i<pts.length;i++){
+        d+=`L${fv(pts[i].x)},${fv(pts[i-1].y)}L${fv(pts[i].x)},${fv(pts[i].y)}`;
       }
       return`<path d="${d}" fill="none" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
     }
-    if(lineStyleA3==='diagonal'){
-      return`<line x1="${fv(sx)}" y1="${fv(sy+SNH)}" x2="${fv(tx)}" y2="${fv(ty)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
-    } else if(lineStyleA3==='curved'){
-      const cy1=sy+SNH+(ty-(sy+SNH))*0.4;
-      const cy2=sy+SNH+(ty-(sy+SNH))*0.6;
-      return`<path d="M${fv(sx)},${fv(sy+SNH)}C${fv(sx)},${fv(cy1)} ${fv(tx)},${fv(cy2)} ${fv(tx)},${fv(ty)}" fill="none" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
-    } else {
-      // orthogonal — con rail especial para SEC en JG
-      if(isSec){
-        const minNodesX2=nodes.filter(n=>n.depth===1&&(n.data.tipo==="MIN"||n.data.tipo==="VJG")).map(n=>n.x);
-        const railX=minNodesX2.length>0?Math.min(...minNodesX2)-SNW/2-8:0;
-        const b1=sy+SNH+sVPAD/2,mr=ty-sVPAD/2;
-        return`<line x1="${fv(sx)}" y1="${fv(sy+SNH)}" x2="${fv(sx)}" y2="${fv(b1)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`+
-               `<line x1="${fv(sx)}" y1="${fv(b1)}" x2="${fv(railX)}" y2="${fv(b1)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`+
-               `<line x1="${fv(railX)}" y1="${fv(b1)}" x2="${fv(railX)}" y2="${fv(mr)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`+
-               `<line x1="${fv(railX)}" y1="${fv(mr)}" x2="${fv(tx)}" y2="${fv(mr)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`+
-               `<line x1="${fv(tx)}" y1="${fv(mr)}" x2="${fv(tx)}" y2="${fv(ty)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
-      }
-      const mid=sy+SNH+sVPAD/2;
-      return`<line x1="${fv(sx)}" y1="${fv(sy+SNH)}" x2="${fv(sx)}" y2="${fv(mid)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`+
-             `<line x1="${fv(sx)}" y1="${fv(mid)}" x2="${fv(tx)}" y2="${fv(mid)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`+
-             `<line x1="${fv(tx)}" y1="${fv(mid)}" x2="${fv(tx)}" y2="${fv(ty)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
-    }
+    const my=sy+(ty-sy)/2;
+    return`<line x1="${fv(sx)}" y1="${fv(sy)}" x2="${fv(sx)}" y2="${fv(my)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>` +
+           `<line x1="${fv(sx)}" y1="${fv(my)}" x2="${fv(tx)}" y2="${fv(my)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>` +
+           `<line x1="${fv(tx)}" y1="${fv(my)}" x2="${fv(tx)}" y2="${fv(ty)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
   }
 
   let linesSVG="";
   links.forEach(lk=>{
-    const sid=lk.source.data?.id||"";
-    const tid=lk.target.data?.id||"";
-    linesSVG+=a3LinkPath(lk.source.x,lk.source.y,lk.target.x,lk.target.y,lk.isSec||false,sid,tid);
+    if(!lk.source||!lk.target)return;
+    const sid=lk.source.data?.id,tid=lk.target.data?.id;
+    const wps=waypoints[`${sid}-${tid}`]||[];
+    linesSVG+=linkPath(lk.source,lk.target,wps);
   });
 
-  // ── Nodos ───────────────────────────────────────────────
+  // ── Dibujar nodos ───────────────────────────────────────
+  const fsN=Math.max(6,Math.min(12,NW/14)),fsT=Math.max(5,Math.min(10,NW/18));
   let nodesSVG="";
-  nodes.forEach(n=>{
-    nodesSVG+=svgBoxSized(n.x-SNW/2,n.y,n.data,SNW,SNH,false,sfsN,sfsT);
-  });
-
-  let hierSVG=`<g transform="translate(${fv(ox)},${fv(oy)})">`;
-  hierSVG+=linesSVG+nodesSVG;
-  hierSVG+=`</g>`;
-
-  // ── Organismos fuera de nivel ────────────────────────────
-  let orgsSVG="";
-  if(hasOrgs){
-    const sepY=HH+HIER_H+8;
-    const OBW=Math.min(150,Math.floor((AVAIL_W-(ORG_COLS-1)*8)/ORG_COLS));
-    const OBH=Math.round(OBW/3.0);
-    const OGAP=8;
-    const orgRowW=ORG_COLS*OBW+(ORG_COLS-1)*OGAP;
-    const orgStartX=MAR+(AVAIL_W-orgRowW)/2;
-    const fsO=Math.max(6.5,Math.min(10,OBW/15));
-
-    orgsSVG+=`<line x1="${MAR}" y1="${fv(sepY)}" x2="${fv(PW-MAR)}" y2="${fv(sepY)}" stroke="#CBD5E0" stroke-width="0.8" stroke-dasharray="5,4"/>`;
-    orgsSVG+=`<text x="${fv(PW/2)}" y="${fv(sepY+12)}" text-anchor="middle" font-size="7.5" fill="#A0AEC0" font-family="Inter,Arial,sans-serif" letter-spacing="1.5">ORGANISMOS DESCENTRALIZADOS Y FUERA DE NIVEL</text>`;
-
-    // Ancla: borde inferior del nodo raíz (coordenadas de página)
-    const rootN=nodes.find(n=>n.depth===0)||nodes[0];
-    const anchorX=ox+rootN.x;
-    const anchorY=oy+rootN.y+SNH;
-
-    // Rail vertical en el MARGEN DERECHO — dentro del viewBox
-    const railX=MAR+AVAIL_W+18; // justo fuera del área de contenido pero dentro del SVG
-    const lastOrgTopY=sepY+18+(ORG_ROWS-1)*(OBH+OGAP);
-
-    // 1. Línea horizontal: ancla → rail
-    orgsSVG+=`<line x1="${fv(anchorX)}" y1="${fv(anchorY)}" x2="${fv(railX)}" y2="${fv(anchorY)}" stroke="#A0AEC0" stroke-width="1" stroke-dasharray="5,3"/>`;
-    // 2. Rail vertical: desde ancla hasta la altura del último org
-    orgsSVG+=`<line x1="${fv(railX)}" y1="${fv(anchorY)}" x2="${fv(railX)}" y2="${fv(lastOrgTopY+OBH/2)}" stroke="#A0AEC0" stroke-width="1" stroke-dasharray="5,3"/>`;
-
-    // 3. Por cada org: línea horizontal del rail → borde derecho del org,
-    //    luego bajada vertical hasta el tope del org
-    orgs.forEach((org,i)=>{
-      const col=i%ORG_COLS, row=Math.floor(i/ORG_COLS);
-      const ox2=orgStartX+col*(OBW+OGAP);
-      const oy2=sepY+18+row*(OBH+OGAP);
-      const orgTopY=oy2;
-      const orgMidY=oy2+OBH/2;
-      const orgCX=ox2+OBW/2; // centro horizontal del org
-      // Del rail al centro del org, a la altura media
-      orgsSVG+=`<line x1="${fv(railX)}" y1="${fv(orgMidY)}" x2="${fv(orgCX)}" y2="${fv(orgMidY)}" stroke="#A0AEC0" stroke-width="1" stroke-dasharray="5,3"/>`;
-      // Del centro hacia arriba hasta el tope del nodo
-      orgsSVG+=`<line x1="${fv(orgCX)}" y1="${fv(orgMidY)}" x2="${fv(orgCX)}" y2="${fv(orgTopY)}" stroke="#A0AEC0" stroke-width="1" stroke-dasharray="5,3"/>`;
-    });
-
-    // 4. Nodos encima
-    orgs.forEach((org,i)=>{
-      const col=i%ORG_COLS, row=Math.floor(i/ORG_COLS);
-      const ox2=orgStartX+col*(OBW+OGAP);
-      const oy2=sepY+18+row*(OBH+OGAP);
-      orgsSVG+=svgBoxSized(ox2,oy2,org,OBW,OBH,true,fsO,fsO*0.85);
-    });
-  }
+  nodes.forEach(n=>{nodesSVG+=svgBox(n.x-NW/2,n.y,n.data,NW,NH,!!n.data.dashed,fsN,fsT);});
 
   // ── Leyenda ─────────────────────────────────────────────
-  const leg=[["#9B1C1C","Jefatura"],["#92400E","Ministerio"],["#78350F","Secretaría"],["#1E3A5F","Subsecretaría"],["#14532D","Dir. General"],["#374151","Org. desc."],["#5B21B6","Personalizado"]];
-  const lw=125,lx=(PW-(leg.length*lw))/2,ly=PH-FH+12;
-  let legSVG=leg.map((it,i)=>`<rect x="${fv(lx+i*lw)}" y="${fv(ly)}" width="9" height="9" rx="2" fill="${it[0]}"/><text x="${fv(lx+i*lw+13)}" y="${fv(ly+8)}" font-size="8" fill="#718096" font-family="Inter,Arial,sans-serif">${it[1]}</text>`).join("");
-  if(tot>1)legSVG+=`<text x="${fv(PW-MAR)}" y="${fv(ly+8)}" text-anchor="end" font-size="8" fill="#A0AEC0" font-family="Inter,Arial,sans-serif">${pn}/${tot}</text>`;
+  const leg=[["#9B1C1C","Jefatura"],["#92400E","Ministerio"],["#78350F","Secretaría"],
+             ["#1E3A5F","Subsecretaría"],["#14532D","Dir. General"],["#374151","Org. desc."]];
+  const lw=118,lx=(PW-leg.length*lw)/2,ly=PH-FH+11;
+  const legSVG=leg.map((it,i)=>
+    `<rect x="${fv(lx+i*lw)}" y="${fv(ly)}" width="9" height="9" rx="2" fill="${it[0]}"/>` +
+    `<text x="${fv(lx+i*lw+13)}" y="${fv(ly+8)}" font-size="8" fill="#718096" font-family="Inter,Arial,sans-serif">${it[1]}</text>`
+  ).join("");
+  const pgSVG=tot>1?`<text x="${fv(PW-MAR)}" y="${fv(ly+8)}" text-anchor="end" font-size="8" fill="#A0AEC0" font-family="Inter,Arial,sans-serif">${pn}/${tot}</text>`:"";
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}">
-<defs><linearGradient id="hg${pn}" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="${hc}"/><stop offset="100%" stop-color="${hc}CC"/></linearGradient></defs>
+  const hc=getColor(root);
+  return`<svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}">
+<defs><linearGradient id="hg${pn}" x1="0" y1="0" x2="1" y2="0">
+  <stop offset="0%" stop-color="${hc}"/><stop offset="100%" stop-color="${hc}CC"/>
+</linearGradient></defs>
 <rect width="${PW}" height="${PH}" fill="#F8FAFC"/>
 <rect x="0" y="0" width="${PW}" height="${HH}" fill="url(#hg${pn})"/>
 <line x1="0" y1="${HH}" x2="${PW}" y2="${HH}" stroke="#E2E8F0" stroke-width="1"/>
-<text x="${fv(PW/2)}" y="${fv(HH*0.47)}" text-anchor="middle" font-size="22" font-weight="700" fill="#fff" font-family="Inter,Arial,sans-serif">${root.nombre}</text>
-<text x="${fv(PW/2)}" y="${fv(HH*0.78)}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.72)" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · Última actualización: ${fecha}</text>
-${hierSVG}${orgsSVG}
+<text x="${fv(PW/2)}" y="${fv(HH*0.45)}" text-anchor="middle" font-size="22" font-weight="700" fill="#fff" font-family="Inter,Arial,sans-serif">${root.nombre}</text>
+<text x="${fv(PW/2)}" y="${fv(HH*0.78)}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.7)" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · ${fecha}</text>
+<g transform="translate(${fv(ox)},${fv(oy)})">${linesSVG}${nodesSVG}</g>
 <rect x="0" y="${PH-FH}" width="${PW}" height="${FH}" fill="#F8FAFC"/>
 <line x1="0" y1="${PH-FH}" x2="${PW}" y2="${PH-FH}" stroke="#E2E8F0" stroke-width="0.8"/>
-${legSVG}
+${legSVG}${pgSVG}
 </svg>`;
 }
 
-
-
 function dlSVG(svgStr,fname){
-  const blob=new Blob([svgStr],{type:"image/svg+xml;charset=utf-8"});
+  const blob=new Blob([svgStr],{type:"image/svg+xml"});
   const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");
-  a.href=url;a.download=fname;
-  document.body.appendChild(a);a.click();
-  document.body.removeChild(a);
-  setTimeout(()=>URL.revokeObjectURL(url),100);
+  Object.assign(document.createElement("a"),{href:url,download:fname}).click();
+  URL.revokeObjectURL(url);
 }
 
-/* ── Panel item ──────────────────────────────────── */
-function PanelItem({node,onSelect,selectedId,depth=0}){
-  const[open,setOpen]=useState(depth<1);
-  const col=getColorForNode(node);
-  const isSel=selectedId===node.id;
-  return(
-    <div style={{marginBottom:2}}>
-      <div onClick={()=>{onSelect(node);if(node.children.length)setOpen(o=>!o);}}
-        style={{display:"flex",alignItems:"center",gap:8,padding:`${depth===0?"7px":"5px"} 10px`,
-          marginLeft:depth*12,borderRadius:8,cursor:"pointer",
-          background:isSel?col.bg:depth===0?"rgba(0,94,166,0.06)":"transparent",
-          border:`1.5px ${node.dashed?"dashed":"solid"} ${isSel?col.bg:depth===0?"rgba(0,94,166,0.2)":"transparent"}`,
-          transition:"all 0.15s"}}
-        onMouseEnter={e=>{if(!isSel)e.currentTarget.style.background="rgba(0,94,166,0.08)";}}
-        onMouseLeave={e=>{if(!isSel)e.currentTarget.style.background=depth===0?"rgba(0,94,166,0.06)":"transparent";}}>
-        <div style={{width:8,height:8,borderRadius:2,flexShrink:0,background:isSel?"rgba(255,255,255,0.9)":col.bg}}/>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:depth===0?12:11,fontWeight:depth===0?600:400,
-            color:isSel?"#fff":depth===0?"#1A2B42":"#4A5568",
-            lineHeight:1.3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{node.nombre}</div>
-          {node.titular&&depth<=1&&(
-            <div style={{fontSize:10,color:isSel?"rgba(255,255,255,0.75)":"#718096",
-              whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{node.titular}</div>
-          )}
-        </div>
-        {node.children.length>0&&<span style={{fontSize:9,color:isSel?"rgba(255,255,255,0.8)":col.bg,flexShrink:0,background:isSel?"rgba(255,255,255,0.15)":col.bg+"18",padding:"1px 5px",borderRadius:10,fontWeight:600}}>{node.children.length}</span>}
-        {node.children.length>0&&<span style={{fontSize:10,color:isSel?"#fff":col.bg,flexShrink:0}}>{open?"▾":"▸"}</span>}
-      </div>
-      {open&&node.children.map(ch=><PanelItem key={ch.id} node={ch} onSelect={onSelect} selectedId={selectedId} depth={depth+1}/>)}
-    </div>
-  );
+// ── Exponer al scope global para el editor D3 ──
+window.__genSVGA3=genSVGA3;
+window.__dlSVG=dlSVG;
+window.__flatList=flatList;
+window.__findNode=findNode;
+
+// ── Componentes React ─────────────────────────────────────
+function Btn({children,onClick,variant="secondary",small=false,style={}}){
+  const base={fontFamily:"inherit",fontWeight:500,cursor:"pointer",border:"1px solid",
+    borderRadius:8,transition:"all .15s",fontSize:small?11:12,
+    padding:small?"4px 10px":"6px 14px",display:"inline-flex",alignItems:"center",gap:6,...style};
+  const variants={
+    primary:{background:"#005EA6",borderColor:"#005EA6",color:"#fff"},
+    secondary:{background:"#fff",borderColor:"#CBD5E0",color:"#4A5568"},
+    ghost:{background:"rgba(255,255,255,0.08)",borderColor:"rgba(255,255,255,0.25)",color:"#fff"},
+    danger:{background:"#fff",borderColor:"#FC8181",color:"#C53030"}
+  };
+  return<button style={{...base,...variants[variant]}} onClick={onClick}>{children}</button>;
 }
 
-/* ── Modal ───────────────────────────────────────── */
-function Modal({title,accentColor="#005EA6",children,onClose,wide=false}){
-  return(
-    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(15,30,60,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(2px)"}}>
-      <div onClick={e=>e.stopPropagation()} className="fade-in"
-        style={{background:"#fff",borderRadius:16,width:wide?520:400,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
-        <div style={{background:accentColor,padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:1}}>
-          <div style={{fontSize:14,fontWeight:600,color:"#fff"}}>{title}</div>
-          <button onClick={onClose} style={{background:"rgba(255,255,255,0.2)",border:"none",borderRadius:6,color:"#fff",width:28,height:28,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
-        </div>
-        <div style={{padding:"20px 20px 24px",overflowY:"auto",maxHeight:"calc(90vh - 60px)"}}>{children}</div>
+function TypeBadge({tipo,tipoLabel}){
+  const isCustom=tipo?.startsWith("CUSTOM:");
+  const label=isCustom?(tipoLabel||tipo.replace("CUSTOM:","")):(COLORS[tipo]?.label||tipo);
+  const color=isCustom?"#5B21B6":(COLORS[tipo]?.bg||"#374151");
+  return<span style={{background:color,color:"#fff",fontSize:9,fontWeight:600,padding:"2px 6px",borderRadius:4,textTransform:"uppercase",letterSpacing:".04em"}}>{label}</span>;
+}
+
+function Modal({title,children,onClose,wide=false}){
+  return<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(3px)"}} onClick={onClose}>
+    <div style={{background:"#fff",borderRadius:14,width:wide?600:400,maxHeight:"85vh",overflow:"auto",boxShadow:"0 20px 60px rgba(0,0,0,.3)"}} onClick={e=>e.stopPropagation()}>
+      <div style={{background:"#F7FAFC",padding:"14px 18px",borderBottom:"1px solid #E2E8F0",display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:"14px 14px 0 0"}}>
+        <span style={{fontWeight:600,fontSize:14}}>{title}</span>
+        <button onClick={onClose} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:"#718096"}}>✕</button>
       </div>
+      <div style={{padding:18}}>{children}</div>
     </div>
-  );
+  </div>;
 }
 
 function Field({label,value,onChange,type="text",children}){
-  return(
-    <div style={{marginBottom:12}}>
-      <label style={{fontSize:11,fontWeight:500,color:"#4A5568",display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.04em"}}>{label}</label>
-      {children||<input value={value} onChange={onChange} style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:"1.5px solid #D8E2EE",color:"#1A2B42"}}/>}
-    </div>
-  );
+  return<div style={{marginBottom:14}}>
+    <label style={{fontSize:11,fontWeight:600,color:"#718096",textTransform:"uppercase",letterSpacing:".05em",display:"block",marginBottom:5}}>{label}</label>
+    {children||<input type={type} value={value} onChange={e=>onChange(e.target.value)}
+      style={{width:"100%",border:"1px solid #CBD5E0",borderRadius:7,padding:"7px 10px",fontSize:13,fontFamily:"inherit",outline:"none"}}/>}
+  </div>;
 }
 
-/* Selector de tipo que incluye opción "Otro" con campo libre */
-function TipoSelector({tipo, tipoLabel, onTipoChange, onTipoLabelChange}){
-  const isCustom = tipo && tipo.startsWith(CUSTOM_TIPO_PREFIX);
-  return(
-    <div style={{marginBottom:12}}>
-      <label style={{fontSize:11,fontWeight:500,color:"#4A5568",display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.04em"}}>Tipo de unidad</label>
-      <select value={isCustom?"__custom__":tipo}
-        onChange={e=>{
-          if(e.target.value==="__custom__") onTipoChange(CUSTOM_TIPO_PREFIX+(tipoLabel||""));
-          else onTipoChange(e.target.value);
-        }}
-        style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:"1.5px solid #D8E2EE",background:"#fff",color:"#1A2B42",marginBottom:isCustom?8:0}}>
+function TipoSelector({tipo,tipoLabel,onChange}){
+  const isC=tipo?.startsWith("CUSTOM:");
+  return<>
+    <Field label="Tipo">
+      <select value={isC?"__custom__":tipo} onChange={e=>onChange(e.target.value==="__custom__"?"CUSTOM:":e.target.value,tipoLabel)}
+        style={{width:"100%",border:"1px solid #CBD5E0",borderRadius:7,padding:"7px 10px",fontSize:13,fontFamily:"inherit",outline:"none"}}>
         {Object.entries(COLORS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-        <option value="__custom__">✏️ Otro (nombre personalizado)…</option>
+        <option value="__custom__">✏️ Personalizado…</option>
       </select>
-      {isCustom&&(
-        <input
-          value={tipoLabel||""}
-          onChange={e=>{
-            onTipoLabelChange(e.target.value);
-            onTipoChange(CUSTOM_TIPO_PREFIX+e.target.value);
-          }}
-          placeholder="Ej: Gerencia de Auditoría, Unidad de Control…"
-          style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:"1.5px solid #7C3AED",color:"#1A2B42",background:"#F5F3FF"}}
-        />
-      )}
-    </div>
-  );
+    </Field>
+    {isC&&<Field label="Nombre del tipo"><input value={tipoLabel||""} onChange={e=>onChange(tipo,e.target.value)}
+      style={{width:"100%",border:"1px solid #CBD5E0",borderRadius:7,padding:"7px 10px",fontSize:13,fontFamily:"inherit",outline:"none"}}/></Field>}
+  </>;
 }
 
-/* Selector de nodo padre — lista plana de todos los nodos del árbol */
-function PadreSelector({allNodes, currentId, value, onChange}){
-  const options = allNodes.filter(n => n.id !== currentId);
-  return(
-    <div style={{marginBottom:12}}>
-      <label style={{fontSize:11,fontWeight:500,color:"#4A5568",display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.04em"}}>Depende de</label>
-      <select value={value} onChange={onChange}
-        style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:"1.5px solid #D8E2EE",background:"#fff",color:"#1A2B42"}}>
-        {options.map(n=>{
-          const col=getColorForNode(n);
-          const label=n.tipo&&n.tipo.startsWith(CUSTOM_TIPO_PREFIX)?(n.tipoLabel||n.tipo.replace(CUSTOM_TIPO_PREFIX,"")):(COLORS[n.tipo]||{label:n.tipo}).label;
-          return <option key={n.id} value={n.id}>[{label}] {n.nombre}</option>;
-        })}
-      </select>
-    </div>
-  );
+function PadreSelector({allNodes,currentId,value,onChange}){
+  return<Field label="Depende de">
+    <select value={value} onChange={e=>onChange(e.target.value)}
+      style={{width:"100%",border:"1px solid #CBD5E0",borderRadius:7,padding:"7px 10px",fontSize:13,fontFamily:"inherit",outline:"none"}}>
+      {allNodes.filter(n=>n.id!==currentId).map(n=><option key={n.id} value={n.id}>[{getLabel(n)}] {n.nombre}</option>)}
+    </select>
+  </Field>;
 }
 
-function NodePreview({form}){
-  const isCustom = form.tipo && form.tipo.startsWith(CUSTOM_TIPO_PREFIX);
-  const col = isCustom
-    ? {bg:"#5B21B6",text:"#fff",label:form.tipoLabel||form.tipo.replace(CUSTOM_TIPO_PREFIX,"")||"Tipo personalizado"}
-    : (COLORS[form.tipo]||COLORS.ORG);
-  return(
-    <div style={{background:col.bg,color:col.text,borderRadius:10,padding:"12px 14px",marginBottom:16,border:form.dashed?"2px dashed rgba(255,255,255,0.4)":"none",boxShadow:"0 2px 8px rgba(0,0,0,0.12)"}}>
-      <div style={{fontSize:11,fontWeight:500,opacity:0.7,marginBottom:2}}>{col.label}</div>
-      <div style={{fontSize:13,fontWeight:700}}>{form.nombre||"—"}</div>
-      {form.titular&&<div style={{fontSize:11,opacity:0.82,marginTop:2}}>{form.titular}</div>}
+function PanelItem({node,onSelect,selectedId,depth=0}){
+  const isSelected=node.id===selectedId;
+  const color=getColor(node);
+  return<>
+    <div onClick={()=>onSelect(node)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",
+      paddingLeft:12+depth*14,cursor:"pointer",background:isSelected?"#EBF4FF":"transparent",
+      borderLeft:isSelected?"3px solid #005EA6":"3px solid transparent",transition:"all .1s"}}>
+      <div style={{width:8,height:8,borderRadius:2,background:color,flexShrink:0,
+        border:node.dashed?"2px dashed rgba(0,0,0,.25)":"none"}}/>
+      <span style={{fontSize:12,color:isSelected?"#005EA6":"#2D3748",fontWeight:isSelected?600:400,flex:1,
+        whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{node.nombre}</span>
+      <TypeBadge tipo={node.tipo} tipoLabel={node.tipoLabel}/>
     </div>
-  );
-}
-
-const Btn=({children,onClick,variant="secondary",small=false,style={}})=>{
-  const variants={
-    primary:{background:"#005EA6",color:"#fff",border:"none"},
-    success:{background:"#166534",color:"#fff",border:"none"},
-    danger:{background:"transparent",color:"#9B1C1C",border:"1.5px solid #FCA5A5"},
-    secondary:{background:"#fff",color:"#1A2B42",border:"1.5px solid #D8E2EE"},
-    ghost:{background:"transparent",color:"#4A5568",border:"1.5px solid #E2E8F0"},
-  };
-  return(
-    <button onClick={onClick} style={{...variants[variant],borderRadius:8,padding:small?"4px 10px":"6px 14px",fontSize:small?11:12,fontWeight:500,display:"flex",alignItems:"center",gap:5,...style}}
-      onMouseEnter={e=>{e.currentTarget.style.opacity="0.85";}}
-      onMouseLeave={e=>{e.currentTarget.style.opacity="1";}}>{children}</button>
-  );
-};
-
-function TypeBadge({tipo,tipoLabel,dashed}){
-  const isCustom = tipo && tipo.startsWith(CUSTOM_TIPO_PREFIX);
-  const col = isCustom ? {bg:"#5B21B6",text:"#fff",label:tipoLabel||tipo.replace(CUSTOM_TIPO_PREFIX,"")||"Personalizado"} : (COLORS[tipo]||COLORS.ORG);
-  return(
-    <span style={{background:col.bg,color:col.text,fontSize:10,fontWeight:600,padding:"3px 9px",borderRadius:20,letterSpacing:"0.03em",border:dashed?"1.5px dashed rgba(255,255,255,0.4)":"none"}}>
-      {col.label}{dashed?" · Dep. funcional":""}
-    </span>
-  );
-}
-
-function ChildCard({node,onClick}){
-  const col=getColorForNode(node);
-  const label=node.tipo&&node.tipo.startsWith(CUSTOM_TIPO_PREFIX)?(node.tipoLabel||node.tipo.replace(CUSTOM_TIPO_PREFIX,"")):(COLORS[node.tipo]||{label:node.tipo}).label;
-  return(
-    <div onClick={()=>onClick(node)}
-      style={{background:"#fff",borderRadius:12,padding:"12px 14px",cursor:"pointer",border:`1.5px solid ${node.dashed?"#CBD5E0":col.bg+"33"}`,borderLeft:`4px solid ${col.bg}`,boxShadow:"0 1px 4px rgba(0,0,0,0.06)",transition:"all 0.15s"}}
-      onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 16px rgba(0,94,166,0.12)";e.currentTarget.style.borderColor=col.bg;}}
-      onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 4px rgba(0,0,0,0.06)";e.currentTarget.style.borderColor=node.dashed?"#CBD5E0":col.bg+"33";}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:11,fontWeight:700,color:col.bg,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.04em"}}>{label}</div>
-          <div style={{fontSize:12,fontWeight:600,color:"#1A2B42",lineHeight:1.35}}>{node.nombre}</div>
-          {node.titular&&<div style={{fontSize:11,color:"#718096",marginTop:3}}>{node.titular}</div>}
-        </div>
-        {node.children.length>0&&<span style={{background:col.bg+"18",color:col.bg,fontSize:10,fontWeight:600,padding:"2px 7px",borderRadius:20,flexShrink:0,marginTop:2}}>{node.children.length} dep.</span>}
-      </div>
-      {node.dashed&&<div style={{fontSize:10,color:"#718096",marginTop:6,display:"flex",alignItems:"center",gap:4}}><span style={{borderTop:"1.5px dashed #A0AEC0",width:14,display:"inline-block"}}/>Dependencia funcional</div>}
-    </div>
-  );
-}
-
-/* ── App ─────────────────────────────────────────── */
-/* ── Modal Vista A3 ──────────────────────────────── */
-function ModalA3({data,allNodes,onClose}){
-  const[svgStr,setSvgStr]=React.useState("");
-  const[status,setStatus]=React.useState("Generando vista…");
-
-  React.useEffect(()=>{
-    // Capturar el SVG actual del editor visual y escalarlo a A3
-    // Si el editor no está activo, usar el canvas actual si existe
-    const edSvg=document.getElementById("ed-svg");
-    if(!edSvg){setStatus("Abrí el Editor visual primero para generar el A3.");return;}
-
-    try{
-      // Obtener el contenido del canvas D3 (el grupo canvas-root)
-      const canvasRoot=edSvg.querySelector("g.canvas-root");
-      if(!canvasRoot){setStatus("El editor visual está vacío. Andá al Editor visual primero.");return;}
-
-      // Calcular bounding box del contenido
-      const bbox=canvasRoot.getBBox();
-      if(!bbox.width||!bbox.height){setStatus("No hay contenido en el editor visual.");return;}
-
-      // A3 landscape en px @ 96dpi
-      const PW=1587,PH=1123;
-      const MAR=45,HH=72,FH=36;
-      const AVAIL_W=PW-MAR*2,AVAIL_H=PH-HH-FH-MAR;
-
-      // Escalar el contenido para que llene el A3
-      const scale=Math.min(AVAIL_W/(bbox.width+40),AVAIL_H/(bbox.height+40));
-      const scaledW=(bbox.width+40)*scale,scaledH=(bbox.height+40)*scale;
-      const ox=MAR+(AVAIL_W-scaledW)/2;
-      const oy=HH+(AVAIL_H-scaledH)/2;
-
-      // Obtener el SVG serializado del editor y extraer el grupo de contenido
-      const serializer=new XMLSerializer();
-      const groupStr=serializer.serializeToString(canvasRoot);
-
-      // Construir el SVG A3 con el contenido del editor escalado
-      const edArea=document.getElementById("ed-canvas");
-      const edW=edArea?.clientWidth||800,edH=edArea?.clientHeight||600;
-
-      // La transformación del grupo ya incluye pan+zoom. Necesitamos extraer solo el contenido.
-      // Obtenemos la transform actual del grupo
-      const gTransform=canvasRoot.getAttribute("transform")||"";
-
-      const today=new Date();
-      const fecha=`${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
-
-      // Título desde el selector de área
-      const asel=document.getElementById("ed-area-sel");
-      const areaName=asel?.options[asel.selectedIndex]?.text?.replace(/^\[.*?\]\s*/,"")||"Organigrama";
-      const areaColor=(()=>{
-        if(!window.__edData)return"#003D6E";
-        const asel2=document.getElementById("ed-area-sel");
-        if(!asel2)return"#003D6E";
-        const node=window.__edData.id===asel2.value?window.__edData:null;
-        return"#003D6E";
-      })();
-
-      // Leyenda
-      const leg=[["#9B1C1C","Jefatura"],["#92400E","Ministerio"],["#78350F","Secretaría"],
-                 ["#1E3A5F","Subsecretaría"],["#14532D","Dir. General"],["#374151","Org. desc."]];
-      const lw=120,lx=(PW-leg.length*lw)/2,ly=PH-FH+11;
-      const legSVG=leg.map((it,i)=>
-        `<rect x="${(lx+i*lw).toFixed(1)}" y="${ly.toFixed(1)}" width="9" height="9" rx="2" fill="${it[0]}"/>` +
-        `<text x="${(lx+i*lw+13).toFixed(1)}" y="${(ly+8).toFixed(1)}" font-size="8" fill="#718096" font-family="Inter,Arial,sans-serif">${it[1]}</text>`
-      ).join("");
-
-      const svgA3=`<svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}">
-  <defs>
-    <linearGradient id="hgA3" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#003D6E"/>
-      <stop offset="100%" stop-color="#003D6ECC"/>
-    </linearGradient>
-    <clipPath id="contentClip">
-      <rect x="${MAR}" y="${HH}" width="${AVAIL_W}" height="${AVAIL_H}"/>
-    </clipPath>
-  </defs>
-  <rect width="${PW}" height="${PH}" fill="#F8FAFC"/>
-  <rect x="0" y="0" width="${PW}" height="${HH}" fill="url(#hgA3)"/>
-  <line x1="0" y1="${HH}" x2="${PW}" y2="${HH}" stroke="#E2E8F0" stroke-width="1"/>
-  <text x="${(PW/2).toFixed(1)}" y="${(HH*0.47).toFixed(1)}" text-anchor="middle" font-size="22" font-weight="700" fill="#fff" font-family="Inter,Arial,sans-serif">${areaName}</text>
-  <text x="${(PW/2).toFixed(1)}" y="${(HH*0.78).toFixed(1)}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.72)" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · ${fecha}</text>
-  <g clip-path="url(#contentClip)">
-    <g transform="translate(${ox.toFixed(1)},${oy.toFixed(1)}) scale(${scale.toFixed(5)}) translate(${(-bbox.x+20).toFixed(1)},${(-bbox.y+20).toFixed(1)})" style="transform-origin:0 0">
-      ${groupStr.replace(/^<g[^>]*>/,'').replace(/<\/g>$/,'')}
-    </g>
-  </g>
-  <rect x="0" y="${PH-FH}" width="${PW}" height="${FH}" fill="#F8FAFC"/>
-  <line x1="0" y1="${PH-FH}" x2="${PW}" y2="${PH-FH}" stroke="#E2E8F0" stroke-width="0.8"/>
-  ${legSVG}
-</svg>`;
-
-      setSvgStr(svgA3);
-      setStatus("");
-    }catch(err){
-      console.error(err);
-      setStatus("Error al generar el A3: "+err.message);
-    }
-  },[]);
-
-  const download=()=>{
-    if(!svgStr)return;
-    const asel=document.getElementById("ed-area-sel");
-    const areaId=asel?.value||"organigrama";
-    dlSVG(svgStr,`organigrama-${areaId.toLowerCase()}-A3.svg`);
-  };
-
-  return(
-    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(10,15,30,0.85)",zIndex:2000,display:"flex",flexDirection:"column",backdropFilter:"blur(4px)"}}>
-      <div onClick={e=>e.stopPropagation()} style={{display:"flex",flexDirection:"column",height:"100%"}}>
-        <div style={{background:"#1a1d27",borderBottom:"1px solid #333650",padding:"10px 16px",display:"flex",gap:10,alignItems:"center",flexShrink:0}}>
-          <span style={{color:"#9da3c4",fontSize:12,fontWeight:600,textTransform:"uppercase",letterSpacing:".06em"}}>Vista A3 — captura del editor visual</span>
-          <span style={{fontSize:11,color:"#6b7199"}}>Lo que ves en el editor es lo que se exporta</span>
-          {svgStr&&<button onClick={download}
-            style={{background:"#4f7ef8",border:"none",color:"#fff",fontFamily:"inherit",fontSize:12,fontWeight:500,padding:"6px 14px",borderRadius:7,cursor:"pointer",marginLeft:"auto"}}>
-            ⬇ Descargar SVG A3
-          </button>}
-          <button onClick={onClose}
-            style={{background:"#232636",border:"1px solid #444870",color:"#9da3c4",fontFamily:"inherit",fontSize:12,padding:"6px 12px",borderRadius:7,cursor:"pointer",marginLeft:svgStr?"0":"auto"}}>
-            ✕ Cerrar
-          </button>
-        </div>
-        <div style={{flex:1,overflow:"auto",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:20,background:"#0f1117"}}>
-          {status?<div style={{color:"#9da3c4",fontSize:13,marginTop:40}}>{status}</div>
-            :<div dangerouslySetInnerHTML={{__html:`<div style="border-radius:8px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,.7);max-width:100%">${svgStr}</div>`}}/>}
-        </div>
-      </div>
-    </div>
-  );
+    {(node.children||[]).map(c=><PanelItem key={c.id} node={c} onSelect={onSelect} selectedId={selectedId} depth={depth+1}/>)}
+  </>;
 }
 
 function App(){
   const[data,setData]=useState(()=>loadData());
   const[selected,setSelected]=useState(null);
   const[search,setSearch]=useState("");
-  const[modal,setModal]=useState(null);
+  const[modal,setModal]=useState(null); // null | "edit" | "add" | "move"
   const[editForm,setEditForm]=useState({});
   const[addForm,setAddForm]=useState({nombre:"",titular:"",tipo:"DG",tipoLabel:"",dashed:false,parentId:""});
-  const[saved,setSaved]=useState(false);
-  const[showA3,setShowA3]=useState(false);
-  const[activeTab,setActiveTab]=useState("organigrama"); // "organigrama"|"editor"|"a3"
+  const[activeTab,setActiveTab]=useState("organigrama");
 
-  // Exponer función para que el botón del editor pueda volver al organigrama
-  useEffect(()=>{
-    window.__switchToOrganigrama=()=>setActiveTab("organigrama");
-  },[]);
+  const allNodes=useMemo(()=>flatList(data),[data]);
 
-  // Sync data to D3 editor when tab switches or data changes
+  // Sincronizar datos con el editor D3
   useEffect(()=>{
     window.__orgData=data;
     window.dispatchEvent(new CustomEvent("orgDataChanged",{detail:data}));
   },[data]);
 
-  // Show/hide editor pane
+  // Escuchar cambios del editor D3
   useEffect(()=>{
-    const pane=document.getElementById("editor-pane");
+    const h=e=>{setData(e.detail);saveData(e.detail);};
+    window.addEventListener("editorDataChanged",h);
+    return()=>window.removeEventListener("editorDataChanged",h);
+  },[]);
+
+  // Exponer función para volver desde el editor
+  useEffect(()=>{window.__goToOrganigrama=()=>setActiveTab("organigrama");},[]);
+
+  // Mostrar/ocultar editor
+  useEffect(()=>{
+    const pane=document.getElementById("ed-pane");
     const root=document.getElementById("root");
     if(activeTab==="editor"){
-      pane.classList.add("active");
+      pane.classList.add("visible");
       root.style.display="none";
       window.dispatchEvent(new CustomEvent("editorActivated",{detail:data}));
-    } else {
-      pane.classList.remove("active");
+    }else{
+      pane.classList.remove("visible");
       root.style.display="";
     }
   },[activeTab]);
 
-  // Listen for data changes from D3 editor
-  useEffect(()=>{
-    const handler=(e)=>{
-      setData(e.detail);
-      saveData(e.detail);
-    };
-    window.addEventListener("editorDataChanged",handler);
-    return()=>window.removeEventListener("editorDataChanged",handler);
+  const filtered=useMemo(()=>{
+    if(!search.trim())return null;
+    const q=search.toLowerCase();
+    return allNodes.filter(n=>(n.nombre||"").toLowerCase().includes(q)||(n.titular||"").toLowerCase().includes(q));
+  },[allNodes,search]);
+
+  const fechaApp=useMemo(()=>{
+    const d=new Date();
+    return`${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
   },[]);
 
-  useEffect(()=>{saveData(data);setSaved(true);const t=setTimeout(()=>setSaved(false),1800);return()=>clearTimeout(t);},[data]);
-
-  const allNodes=useMemo(()=>flatList(data),[data]);
-  const results=useMemo(()=>{
-    if(!search.trim())return[];
-    const q=search.toLowerCase();
-    return allNodes.filter(n=>n.nombre.toLowerCase().includes(q)||(n.titular||"").toLowerCase().includes(q));
-  },[search,allNodes]);
-
-  const select=useCallback(node=>setSelected(s=>s?.id===node.id?null:node),[]);
-
-  const saveEdit=()=>{
-    const nd=updateNode(data,selected.id,n=>({...n,...editForm}));
-    setData(nd);
-    setSelected(findNode(nd,selected.id));
+  function openEdit(node){
+    setEditForm({nombre:node.nombre,titular:node.titular||"",tipo:node.tipo,tipoLabel:node.tipoLabel||"",dashed:!!node.dashed,parentId:findNode(data,node.id)?.id});
+    setModal("edit");
+  }
+  function saveEdit(){
+    const{nombre,titular,tipo,tipoLabel,dashed}=editForm;
+    setData(d=>{const nd=updateNode(d,selected.id,n=>({...n,nombre,titular,tipo,tipoLabel:tipoLabel||undefined,dashed}));saveData(nd);return nd;});
+    setSelected(s=>({...s,nombre,titular,tipo,tipoLabel,dashed}));
     setModal(null);
-  };
-
-  const saveAdd=()=>{
-    if(!addForm.nombre.trim())return;
-    const targetParentId = addForm.parentId || selected.id;
-    const child={
-      nombre:addForm.nombre,
-      titular:addForm.titular,
-      tipo:addForm.tipo,
-      tipoLabel:addForm.tipoLabel||undefined,
-      dashed:addForm.dashed,
-      id:"n_"+Date.now(),
-      children:[]
-    };
-    const nd=addChild(data,targetParentId,child);
-    setData(nd);
-    setSelected(findNode(nd,selected.id));
+  }
+  function saveAdd(){
+    const{nombre,titular,tipo,tipoLabel,dashed,parentId}=addForm;
+    if(!nombre.trim()||!parentId)return;
+    const child={id:"n_"+Date.now(),nombre,titular,tipo,tipoLabel:tipoLabel||undefined,dashed,children:[]};
+    setData(d=>{const nd=addChild(d,parentId,child);saveData(nd);return nd;});
     setModal(null);
-  };
-
-  const del=()=>{
+  }
+  function del(){
     if(!selected||selected.id==="JG")return;
     if(!confirm(`¿Eliminar "${selected.nombre}" y todas sus dependencias?`))return;
-    setData(removeNode(data,selected.id));
-    setSelected(null);
-  };
+    setData(d=>{const nd=removeNode(d,selected.id);saveData(nd);return nd;});
+    setSelected(null);setModal(null);
+  }
+  function openMove(){
+    setEditForm(f=>({...f,newParentId:""}));
+    setModal("move");
+  }
+  function saveMove(){
+    const np=editForm.newParentId;
+    if(!np||!selected)return;
+    setData(d=>{const nd=moveNode(d,selected.id,np);saveData(nd);return nd;});
+    setModal(null);
+  }
+  function reset(){
+    if(!confirm("¿Restablecer todos los datos al original?"))return;
+    localStorage.removeItem("gcba_org_v2");
+    localStorage.removeItem("gcba_org_positions_v1");
+    localStorage.removeItem("gcba_org_waypoints_v1");
+    setData(INITIAL);setSelected(null);
+  }
 
-  const reset=()=>{
-    if(!confirm("¿Restablecer el organigrama al estado original? Se perderán todos los cambios."))return;
-    setData(INITIAL);setSelected(null);localStorage.removeItem(STORAGE_KEY);
-  };
+  // Exportar todo A3
+  function dlAll(){
+    const direct=data.children||[];
+    const areas=[data,
+      ...direct.filter(n=>n.tipo==="MIN"||n.tipo==="VJG"),
+      ...direct.filter(n=>n.tipo==="SEC"),
+      ...flatList(data).filter(n=>n.dashed&&(n.children||[]).length>0)
+    ];
+    const PH=1123;
+    const pages=areas.map((a,i)=>genSVGA3(a,i+1,areas.length));
+    const combined=`<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="1587" height="${PH*pages.length}" viewBox="0 0 1587 ${PH*pages.length}">${pages.map((p,i)=>`<g transform="translate(0,${i*PH})">${p.replace(/<\/?svg[^>]*>/g,"")}</g>`).join("")}</svg>`;
+    dlSVG(combined,"organigrama-gcba-completo-A3.svg");
+  }
 
-  const dlAll=()=>{
-    // Armar lista de áreas a exportar: JG, MIN, VJG, SECs directas de JG,
-    // y ORGs fuera de nivel con hijos propios (PG, CDNNYA, etc.)
-    const direct=(data.children||[]);
-    const areas=[];
-    // Jefe de Gobierno (solo hijos directos — shallow)
-    areas.push(data);
-    // Ministerios y VJG
-    direct.filter(n=>n.tipo==="MIN"||n.tipo==="VJG").forEach(n=>areas.push(n));
-    // Secretarías directas de JG
-    direct.filter(n=>n.tipo==="SEC").forEach(n=>areas.push(n));
-    // Organismos fuera de nivel con hijos propios
-    flatList(data).filter(n=>n.dashed&&(n.children||[]).length>0).forEach(n=>areas.push(n));
-
-    const PW=1587,PH=1123;
-    const pages=areas.map((s,i)=>genPageSVG(s,i+1,areas.length));
-    const combined=`<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH*pages.length}" viewBox="0 0 ${PW} ${PH*pages.length}">${pages.map((p,i)=>`<g transform="translate(0,${i*PH})">${p.replace(/<\/?svg[^>]*>/g,"")}</g>`).join("")}</svg>`;
-    dlSVG(combined,"organigrama-gcba-A3-completo.svg");
-  };
-  const dlSection=()=>{if(!selected)return;dlSVG(genPageSVG(selected,1,1),`organigrama-${selected.id.toLowerCase()}-A3.svg`);};
-
-  const ef=k=>e=>setEditForm(f=>({...f,[k]:e.target.type==="checkbox"?e.target.checked:e.target.value}));
-  const af=k=>e=>setAddForm(f=>({...f,[k]:e.target.type==="checkbox"?e.target.checked:e.target.value}));
-  const selCol=selected?(getColorForNode(selected)):null;
-
-  const today=new Date();
-  const fechaApp=`${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
-
-  const openAdd=()=>{
-    setAddForm({nombre:"",titular:"",tipo:"DG",tipoLabel:"",dashed:false,parentId:selected.id});
-    setModal("add");
-  };
+  const color=selected?getColor(selected):"#003D6E";
 
   return(
-    <div style={{display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden",background:"#F2F5F9"}}>
-      {showA3&&<ModalA3 data={data} allNodes={allNodes} onClose={()=>setShowA3(false)}/>}
-      {modal==="edit"&&selected&&(
-        <Modal title="Editar nodo" accentColor={selCol?.bg||"#005EA6"} onClose={()=>setModal(null)}>
-          <NodePreview form={editForm}/>
-          <Field label="Nombre" value={editForm.nombre} onChange={ef("nombre")}/>
-          <Field label="Titular" value={editForm.titular} onChange={ef("titular")}/>
-          <TipoSelector
-            tipo={editForm.tipo}
-            tipoLabel={editForm.tipoLabel||""}
-            onTipoChange={v=>setEditForm(f=>({...f,tipo:v}))}
-            onTipoLabelChange={v=>setEditForm(f=>({...f,tipoLabel:v}))}
-          />
-          <label style={{display:"flex",alignItems:"center",gap:8,marginBottom:20,cursor:"pointer"}}>
-            <input type="checkbox" checked={!!editForm.dashed} onChange={ef("dashed")} style={{accentColor:"#005EA6",width:15,height:15}}/>
-            <span style={{fontSize:12,color:"#4A5568"}}>Dependencia funcional (línea punteada)</span>
-          </label>
-          <div style={{display:"flex",gap:8}}>
-            <Btn variant="primary" onClick={saveEdit} style={{flex:1,justifyContent:"center"}}>Guardar cambios</Btn>
-            <Btn variant="ghost" onClick={()=>setModal(null)} style={{flex:1,justifyContent:"center"}}>Cancelar</Btn>
-          </div>
-        </Modal>
-      )}
-      {modal==="add"&&selected&&(
-        <Modal title="Agregar nueva unidad" accentColor="#166534" onClose={()=>setModal(null)} wide>
-          <NodePreview form={addForm}/>
-          <Field label="Nombre" value={addForm.nombre} onChange={af("nombre")}/>
-          <Field label="Titular" value={addForm.titular} onChange={af("titular")}/>
-          <TipoSelector
-            tipo={addForm.tipo}
-            tipoLabel={addForm.tipoLabel||""}
-            onTipoChange={v=>setAddForm(f=>({...f,tipo:v}))}
-            onTipoLabelChange={v=>setAddForm(f=>({...f,tipoLabel:v}))}
-          />
-          {/* Selector de nodo padre — libre, no restringido */}
-          <PadreSelector
-            allNodes={allNodes}
-            currentId={null}
-            value={addForm.parentId||selected.id}
-            onChange={e=>setAddForm(f=>({...f,parentId:e.target.value}))}
-          />
-          <label style={{display:"flex",alignItems:"center",gap:8,marginBottom:20,cursor:"pointer"}}>
-            <input type="checkbox" checked={!!addForm.dashed} onChange={af("dashed")} style={{accentColor:"#005EA6",width:15,height:15}}/>
-            <span style={{fontSize:12,color:"#4A5568"}}>Dependencia funcional (línea punteada)</span>
-          </label>
-          <div style={{display:"flex",gap:8}}>
-            <Btn variant="success" onClick={saveAdd} style={{flex:1,justifyContent:"center"}}>Agregar unidad</Btn>
-            <Btn variant="ghost" onClick={()=>setModal(null)} style={{flex:1,justifyContent:"center"}}>Cancelar</Btn>
-          </div>
-        </Modal>
-      )}
-
-      <header style={{background:"#003D6E",padding:"0 20px",display:"flex",alignItems:"center",gap:16,height:56,flexShrink:0,boxShadow:"0 2px 8px rgba(0,0,0,0.15)"}}>
-        <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <div style={{width:36,height:36,borderRadius:8,background:"#F5C400",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+    <div className="app-wrap">
+      {/* Header */}
+      <div className="app-header">
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{width:34,height:34,borderRadius:8,background:"#F5C400",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" fill="#003D6E"/>
               <polyline points="9 22 9 12 15 12 15 22" fill="#F5C400" stroke="#003D6E" strokeWidth="0.5"/>
             </svg>
           </div>
           <div>
             <div style={{fontSize:14,fontWeight:700,color:"#fff",lineHeight:1.2}}>Organigrama GCBA</div>
-            <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",fontWeight:400}}>Ciudad Autónoma de Buenos Aires</div>
+            <div style={{fontSize:10,color:"rgba(255,255,255,.6)"}}>Ciudad Autónoma de Buenos Aires</div>
           </div>
         </div>
-        {/* Tabs */}
-        <div style={{display:"flex",gap:2,marginLeft:16}}>
-          {[["organigrama","📋 Organigrama"],["editor","✏️ Editor visual"],["a3","🖨 Vista A3"]].map(([id,label])=>(
-            <button key={id} onClick={()=>{ if(id==="a3"){setShowA3(true);setActiveTab("organigrama");}else{setShowA3(false);setActiveTab(id);} }}
-              style={{padding:"5px 14px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",
-                background:activeTab===id?"rgba(255,255,255,0.18)":"transparent",
-                color:activeTab===id?"#fff":"rgba(255,255,255,0.6)",
-                border:activeTab===id?"1px solid rgba(255,255,255,0.3)":"1px solid transparent",
-                transition:"all .15s"}}
-            >{label}</button>
+        <div className="app-tabs">
+          {[["organigrama","📋 Organigrama"],["editor","✏️ Editor visual"]].map(([id,label])=>(
+            <button key={id} className={`app-tab${activeTab===id?" active":""}`}
+              onClick={()=>setActiveTab(id)}>{label}</button>
           ))}
         </div>
-        <div style={{flex:1,maxWidth:320,position:"relative"}}>
-          <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:14,color:"rgba(255,255,255,0.4)"}}>🔍</span>
-          <input placeholder="Buscar organismo o titular..." value={search} onChange={e=>setSearch(e.target.value)}
-            style={{width:"100%",fontSize:12,padding:"7px 10px 7px 32px",borderRadius:8,border:"1.5px solid rgba(255,255,255,0.2)",background:"rgba(255,255,255,0.1)",color:"#fff"}}
-            onFocus={e=>{e.target.style.background="rgba(255,255,255,0.18)";e.target.style.borderColor="rgba(255,255,255,0.4)";}}
-            onBlur={e=>{e.target.style.background="rgba(255,255,255,0.1)";e.target.style.borderColor="rgba(255,255,255,0.2)";}}/>
+        <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
+          <Btn variant="ghost" onClick={dlAll} small>⬇ Descargar todo A3</Btn>
+          <Btn variant="ghost" onClick={reset} small>↺ Restablecer</Btn>
         </div>
-        <div style={{display:"flex",gap:8,alignItems:"center",marginLeft:"auto"}}>
-          {saved&&<span style={{fontSize:11,color:"rgba(255,255,255,0.6)",display:"flex",alignItems:"center",gap:4}}><span style={{color:"#68D391"}}>✓</span> Guardado</span>}
-          <Btn variant="ghost" onClick={dlAll} style={{color:"#fff",borderColor:"rgba(255,255,255,0.25)",background:"rgba(255,255,255,0.08)",fontSize:11}}>⬇ Descargar todo A3</Btn>
-          <Btn variant="ghost" onClick={reset} style={{color:"rgba(255,255,255,0.6)",borderColor:"rgba(255,255,255,0.15)",background:"transparent",fontSize:11}}>↺ Restablecer</Btn>
+      </div>
+
+      {/* Body */}
+      <div className="app-body">
+        {/* Sidebar */}
+        <div className="sidebar">
+          <div style={{padding:"10px 12px",borderBottom:"1px solid #E2E8F0",background:"#F7FAFC"}}>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Buscar organismo o titular…"
+              style={{width:"100%",border:"1px solid #CBD5E0",borderRadius:8,padding:"7px 10px",fontSize:12,fontFamily:"inherit",outline:"none"}}/>
+          </div>
+          <div style={{flex:1,overflow:"auto"}}>
+            {filtered
+              ?filtered.map(n=><PanelItem key={n.id} node={n} onSelect={setSelected} selectedId={selected?.id} depth={0}/>)
+              :<PanelItem node={data} onSelect={setSelected} selectedId={selected?.id}/>
+            }
+          </div>
+          <div style={{padding:"10px 12px",borderTop:"1px solid #E2E8F0",background:"#F7FAFC"}}>
+            <Btn variant="primary" onClick={()=>{setAddForm({nombre:"",titular:"",tipo:"DG",tipoLabel:"",dashed:false,parentId:selected?.id||"JG"});setModal("add");}} style={{width:"100%",justifyContent:"center"}}>
+              + Nueva unidad
+            </Btn>
+          </div>
         </div>
-      </header>
 
-      <div style={{display:"flex",flex:1,overflow:"hidden"}}>
-        <aside style={{width:288,flexShrink:0,display:"flex",flexDirection:"column",background:"#fff",borderRight:"1px solid #D8E2EE"}}>
-          <div style={{padding:"12px 12px 8px",borderBottom:"1px solid #EDF2F7",flexShrink:0}}>
-            <div style={{fontSize:10,fontWeight:600,color:"#718096",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8}}>Tipo de organismo</div>
-            <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-              {Object.entries(COLORS).map(([k,v])=>(
-                <span key={k} style={{background:v.bg,color:v.text,fontSize:9,fontWeight:600,padding:"2px 7px",borderRadius:20,letterSpacing:"0.02em"}}>{v.label}</span>
-              ))}
-              <span style={{background:"#5B21B6",color:"#fff",fontSize:9,fontWeight:600,padding:"2px 7px",borderRadius:20,letterSpacing:"0.02em"}}>Personalizado</span>
-            </div>
-          </div>
-          <div style={{flex:1,overflowY:"auto",padding:"8px 8px"}}>
-            {search.trim()?(
-              <div>
-                <div style={{fontSize:10,color:"#718096",marginBottom:8,fontWeight:500}}>{results.length} resultado{results.length!==1?"s":""}</div>
-                {results.slice(0,30).map(n=>{
-                  const col=getColorForNode(n);const isSel=selected?.id===n.id;
-                  return(
-                    <div key={n.id} onClick={()=>select(n)} style={{padding:"7px 10px",borderRadius:8,cursor:"pointer",marginBottom:3,background:isSel?col.bg:"#F7FAFC",border:`1.5px solid ${isSel?col.bg:"#E2E8F0"}`,borderLeft:`4px solid ${col.bg}`}}>
-                      <div style={{fontSize:11,fontWeight:600,color:isSel?"#fff":col.bg}}>{n.nombre}</div>
-                      {n.titular&&<div style={{fontSize:10,color:isSel?"rgba(255,255,255,0.75)":"#718096"}}>{n.titular}</div>}
-                    </div>
-                  );
-                })}
-              </div>
-            ):(
-              <PanelItem node={data} onSelect={select} selectedId={selected?.id}/>
-            )}
-          </div>
-        </aside>
-
-        <main style={{flex:1,overflowY:"auto",padding:"20px 24px"}}>
+        {/* Main */}
+        <div className="main-area">
           {selected?(
-            <div className="fade-in">
-              <div style={{background:"#fff",borderRadius:16,overflow:"hidden",boxShadow:"0 2px 12px rgba(0,0,0,0.07)",marginBottom:20}}>
-                <div style={{background:selCol.bg,height:6}}/>
-                <div style={{padding:"18px 20px"}}>
-                  <div style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
-                    <div style={{flex:1,minWidth:200}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                        <TypeBadge tipo={selected.tipo} tipoLabel={selected.tipoLabel} dashed={selected.dashed}/>
-                      </div>
-                      <div style={{fontSize:20,fontWeight:700,color:"#1A2B42",lineHeight:1.2,marginBottom:4}}>{selected.nombre}</div>
-                      {selected.titular&&(
-                        <div style={{fontSize:13,color:"#718096",display:"flex",alignItems:"center",gap:6}}>
-                          <span style={{width:16,height:16,borderRadius:"50%",background:selCol.bg+"22",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:9}}>👤</span>
-                          {selected.titular}
-                        </div>
-                      )}
-                      <div style={{marginTop:10,display:"flex",gap:8,flexWrap:"wrap"}}>
-                        <span style={{fontSize:11,color:"#4A5568",background:"#EDF2F7",padding:"3px 10px",borderRadius:20,fontWeight:500}}>{selected.children.length} dependencia{selected.children.length!==1?"s directas":"directa"}</span>
-                      </div>
-                    </div>
-                    <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-                      <Btn variant="secondary" small onClick={()=>{
-                        setEditForm({nombre:selected.nombre,titular:selected.titular||"",tipo:selected.tipo,tipoLabel:selected.tipoLabel||"",dashed:!!selected.dashed});
-                        setModal("edit");
-                      }}>✏️ Editar</Btn>
-                      <Btn variant="secondary" small onClick={openAdd}>➕ Agregar</Btn>
-                      {selected.id!=="JG"&&<Btn variant="danger" small onClick={del}>🗑 Eliminar</Btn>}
-                      <Btn variant="primary" small onClick={dlSection}>🖨 Descargar</Btn>
-                    </div>
-                  </div>
+            <div style={{flex:1,overflow:"auto",padding:24}}>
+              {/* Header del nodo */}
+              <div style={{borderRadius:12,padding:"20px 24px",marginBottom:20,background:color,color:"#fff"}}>
+                <div style={{fontSize:10,fontWeight:600,opacity:.7,textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>
+                  {getLabel(selected)}{selected.dashed?" · Dependencia funcional":""}
+                </div>
+                <div style={{fontSize:22,fontWeight:700,lineHeight:1.2,marginBottom:4}}>{selected.nombre}</div>
+                {selected.titular&&<div style={{fontSize:14,opacity:.85}}>{selected.titular}</div>}
+                <div style={{marginTop:14,display:"flex",gap:8,flexWrap:"wrap"}}>
+                  <Btn variant="secondary" small onClick={()=>openEdit(selected)}>✏️ Editar</Btn>
+                  {selected.id!=="JG"&&<>
+                    <Btn variant="secondary" small onClick={openMove}>↕ Mover</Btn>
+                    <Btn variant="danger" small onClick={del}>✕ Eliminar</Btn>
+                  </>}
+                  <Btn variant="secondary" small onClick={()=>{dlSVG(genSVGA3(selected,1,1),`organigrama-${selected.id}-A3.svg`);}}>🖨 Descargar A3</Btn>
                 </div>
               </div>
-              {selected.children.length>0&&(
-                <>
-                  <div style={{fontSize:11,fontWeight:700,color:"#718096",marginBottom:12,textTransform:"uppercase",letterSpacing:"0.07em",display:"flex",alignItems:"center",gap:8}}>
-                    Dependencias directas
-                    <span style={{background:"#E2E8F0",color:"#4A5568",fontSize:10,fontWeight:600,padding:"1px 8px",borderRadius:20}}>{selected.children.length}</span>
+              {/* Dependencias */}
+              {(selected.children||[]).length>0&&(
+                <div>
+                  <div style={{fontSize:11,fontWeight:600,color:"#718096",textTransform:"uppercase",letterSpacing:".06em",marginBottom:10}}>
+                    Dependencias ({(selected.children||[]).length})
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:10}}>
-                    {selected.children.map(ch=><ChildCard key={ch.id} node={ch} onClick={select}/>)}
+                    {(selected.children||[]).map(ch=>(
+                      <div key={ch.id} onClick={()=>setSelected(ch)}
+                        style={{borderRadius:8,padding:"12px 14px",background:"#fff",border:"1px solid #E2E8F0",
+                          cursor:"pointer",borderLeft:`4px solid ${getColor(ch)}`,transition:"box-shadow .15s"}}
+                        onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 12px rgba(0,0,0,.08)"}
+                        onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
+                        <div style={{fontSize:11,fontWeight:500,color:getColor(ch),marginBottom:3}}>{getLabel(ch)}</div>
+                        <div style={{fontSize:13,fontWeight:600,color:"#1A202C",marginBottom:3}}>{ch.nombre}</div>
+                        {ch.titular&&<div style={{fontSize:11,color:"#718096"}}>{ch.titular}</div>}
+                        {(ch.children||[]).length>0&&<div style={{fontSize:10,color:"#A0AEC0",marginTop:4}}>{ch.children.length} dependencias</div>}
+                      </div>
+                    ))}
                   </div>
-                </>
+                </div>
               )}
             </div>
           ):(
-            <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100%",color:"#A0AEC0",textAlign:"center",gap:12}}>
-              <div style={{width:64,height:64,borderRadius:16,background:"#EDF2F7",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28}}>🏛️</div>
-              <div>
-                <div style={{fontSize:15,fontWeight:600,color:"#4A5568",marginBottom:4}}>Seleccioná un organismo</div>
-                <div style={{fontSize:13,color:"#A0AEC0"}}>Hacé clic en cualquier nodo del panel izquierdo<br/>para ver sus detalles y dependencias.</div>
-              </div>
+            <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:8,color:"#A0AEC0"}}>
+              <div style={{fontSize:40,opacity:.3}}>⬡</div>
+              <div style={{fontSize:13}}>Seleccioná un organismo del panel</div>
             </div>
           )}
-        </main>
+          <div style={{background:"#fff",borderTop:"1px solid #E2E8F0",padding:"6px 20px",display:"flex",justifyContent:"space-between"}}>
+            <span style={{fontSize:10,color:"#A0AEC0"}}>GCBA · {fechaApp}</span>
+            <span style={{fontSize:10,color:"#A0AEC0"}}>{allNodes.length} organismos</span>
+          </div>
+        </div>
       </div>
 
-      <div style={{background:"#fff",borderTop:"1px solid #E2E8F0",padding:"6px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
-        <span style={{fontSize:10,color:"#A0AEC0"}}>Gobierno de la Ciudad Autónoma de Buenos Aires · Última actualización: {fechaApp}</span>
-        <span style={{fontSize:10,color:"#A0AEC0"}}>{flatList(data).length} organismos en el organigrama</span>
-      </div>
+      {/* Modales */}
+      {modal==="edit"&&selected&&(
+        <Modal title={`Editar: ${selected.nombre}`} onClose={()=>setModal(null)}>
+          <Field label="Nombre" value={editForm.nombre} onChange={v=>setEditForm(f=>({...f,nombre:v}))}/>
+          <Field label="Titular" value={editForm.titular} onChange={v=>setEditForm(f=>({...f,titular:v}))}/>
+          <TipoSelector tipo={editForm.tipo} tipoLabel={editForm.tipoLabel}
+            onChange={(t,tl)=>setEditForm(f=>({...f,tipo:t,tipoLabel:tl}))}/>
+          <Field label="">
+            <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13}}>
+              <input type="checkbox" checked={editForm.dashed} onChange={e=>setEditForm(f=>({...f,dashed:e.target.checked}))}
+                style={{width:14,height:14,accentColor:"#005EA6"}}/>
+              Dependencia funcional (línea punteada)
+            </label>
+          </Field>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:4}}>
+            <Btn onClick={()=>setModal(null)}>Cancelar</Btn>
+            <Btn variant="primary" onClick={saveEdit}>Guardar</Btn>
+          </div>
+        </Modal>
+      )}
+      {modal==="add"&&(
+        <Modal title="Nueva unidad" onClose={()=>setModal(null)}>
+          <Field label="Nombre" value={addForm.nombre} onChange={v=>setAddForm(f=>({...f,nombre:v}))}/>
+          <Field label="Titular" value={addForm.titular} onChange={v=>setAddForm(f=>({...f,titular:v}))}/>
+          <TipoSelector tipo={addForm.tipo} tipoLabel={addForm.tipoLabel}
+            onChange={(t,tl)=>setAddForm(f=>({...f,tipo:t,tipoLabel:tl}))}/>
+          <PadreSelector allNodes={allNodes} currentId={null} value={addForm.parentId} onChange={v=>setAddForm(f=>({...f,parentId:v}))}/>
+          <Field label="">
+            <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13}}>
+              <input type="checkbox" checked={addForm.dashed} onChange={e=>setAddForm(f=>({...f,dashed:e.target.checked}))}
+                style={{width:14,height:14,accentColor:"#005EA6"}}/>
+              Dependencia funcional
+            </label>
+          </Field>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:4}}>
+            <Btn onClick={()=>setModal(null)}>Cancelar</Btn>
+            <Btn variant="primary" onClick={saveAdd}>Agregar</Btn>
+          </div>
+        </Modal>
+      )}
+      {modal==="move"&&selected&&(
+        <Modal title={`Mover: ${selected.nombre}`} onClose={()=>setModal(null)}>
+          <PadreSelector allNodes={allNodes} currentId={selected.id} value={editForm.newParentId||""} onChange={v=>setEditForm(f=>({...f,newParentId:v}))}/>
+          <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:4}}>
+            <Btn onClick={()=>setModal(null)}>Cancelar</Btn>
+            <Btn variant="primary" onClick={saveMove}>Mover</Btn>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
 
-// Exponer funciones al scope global para que el editor D3 pueda usarlas
-window.__genPageSVG = genPageSVG;
-window.__dlSVG = dlSVG;
-window.__flatList = flatList;
-window.__findNode = findNode;
-
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 
-<!-- ═══ EDITOR D3 ENGINE ═══════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════════
+     EDITOR D3 — scope plain JS, sin dependencias de Babel
+     Lee/escribe en localStorage con la misma clave que React
+     ═══════════════════════════════════════════════════════════ -->
 <script>
 (function(){
-  // ═══ POSICIONES PERSISTENTES ═══════════════════════════════
-  const POS_KEY='gcba_org_positions_v1';
-  const STYLE_KEY='gcba_org_linestyle_v1';
-  let edPositions={};
-  let edCurrentRootId=null;
-  let edLineStyle='orthogonal'; // orthogonal | diagonal | curved
-  let edViewRootId=null; // el subárbol que se está mostrando actualmente
+  "use strict";
 
-  function loadAllPositions(){try{return JSON.parse(localStorage.getItem(POS_KEY)||"{}");}catch{return{};}}
-  function savePositionsForRoot(rootId,positions){
-    const all=loadAllPositions();all[rootId]=positions;
-    localStorage.setItem(POS_KEY,JSON.stringify(all));
-    window.__edPositions=all;
-  }
-  function loadPositionsForRoot(rootId){return loadAllPositions()[rootId]||null;}
-  function clearPositionsForRoot(rootId){
-    const all=loadAllPositions();delete all[rootId];
-    localStorage.setItem(POS_KEY,JSON.stringify(all));
-    window.__edPositions=all;
-  }
-  function saveLineStyle(style){localStorage.setItem(STYLE_KEY,style);}
-  function loadLineStyle(){return localStorage.getItem(STYLE_KEY)||'orthogonal';}
-  window.__edPositions=loadAllPositions();
-
-  const COLORS_ED={JG:"#9B1C1C",VJG:"#9B1C1C",MIN:"#92400E",SEC:"#78350F",SS:"#1E3A5F",DG:"#14532D",GG:"#065F46",GO:"#064E3B",ORG:"#374151"};
-  const LABELS_ED={JG:"Jefatura",VJG:"Vicejefatura",MIN:"Ministerio",SEC:"Secretaría",SS:"Subsecretaría",DG:"Dir. General",GG:"Gerencia General",GO:"Gerencia Operativa",ORG:"Organismo desc."};
-  function getColorED(n){if(n.tipo&&n.tipo.startsWith("CUSTOM:"))return"#5B21B6";return COLORS_ED[n.tipo]||"#374151";}
-  function getLabelED(n){if(n.tipo&&n.tipo.startsWith("CUSTOM:"))return n.tipoLabel||n.tipo.replace("CUSTOM:","");return LABELS_ED[n.tipo]||n.tipo;}
-  function flatED(n,a=[]){a.push(n);(n.children||[]).forEach(c=>flatED(c,a));return a;}
-  function findED(tree,id){if(tree.id===id)return tree;for(const c of(tree.children||[])){const f=findED(c,id);if(f)return f;}return null;}
-  function removeED(tree,id){return{...tree,children:(tree.children||[]).filter(c=>c.id!==id).map(c=>removeED(c,id))};}
-  function updateED(tree,id,fn){if(tree.id===id)return fn(tree);return{...tree,children:(tree.children||[]).map(c=>updateED(c,id,fn))};}
-  function addChildED(tree,pid,child){return updateED(tree,pid,n=>({...n,children:[...(n.children||[]),child]}));}
-  function moveED(tree,nodeId,newPid){const node=findED(tree,nodeId);if(!node)return tree;return addChildED(removeED(tree,nodeId),newPid,node);}
-
+  // ── Constantes ──────────────────────────────────────────
+  const POS_KEY="gcba_org_positions_v1";
+  const WP_KEY="gcba_org_waypoints_v1";
   const NW=158,NH=50,HPAD=18,VPAD=58;
-  let edData=null,edSelectedId=null,edSelectedIds=new Set(),edZoom=null,edTransform=d3.zoomIdentity,edInitialized=false;
 
-  function edDispatch(newData){
-    edData=newData;
-    window.dispatchEvent(new CustomEvent("editorDataChanged",{detail:JSON.parse(JSON.stringify(newData))}));
+  // ── Estado ──────────────────────────────────────────────
+  let edData=null;
+  let edViewId=null;          // id del área seleccionada
+  let edSelectedIds=new Set();
+  let edPositions={};         // {nodeId: {x,y}} para el área actual
+  let edWaypoints={};         // {"sid-tid": [{x,y},...]}
+  let edZoom=null;
+  let edTransform=d3.zoomIdentity;
+  let edFitted=false;
+
+  // ── LocalStorage helpers ─────────────────────────────────
+  function readLS(key){try{return JSON.parse(localStorage.getItem(key)||"{}");}catch{return{};}}
+  function writeLS(key,val){try{localStorage.setItem(key,JSON.stringify(val));}catch{}}
+  function savePosForArea(){writeLS(POS_KEY,{...readLS(POS_KEY),[edViewId]:edPositions});}
+  function saveWPForArea(){writeLS(WP_KEY,{...readLS(WP_KEY),[edViewId]:edWaypoints});}
+  function loadPosForArea(id){return readLS(POS_KEY)[id]||null;}
+  function loadWPForArea(id){return readLS(WP_KEY)[id]||{};}
+  function clearArea(id){
+    const p=readLS(POS_KEY);delete p[id];writeLS(POS_KEY,p);
+    const w=readLS(WP_KEY);delete w[id];writeLS(WP_KEY,w);
   }
 
-  function showSavedMsg(){
-    const el=document.getElementById("ed-saved-msg");
-    if(!el)return;
-    el.style.opacity="1";
-    clearTimeout(el._t);
-    el._t=setTimeout(()=>{el.style.opacity="0";},2000);
+  // ── Árbol helpers ────────────────────────────────────────
+  function getColor(n){if(n?.tipo?.startsWith("CUSTOM:"))return"#5B21B6";
+    const m={JG:"#9B1C1C",VJG:"#9B1C1C",MIN:"#92400E",SEC:"#78350F",SS:"#1E3A5F",
+              DG:"#14532D",GG:"#065F46",GO:"#064E3B",ORG:"#374151"};
+    return m[n?.tipo]||"#374151";}
+  function getLabel(n){
+    if(n?.tipo?.startsWith("CUSTOM:"))return n.tipoLabel||n.tipo.replace("CUSTOM:","");
+    const m={JG:"Jefatura",VJG:"Vicejefatura",MIN:"Ministerio",SEC:"Secretaría",
+              SS:"Subsecretaría",DG:"Dir. General",GG:"Gerencia General",GO:"Gerencia Operativa",ORG:"Organismo"};
+    return m[n?.tipo]||n?.tipo||"";}
+  function flat(n,a=[]){a.push(n);(n.children||[]).forEach(c=>flat(c,a));return a;}
+  function findN(tree,id){if(!tree)return null;if(tree.id===id)return tree;for(const c of(tree.children||[])){const f=findN(c,id);if(f)return f;}return null;}
+  function removeN(tree,id){return{...tree,children:(tree.children||[]).filter(c=>c.id!==id).map(c=>removeN(c,id))};}
+  function updateN(tree,id,fn){if(tree.id===id)return fn(tree);return{...tree,children:(tree.children||[]).map(c=>updateN(c,id,fn))};}
+  function addChildN(tree,pid,child){return updateN(tree,pid,n=>({...n,children:[...(n.children||[]),child]}));}
+  function moveN(tree,nid,pid){const n=findN(tree,nid);if(!n)return tree;return addChildN(removeN(tree,nid),pid,n);}
+
+  function isJGView(){return edData&&edViewId===edData.id;}
+
+  // Nodos visibles para el área actual (JG: solo 1 nivel)
+  function visibleNodes(){
+    const viewRoot=findN(edData,edViewId)||edData;
+    if(!viewRoot)return[];
+    function collect(node,depth,acc){
+      acc.push(node);
+      if(isJGView()&&depth>=1)return acc;
+      (node.children||[]).forEach(c=>collect(c,depth+1,acc));
+      return acc;
+    }
+    return collect(viewRoot,0,[]);
   }
 
-  // ── Área selector ─────────────────────────────────────────
-  function populateAreaSelector(){
+  function visibleLinks(nodes){
+    const ids=new Set(nodes.map(n=>n.id));
+    const viewRoot=findN(edData,edViewId)||edData;
+    const links=[];
+    function walk(node,depth){
+      (node.children||[]).forEach(ch=>{
+        if(!ids.has(ch.id))return;
+        links.push({sid:node.id,tid:ch.id,dashed:!!ch.dashed});
+        if(!(isJGView()&&depth>=1))walk(ch,depth+1);
+      });
+    }
+    walk(viewRoot,0);
+    return links;
+  }
+
+  // ── Selector de área ─────────────────────────────────────
+  function populateAreaSel(){
     const sel=document.getElementById("ed-area-sel");
     if(!sel||!edData)return;
     const prev=sel.value;
-    sel.innerHTML='';
-    const direct=(edData.children||[]);
+    sel.innerHTML="";
+    const direct=edData.children||[];
     const addOpt=(node,prefix)=>{
-      const opt=document.createElement("option");
-      opt.value=node.id;
-      opt.textContent=prefix+'['+getLabelED(node)+'] '+node.nombre;
-      sel.appendChild(opt);
+      const o=document.createElement("option");
+      o.value=node.id;
+      o.textContent=prefix+"["+getLabel(node)+"] "+node.nombre;
+      sel.appendChild(o);
     };
-    // Jefe de Gobierno (nivel completo: MIN + SEC)
     addOpt(edData,"");
-    // Ministerios y VJG
     direct.filter(n=>n.tipo==="MIN"||n.tipo==="VJG").forEach(n=>addOpt(n,"　"));
-    // Secretarías directas de JG
     direct.filter(n=>n.tipo==="SEC").forEach(n=>addOpt(n,"　"));
-    // Organismos fuera de nivel con hijos propios
-    flatED(edData).filter(n=>n.dashed&&(n.children||[]).length>0).forEach(n=>addOpt(n,""));
-    // Restaurar selección previa
-    if(prev&&sel.querySelector(`option[value="${prev}"]`)) sel.value=prev;
-    else if(sel.options.length>0) sel.value=sel.options[0].value;
+    flat(edData).filter(n=>n.dashed&&(n.children||[]).length>0).forEach(n=>addOpt(n,""));
+    if(prev&&sel.querySelector(`option[value="${prev}"]`))sel.value=prev;
+    else if(sel.options.length>0){sel.value=sel.options[0].value;}
+    edViewId=sel.value;
   }
 
   // ── Sidebar ──────────────────────────────────────────────
-  function buildEdSidebar(node,el,depth=0){
-    const item=document.createElement("div");
-    item.className="ed-ni"+(node.id===edSelectedId?" sel":"");
-    item.dataset.id=node.id;
-    item.style.paddingLeft=(8+depth*9)+"px";
-    const color=getColorED(node);
-    item.innerHTML=`<div class="ed-dot" style="background:${color}"></div><div class="ed-nm">${node.nombre||"—"}</div><div class="ed-tp">${getLabelED(node)}</div>`;
-    item.addEventListener("click",()=>edSelect(node.id));
-    el.appendChild(item);
-    (node.children||[]).forEach(c=>buildEdSidebar(c,el,depth+1));
-  }
-  function refreshEdSidebar(){
-    const el=document.getElementById("ed-node-list");
-    if(!el||!edData)return;
+  function renderSidebar(){
+    const el=document.getElementById("ed-list");
+    if(!el)return;
     el.innerHTML="";
-    // Mostrar solo el subárbol del área seleccionada
-    const viewRoot=edViewRootId?findED(edData,edViewRootId):edData;
-    if(viewRoot) buildEdSidebar(viewRoot,el);
-  }
-
-  // ── Link path según estilo ─────────────────────────────────
-  function makeLinkPath(sx,sy,tx,ty,style){
-    const midY=sy+NH+VPAD/2;
-    if(style==='diagonal'){
-      return`M${sx},${sy+NH}L${tx},${ty}`;
-    } else if(style==='curved'){
-      const cy1=sy+NH+(ty-(sy+NH))*0.4;
-      const cy2=sy+NH+(ty-(sy+NH))*0.6;
-      return`M${sx},${sy+NH}C${sx},${cy1} ${tx},${cy2} ${tx},${ty}`;
-    } else {
-      // orthogonal
-      return`M${sx},${sy+NH}L${sx},${midY}L${tx},${midY}L${tx},${ty}`;
-    }
-  }
-
-  // ── Waypoints (puntos intermedios editables de cada línea) ──
-  const WP_KEY='gcba_org_waypoints_v1';
-  let edWaypoints={}; // {`${sid}-${tid}`: [{x,y},...]}
-
-  function loadAllWaypoints(){try{return JSON.parse(localStorage.getItem(WP_KEY)||"{}");}catch{return{};}}
-  function saveWaypointsForRoot(rootId,wps){
-    const all=loadAllWaypoints();all[rootId]=wps;
-    localStorage.setItem(WP_KEY,JSON.stringify(all));
-  }
-  function loadWaypointsForRoot(rootId){return loadAllWaypoints()[rootId]||{};}
-  function clearWaypointsForRoot(rootId){
-    const all=loadAllWaypoints();delete all[rootId];
-    localStorage.setItem(WP_KEY,JSON.stringify(all));
-  }
-
-  function wpKey(sid,tid){return sid+"-"+tid;}
-
-  function buildLinkSVGPath(sid,tid){
-    const sp=edPositions[sid]||{x:0,y:0};
-    const tp=edPositions[tid]||{x:0,y:0};
-    const sx=sp.x, sy=sp.y+NH; // centro inferior del nodo fuente
-    const tx=tp.x, ty=tp.y;   // centro superior del nodo destino
-    const wps=edWaypoints[wpKey(sid,tid)]||[];
-
-    if(wps.length===0){
-      // Sin waypoints: codo simple en el punto medio vertical
-      const my=sy+(ty-sy)/2;
-      return`M${sx},${sy}L${sx},${my}L${tx},${my}L${tx},${ty}`;
-    }
-
-    // Con waypoints: cada waypoint es un PUNTO DE QUIEBRE libre.
-    // El segmento entre dos puntos consecutivos se dibuja en L ortogonal:
-    // horizontal del X_origen al X_destino, luego vertical al Y_destino.
-    // Esto permite ir en cualquier dirección (arriba, abajo, izquierda, derecha).
-    const allPts=[{x:sx,y:sy},...wps,{x:tx,y:ty}];
-    let d=`M${fv(allPts[0].x)},${fv(allPts[0].y)}`;
-    for(let i=1;i<allPts.length;i++){
-      const prev=allPts[i-1], cur=allPts[i];
-      // Va horizontal desde prev.x al cur.x (a la misma altura prev.y)
-      // luego vertical desde prev.y al cur.y (en cur.x)
-      d+=`L${fv(cur.x)},${fv(prev.y)}L${fv(cur.x)},${fv(cur.y)}`;
-    }
-    return d;
+    visibleNodes().forEach(n=>{
+      const item=document.createElement("div");
+      item.className="ed-ni"+(edSelectedIds.has(n.id)?" sel":"");
+      item.dataset.id=n.id;
+      item.innerHTML=`<div class="ed-dot" style="background:${getColor(n)}"></div><div class="ed-nm">${n.nombre||"—"}</div><div class="ed-tp">${getLabel(n)}</div>`;
+      item.addEventListener("click",()=>selectSingle(n.id));
+      el.appendChild(item);
+    });
   }
 
   // ── Canvas ────────────────────────────────────────────────
-  function renderEdCanvas(){
-    if(!edData)return;
+  function renderCanvas(){
+    if(!edData||!edViewId)return;
     const area=document.getElementById("ed-canvas");
     const svgEl=document.getElementById("ed-svg");
     if(!area||!svgEl)return;
@@ -1739,195 +1229,146 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     const svg=d3.select(svgEl).attr("width",W).attr("height",H);
     svg.selectAll("*").remove();
 
-    // El subárbol a mostrar
-    const viewRoot=edViewRootId?findED(edData,edViewRootId):edData;
-    if(!viewRoot)return;
+    const nodes=visibleNodes();
+    const links=visibleLinks(nodes);
 
-    // Si es JG, mostrar solo 1 nivel de profundidad (JG → MIN/VJG/SEC)
-    const isViewJG=viewRoot.tipo==="JG";
-
-    // Layout D3 base para el subárbol actual
-    function toH(node,depth=0){
-      const kids=(node.children||[]);
-      // Para JG: solo expandir 1 nivel (no entrar en los ministerios)
-      if(isViewJG&&depth>=1) return{...node,_k:[],children:undefined};
+    // Calcular layout D3 para posiciones iniciales
+    function toH(node,depth){
+      const kids=isJGView()&&depth>=1?[]:(node.children||[]);
       return{...node,_k:kids.map(c=>toH(c,depth+1)),children:undefined};
     }
-    const root=d3.hierarchy(toH(viewRoot,0),d=>d._k.length?d._k:null);
-    d3.tree().nodeSize([NW+HPAD,NH+VPAD])(root);
+    const viewRoot=findN(edData,edViewId)||edData;
+    const d3root=d3.hierarchy(toH(viewRoot,0),d=>d._k.length?d._k:null);
+    d3.tree().nodeSize([NW+HPAD,NH+VPAD])(d3root);
     const d3pos={};
-    root.each(n=>{d3pos[n.data.id]={x:n.x,y:n.y};});
+    d3root.each(n=>{d3pos[n.data.id]={x:n.x,y:n.y};});
     const allD3=Object.values(d3pos);
-    const minX=Math.min(...allD3.map(p=>p.x))-NW/2;
-    const minY=Math.min(...allD3.map(p=>p.y));
-    Object.keys(d3pos).forEach(id=>{d3pos[id].x-=minX;d3pos[id].y-=minY;});
+    const mnX=Math.min(...allD3.map(p=>p.x))-NW/2;
+    const mnY=Math.min(...allD3.map(p=>p.y));
+    Object.keys(d3pos).forEach(id=>{d3pos[id].x-=mnX;d3pos[id].y-=mnY;});
 
-    // Para JG: solo nodos directos (viewRoot + sus hijos directos sin expandir)
-    function visibleNodes(node,depth=0){
-      const arr=[node];
-      if(isViewJG&&depth>=1) return arr; // para JG, no bajar más de 1 nivel
-      (node.children||[]).forEach(ch=>arr.push(...visibleNodes(ch,depth+1)));
-      return arr;
-    }
-
-    // Usar posiciones guardadas (clave = viewRoot.id para que cada área tenga las suyas)
-    const posKey=edViewRootId||edCurrentRootId;
-    const saved=loadPositionsForRoot(posKey)||{};
+    // Mezclar: usar posiciones guardadas donde existan, D3 para nodos nuevos
+    const saved=loadPosForArea(edViewId)||{};
     edPositions={};
-    const allNodes=visibleNodes(viewRoot);
-    allNodes.forEach(n=>{
-      if(saved[n.id]) edPositions[n.id]={x:saved[n.id].x,y:saved[n.id].y};
-      else edPositions[n.id]={...(d3pos[n.id]||{x:0,y:0})};
+    nodes.forEach(n=>{
+      edPositions[n.id]=saved[n.id]?{x:saved[n.id].x,y:saved[n.id].y}:{...(d3pos[n.id]||{x:0,y:0})};
     });
-
-    // Links — solo entre nodos visibles
-    const visibleIds=new Set(allNodes.map(n=>n.id));
-    const links=[];
-    function buildL(node,depth=0){
-      const pos=edPositions[node.id];
-      if(!pos)return;
-      (node.children||[]).forEach(ch=>{
-        if(!visibleIds.has(ch.id))return;
-        const cp=edPositions[ch.id];
-        if(cp)links.push({sid:node.id,tid:ch.id,dashed:!!ch.dashed});
-        if(!(isViewJG&&depth>=1)) buildL(ch,depth+1);
-      });
-    }
-    buildL(viewRoot);
+    edWaypoints=loadWPForArea(edViewId);
 
     const g=svg.append("g").attr("class","canvas-root");
     edZoom=d3.zoom().scaleExtent([0.04,3]).on("zoom",e=>{edTransform=e.transform;g.attr("transform",e.transform);});
     svg.call(edZoom).call(edZoom.transform,edTransform);
     g.attr("transform",edTransform);
 
-    // Load waypoints for this view
-    const posKey2=edViewRootId||edCurrentRootId;
-    edWaypoints=loadWaypointsForRoot(posKey2)||{};
-
+    // Links
     const linkG=g.append("g");
-    const wpG=g.append("g"); // waypoint handles layer (above links, below nodes)
+    const wpG=g.append("g");
+
+    function linkPath(sid,tid){
+      const sp=edPositions[sid]||{x:0,y:0};
+      const tp=edPositions[tid]||{x:0,y:0};
+      const sx=sp.x,sy=sp.y+NH,tx=tp.x,ty=tp.y;
+      const wps=edWaypoints[sid+"-"+tid]||[];
+      if(wps.length>0){
+        const pts=[{x:sx,y:sy},...wps,{x:tx,y:ty}];
+        let d=`M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+        for(let i=1;i<pts.length;i++){
+          d+=`L${pts[i].x.toFixed(1)},${pts[i-1].y.toFixed(1)}L${pts[i].x.toFixed(1)},${pts[i].y.toFixed(1)}`;
+        }
+        return d;
+      }
+      const my=sy+(ty-sy)/2;
+      return`M${sx.toFixed(1)},${sy.toFixed(1)}L${sx.toFixed(1)},${my.toFixed(1)}L${tx.toFixed(1)},${my.toFixed(1)}L${tx.toFixed(1)},${ty.toFixed(1)}`;
+    }
 
     function drawLinks(){
-      // Draw link paths
-      linkG.selectAll("path.c-link-path").data(links).join("path")
-        .attr("class",d=>"c-link-path c-link"+(d.dashed?" dashed":""))
-        .attr("d",d=>buildLinkSVGPath(d.sid,d.tid));
-
-      // Draw invisible thick hit area for adding waypoints (dbl-click on link)
-      linkG.selectAll("path.c-link-hit").data(links).join("path")
-        .attr("class","c-link-hit")
-        .attr("d",d=>buildLinkSVGPath(d.sid,d.tid))
-        .attr("fill","none").attr("stroke","transparent").attr("stroke-width",12)
+      linkG.selectAll("path.lpath").data(links).join("path")
+        .attr("class",d=>"lpath c-link"+(d.dashed?" dashed-link":""))
+        .attr("d",d=>linkPath(d.sid,d.tid));
+      linkG.selectAll("path.lhit").data(links).join("path")
+        .attr("class","lhit")
+        .attr("d",d=>linkPath(d.sid,d.tid))
+        .attr("fill","none").attr("stroke","transparent").attr("stroke-width",14)
         .style("cursor","crosshair")
         .on("dblclick",function(e,d){
           e.stopPropagation();
-          // Agregar waypoint en la posición del click
-          const svgPt=svgEl.createSVGPoint();
-          svgPt.x=e.clientX; svgPt.y=e.clientY;
-          const p=svgPt.matrixTransform(svgEl.getScreenCTM().inverse());
-          // Convertir a coordenadas del grupo (dividir por transform)
-          const gp={x:(p.x-edTransform.x)/edTransform.k, y:(p.y-edTransform.y)/edTransform.k};
-          const k=wpKey(d.sid,d.tid);
+          const pt=svgEl.createSVGPoint();
+          pt.x=e.clientX;pt.y=e.clientY;
+          const gp=pt.matrixTransform(svgEl.getScreenCTM().inverse());
+          const p={x:(gp.x-edTransform.x)/edTransform.k,(gp.y-edTransform.y)/edTransform.k};
+          // Corrección: dividir por k ya está en gp
+          const wp={x:(gp.x-edTransform.x)/edTransform.k,y:(gp.y-edTransform.y)/edTransform.k};
+          const k=d.sid+"-"+d.tid;
           if(!edWaypoints[k])edWaypoints[k]=[];
-          edWaypoints[k].push({x:gp.x,y:gp.y});
-          saveWaypointsForRoot(posKey2,edWaypoints);
-          drawLinks(); drawWaypoints();
+          edWaypoints[k].push(wp);
+          saveWPForArea();drawLinks();drawWPs();
         });
-
-      // Waypoint handles
-      drawWaypoints();
     }
 
-    function drawWaypoints(){
+    function drawWPs(){
       wpG.selectAll("*").remove();
       links.forEach(lk=>{
-        const wps=edWaypoints[wpKey(lk.sid,lk.tid)]||[];
+        const wps=edWaypoints[lk.sid+"-"+lk.tid]||[];
         wps.forEach((wp,i)=>{
-          // Handle circle
-          const circle=wpG.append("circle")
+          const c=wpG.append("circle")
             .attr("cx",wp.x).attr("cy",wp.y).attr("r",6)
             .attr("fill","#4f7ef8").attr("stroke","#fff").attr("stroke-width",1.5)
             .style("cursor","grab");
-
-          // Drag to move waypoint
-          circle.call(d3.drag()
+          c.call(d3.drag()
             .on("drag",function(e){
-              wp.x+=e.dx/edTransform.k;
-              wp.y+=e.dy/edTransform.k;
+              wp.x+=e.dx/edTransform.k;wp.y+=e.dy/edTransform.k;
               d3.select(this).attr("cx",wp.x).attr("cy",wp.y);
               drawLinks();
             })
-            .on("end",()=>{
-              saveWaypointsForRoot(posKey2,edWaypoints);
-              showSavedMsg();
-            })
+            .on("end",()=>{saveWPForArea();showSaved();})
           );
-
-          // Right-click to delete waypoint
-          circle.on("contextmenu",function(e){
-            e.preventDefault();
-            e.stopPropagation();
-            const k=wpKey(lk.sid,lk.tid);
+          c.on("contextmenu",function(e){
+            e.preventDefault();e.stopPropagation();
+            const k=lk.sid+"-"+lk.tid;
             edWaypoints[k].splice(i,1);
-            if(edWaypoints[k].length===0)delete edWaypoints[k];
-            saveWaypointsForRoot(posKey2,edWaypoints);
-            drawLinks(); drawWaypoints();
+            if(!edWaypoints[k].length)delete edWaypoints[k];
+            saveWPForArea();drawLinks();drawWPs();
           });
         });
       });
     }
-    drawLinks();
 
+    drawLinks();drawWPs();
+
+    // Nodos
     const nodeG=g.append("g");
-    const ng=nodeG.selectAll("g.c-node").data(allNodes,d=>d.id).enter()
-      .append("g").attr("class",d=>"c-node"+(d.id===edSelectedId?" sel":""))
+    const ng=nodeG.selectAll("g.c-node").data(nodes,d=>d.id).enter()
+      .append("g").attr("class",d=>"c-node"+(edSelectedIds.has(d.id)?" sel":""))
       .attr("transform",d=>{const p=edPositions[d.id]||{x:0,y:0};return`translate(${p.x-NW/2},${p.y})`;})
       .style("cursor","pointer")
       .on("click",(e,d)=>{
         e.stopPropagation();
         if(e.shiftKey){
-          // Shift+clic: toggle nodo + todos sus descendientes
-          const nodeAndDesc=flatED(findED(edData,d.id)||{children:[]}).map(n=>n.id);
-          const allIn=nodeAndDesc.every(id=>edSelectedIds.has(id));
-          if(allIn){ nodeAndDesc.forEach(id=>edSelectedIds.delete(id)); }
-          else { nodeAndDesc.forEach(id=>edSelectedIds.add(id)); }
-          edSelectedId=edSelectedIds.size===1?[...edSelectedIds][0]:d.id;
+          const desc=flat(findN(edData,d.id)||{children:[]}).map(n=>n.id);
+          const allIn=desc.every(id=>edSelectedIds.has(id));
+          if(allIn)desc.forEach(id=>edSelectedIds.delete(id));
+          else desc.forEach(id=>edSelectedIds.add(id));
           d3.selectAll(".c-node").classed("sel",n=>edSelectedIds.has(n.id));
-          renderEdInspector(findED(edData,d.id));
+          renderInspector(findN(edData,d.id));
           document.getElementById("ed-actions").style.display="flex";
-        } else {
-          edSelect(d.id);
-        }
+        }else{selectSingle(d.id);}
       });
 
     ng.call(d3.drag()
-      .on("start",function(e,d){
-        if(!edSelectedIds.has(d.id)){
-          edSelectedIds.clear();
-          edSelectedIds.add(d.id);
-          edSelectedId=d.id;
-          d3.selectAll(".c-node").classed("sel",n=>edSelectedIds.has(n.id));
-        }
-      })
+      .on("start",function(e,d){if(!edSelectedIds.has(d.id)){edSelectedIds.clear();edSelectedIds.add(d.id);d3.selectAll(".c-node").classed("sel",n=>edSelectedIds.has(n.id));}}
+      )
       .on("drag",function(e,d){
-        const dx=e.dx/edTransform.k, dy=e.dy/edTransform.k;
-        edSelectedIds.forEach(id=>{
-          if(!edPositions[id])return;
-          edPositions[id].x+=dx;
-          edPositions[id].y+=dy;
-        });
+        const dx=e.dx/edTransform.k,dy=e.dy/edTransform.k;
+        edSelectedIds.forEach(id=>{if(edPositions[id]){edPositions[id].x+=dx;edPositions[id].y+=dy;}});
         d3.selectAll(".c-node").filter(n=>edSelectedIds.has(n.id))
           .attr("transform",n=>{const p=edPositions[n.id]||{x:0,y:0};return`translate(${p.x-NW/2},${p.y})`;});
-        drawLinks();
+        drawLinks();drawWPs();
       })
-      .on("end",()=>{
-        savePositionsForRoot(posKey2,edPositions);
-        showSavedMsg();
-      })
+      .on("end",()=>{savePosForArea();showSaved();})
     );
 
     ng.append("rect").attr("width",NW).attr("height",NH).attr("rx",7)
-      .attr("fill",d=>getColorED(d))
+      .attr("fill",d=>getColor(d))
       .attr("stroke",d=>d.dashed?"rgba(255,255,255,0.4)":"none")
       .attr("stroke-width",1.5).attr("stroke-dasharray",d=>d.dashed?"5,3":"none");
 
@@ -1938,255 +1379,201 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       for(const w of words){if((l1+" "+w).trim().length<=20)l1=(l1+" "+w).trim();else l2=(l2+" "+w).trim();}
       const hasTit=d.titular&&d.titular.trim();
       const lines=l2?[l1,l2]:[l1];
-      const total=lines.length+(hasTit?1:0);
-      const lh=12,sy=NH/2-(total*lh)/2+lh*0.85;
-      lines.forEach((l,i)=>{
-        g2.append("text").attr("x",NW/2).attr("y",sy+i*lh)
-          .attr("text-anchor","middle").attr("font-size",9.5).attr("font-weight",600)
-          .attr("fill","#fff").attr("font-family","Inter,sans-serif").text(l);
-      });
-      if(hasTit){
-        const sh=d.titular.length>24?d.titular.slice(0,24)+"…":d.titular;
-        g2.append("text").attr("x",NW/2).attr("y",sy+lines.length*lh+2)
-          .attr("text-anchor","middle").attr("font-size",8).attr("fill","rgba(255,255,255,0.68)")
-          .attr("font-family","Inter,sans-serif").text(sh);
-      }
+      const lh=12,sy2=NH/2-(lines.length+(hasTit?1:0))*lh/2+lh*0.85;
+      lines.forEach((l,i)=>g2.append("text").attr("x",NW/2).attr("y",sy2+i*lh)
+        .attr("text-anchor","middle").attr("font-size",9.5).attr("font-weight",600)
+        .attr("fill","#fff").attr("font-family","Inter,sans-serif").text(l));
+      if(hasTit)g2.append("text").attr("x",NW/2).attr("y",sy2+lines.length*lh+1.5)
+        .attr("text-anchor","middle").attr("font-size",8).attr("fill","rgba(255,255,255,0.7)")
+        .attr("font-family","Inter,sans-serif").text(d.titular.length>24?d.titular.slice(0,24)+"…":d.titular);
     });
 
-    svg.on("click",()=>{edSelectedIds.clear();edSelect(null);});
+    svg.on("click",()=>{edSelectedIds.clear();d3.selectAll(".c-node").classed("sel",false);renderInspector(null);document.getElementById("ed-actions").style.display="none";});
 
-    // Auto-fit si no hay posiciones guardadas
-    const hasSaved=Object.keys(saved).length>0;
-    if(!hasSaved||!edInitialized){
-      edInitialized=true;
+    // Auto-fit si no hay posiciones guardadas para esta área
+    if(!Object.keys(saved).length||!edFitted){
+      edFitted=true;
       const allP=Object.values(edPositions);
-      const mxX=Math.max(...allP.map(p=>p.x))+NW/2+30;
-      const myX=Math.max(...allP.map(p=>p.y))+NH+30;
-      const mnX2=Math.min(...allP.map(p=>p.x))-NW/2-30;
-      const mnY2=Math.min(...allP.map(p=>p.y))-30;
-      const sc=Math.min(W/(mxX-mnX2),H/(myX-mnY2),1)*0.88;
-      const tx=W/2-(mnX2+(mxX-mnX2)/2)*sc;
-      const ty=H/2-(mnY2+(myX-mnY2)/2)*sc;
-      edTransform=d3.zoomIdentity.translate(tx,ty).scale(sc);
-      svg.call(edZoom.transform,edTransform);
+      if(allP.length){
+        const mxX=Math.max(...allP.map(p=>p.x))+NW/2+30;
+        const myY=Math.max(...allP.map(p=>p.y))+NH+30;
+        const mnX2=Math.min(...allP.map(p=>p.x))-NW/2-30;
+        const mnY2=Math.min(...allP.map(p=>p.y))-30;
+        const sc=Math.min(W/(mxX-mnX2),H/(myY-mnY2),1)*0.88;
+        const tx=W/2-(mnX2+(mxX-mnX2)/2)*sc;
+        const ty=H/2-(mnY2+(myY-mnY2)/2)*sc;
+        edTransform=d3.zoomIdentity.translate(tx,ty).scale(sc);
+        svg.call(edZoom.transform,edTransform);
+      }
     }
   }
 
-  // ── Selection & Inspector ─────────────────────────────────
-  function edSelect(id){
-    edSelectedId=id;
-    edSelectedIds.clear();
-    if(id)edSelectedIds.add(id);
+  // ── Selección & Inspector ─────────────────────────────────
+  function selectSingle(id){
+    edSelectedIds.clear();if(id)edSelectedIds.add(id);
     d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));
     document.querySelectorAll(".ed-ni").forEach(el=>el.classList.toggle("sel",el.dataset.id===id));
-    const node=id?findED(edData,id):null;
-    renderEdInspector(node);
+    const node=id?findN(edData,id):null;
+    renderInspector(node);
     if(id){const el=document.querySelector(`.ed-ni[data-id="${id}"]`);if(el)el.scrollIntoView({block:"nearest"});}
   }
 
-  function renderEdInspector(node){
+  function renderInspector(node){
     const body=document.getElementById("ed-ins-body");
     const actions=document.getElementById("ed-actions");
     const idEl=document.getElementById("ed-ins-id");
     if(!node){
-      body.innerHTML='<div class="ed-ins-empty"><div class="ico">⬡</div><p>Clic para seleccionar</p><p style="font-size:10px;color:#444870;margin-top:4px;">Shift+clic selecciona el nodo<br>con todos sus dependientes</p></div>';
+      body.innerHTML='<div class="ed-ins-empty"><div class="ico">⬡</div><p>Clic = seleccionar<br>Shift+clic = seleccionar<br>nodo + dependientes</p></div>';
       actions.style.display="none";idEl.textContent="";return;
     }
     idEl.textContent=node.id;
     actions.style.display="flex";
-    const isCustom=node.tipo&&node.tipo.startsWith("CUSTOM:");
-    const tipoVal=isCustom?"__custom__":node.tipo;
-    const tipoLabel=isCustom?(node.tipoLabel||node.tipo.replace("CUSTOM:","")):"";
-    const color=getColorED(node);
-    const label=getLabelED(node);
-    const tipos=Object.entries(LABELS_ED).map(([k,v])=>`<option value="${k}"${tipoVal===k?" selected":""}>${v}</option>`).join("");
+    const isC=node.tipo?.startsWith("CUSTOM:");
+    const color=getColor(node);
+    const label=getLabel(node);
+    const tipos={JG:"Jefatura",VJG:"Vicejefatura",MIN:"Ministerio",SEC:"Secretaría",SS:"Subsecretaría",DG:"Dir. General",GG:"Gerencia General",GO:"Gerencia Operativa",ORG:"Organismo"};
+    const tipoOpts=Object.entries(tipos).map(([k,v])=>`<option value="${k}"${node.tipo===k?" selected":""}>${v}</option>`).join("")+`<option value="__custom__"${isC?" selected":""}>✏️ Personalizado…</option>`;
     body.innerHTML=`
       <div class="ed-preview" style="background:${color}">
-        <div class="ed-plabel">${label}</div>
-        <div class="ed-pnombre">${node.nombre||"—"}</div>
-        ${node.titular?`<div class="ed-ptitular">${node.titular}</div>`:""}
+        <div class="ep-label">${label}</div>
+        <div class="ep-nombre">${node.nombre||"—"}</div>
+        ${node.titular?`<div class="ep-titular">${node.titular}</div>`:""}
       </div>
-      <div class="ed-field"><label>Nombre</label><input id="ei-nombre" value="${(node.nombre||"").replace(/"/g,"&quot;")}"/></div>
-      <div class="ed-field"><label>Titular</label><input id="ei-titular" value="${(node.titular||"").replace(/"/g,"&quot;")}"/></div>
+      <div class="ed-field"><label>Nombre</label><input id="ei-n" value="${(node.nombre||"").replace(/"/g,"&quot;")}"/></div>
+      <div class="ed-field"><label>Titular</label><input id="ei-t" value="${(node.titular||"").replace(/"/g,"&quot;")}"/></div>
       <div class="ed-field"><label>Tipo</label>
-        <select id="ei-tipo" onchange="document.getElementById('ei-cw').style.display=this.value==='__custom__'?'block':'none'">
-          ${tipos}<option value="__custom__"${isCustom?" selected":""}>✏️ Personalizado…</option>
-        </select>
+        <select id="ei-tipo" onchange="document.getElementById('ei-cw').style.display=this.value==='__custom__'?'block':'none'">${tipoOpts}</select>
       </div>
-      <div class="ed-field" id="ei-cw" style="display:${isCustom?"block":"none"}"><label>Nombre del tipo</label><input id="ei-tlabel" value="${tipoLabel}"/></div>
-      <div class="ed-field"><label style="display:flex;align-items:center;gap:7px;text-transform:none;font-size:11.5px;cursor:pointer;">
-        <input type="checkbox" id="ei-dashed" ${node.dashed?"checked":""} style="width:13px;height:13px;accent-color:#4f7ef8;"/>
-        Dependencia funcional (línea punteada)
+      <div class="ed-field" id="ei-cw" style="display:${isC?"block":"none"}"><label>Nombre del tipo</label><input id="ei-tl" value="${isC?(node.tipoLabel||node.tipo.replace("CUSTOM:","")):""}" /></div>
+      <div class="ed-field"><label style="display:flex;align-items:center;gap:7px;text-transform:none;font-size:12px;cursor:pointer;">
+        <input type="checkbox" id="ei-d" ${node.dashed?"checked":""} style="width:13px;height:13px;accent-color:#4f7ef8;"/>
+        Dependencia funcional
       </label></div>`;
   }
 
-  function edSave(){
-    if(!edSelectedId)return;
-    const nombre=document.getElementById("ei-nombre").value.trim();
-    const titular=document.getElementById("ei-titular").value.trim();
-    const tipoRaw=document.getElementById("ei-tipo").value;
-    const tipoLabel=(document.getElementById("ei-tlabel")||{value:""}).value.trim();
-    const dashed=document.getElementById("ei-dashed").checked;
-    let tipo=tipoRaw==="__custom__"?"CUSTOM:"+tipoLabel:tipoRaw;
-    const newData=updateED(edData,edSelectedId,n=>({...n,nombre,titular,tipo,tipoLabel:tipoLabel||undefined,dashed}));
+  function saveNodeChanges(){
+    const id=[...edSelectedIds][0];
+    if(!id)return;
+    const nombre=document.getElementById("ei-n")?.value.trim()||"";
+    const titular=document.getElementById("ei-t")?.value.trim()||"";
+    const tipoRaw=document.getElementById("ei-tipo")?.value||"DG";
+    const tipoLabel=document.getElementById("ei-tl")?.value.trim()||"";
+    const dashed=document.getElementById("ei-d")?.checked||false;
+    const tipo=tipoRaw==="__custom__"?"CUSTOM:"+tipoLabel:tipoRaw;
+    const newData=updateN(edData,id,n=>({...n,nombre,titular,tipo,tipoLabel:tipoLabel||undefined,dashed}));
     edData=newData;
-    edDispatch(newData);
-    refreshEdSidebar();
-    renderEdCanvas();
-    edSelect(edSelectedId);
-    showSavedMsg();
+    window.dispatchEvent(new CustomEvent("editorDataChanged",{detail:JSON.parse(JSON.stringify(newData))}));
+    renderSidebar();renderCanvas();selectSingle(id);showSaved();
   }
 
-  function edSaveLayout(){
-    const posKey=edViewRootId||edCurrentRootId;
-    if(posKey&&Object.keys(edPositions).length>0){
-      savePositionsForRoot(posKey,edPositions);
-      showSavedMsg();
-    }
-  }
-
-  function edDelete(){
-    if(!edSelectedId||edSelectedId==="JG")return;
-    const node=findED(edData,edSelectedId);
+  function deleteNode(){
+    const id=[...edSelectedIds][0];
+    if(!id||id===edData?.id)return;
+    const node=findN(edData,id);
     if(!confirm(`¿Eliminar "${node?.nombre}" y todas sus dependencias?`))return;
-    const newData=removeED(edData,edSelectedId);
-    edSelectedId=null;
+    const newData=removeN(edData,id);
     edData=newData;
-    edDispatch(newData);
-    refreshEdSidebar();
-    renderEdCanvas();
-    renderEdInspector(null);
+    edSelectedIds.clear();
+    window.dispatchEvent(new CustomEvent("editorDataChanged",{detail:JSON.parse(JSON.stringify(newData))}));
+    renderSidebar();renderCanvas();renderInspector(null);
     document.getElementById("ed-actions").style.display="none";
-    showSavedMsg();
+    showSaved();
   }
 
-  function edMoveModal(){
-    if(!edSelectedId||edSelectedId==="JG")return;
-    const allN=flatED(edData).filter(n=>n.id!==edSelectedId);
-    const opts=allN.map(n=>`<option value="${n.id}">[${getLabelED(n)}] ${n.nombre}</option>`).join("");
+  function showMoveModal(){
+    const id=[...edSelectedIds][0];
+    if(!id||id===edData?.id)return;
+    const node=findN(edData,id);
+    const allN=flat(edData).filter(n=>n.id!==id);
+    const opts=allN.map(n=>`<option value="${n.id}">[${getLabel(n)}] ${n.nombre}</option>`).join("");
     const overlay=document.createElement("div");
-    overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:3000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)";
+    overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:3000;display:flex;align-items:center;justify-content:center;";
     overlay.innerHTML=`<div style="background:#1a1d27;border:1px solid #333650;border-radius:12px;width:360px;overflow:hidden;">
-      <div style="background:#232636;padding:12px 16px;border-bottom:1px solid #333650;font-size:13px;font-weight:600;color:#e8eaf2;">Mover a otro padre</div>
-      <div style="padding:16px;">
-        <div class="ed-field"><label>Nuevo padre</label><select id="mv-sel" style="width:100%;background:#232636;border:1px solid #333650;color:#e8eaf2;font-family:inherit;font-size:12px;padding:7px 9px;border-radius:6px;outline:none;">${opts}</select></div>
-      </div>
+      <div style="background:#232636;padding:12px 16px;border-bottom:1px solid #333650;font-size:13px;font-weight:600;color:#e8eaf2;">Mover: ${node?.nombre}</div>
+      <div style="padding:16px;"><label style="font-size:10px;font-weight:600;color:#6b7199;text-transform:uppercase;display:block;margin-bottom:4px;">Nuevo padre</label>
+        <select id="mv-sel" style="width:100%;background:#232636;border:1px solid #333650;color:#e8eaf2;font-family:inherit;font-size:12px;padding:7px;border-radius:6px;outline:none;">${opts}</select></div>
       <div style="padding:10px 16px;border-top:1px solid #333650;display:flex;gap:8px;justify-content:flex-end;">
         <button id="mv-cancel" style="padding:6px 14px;border-radius:7px;background:#232636;border:1px solid #333650;color:#9da3c4;font-family:inherit;font-size:12px;cursor:pointer;">Cancelar</button>
         <button id="mv-ok" style="padding:6px 14px;border-radius:7px;background:#4f7ef8;border:none;color:#fff;font-family:inherit;font-size:12px;cursor:pointer;">Mover</button>
-      </div>
-    </div>`;
+      </div></div>`;
     document.body.appendChild(overlay);
     document.getElementById("mv-cancel").onclick=()=>overlay.remove();
     document.getElementById("mv-ok").onclick=()=>{
-      const newPid=document.getElementById("mv-sel").value;
-      if(newPid&&newPid!==edSelectedId){
-        const newData=moveED(edData,edSelectedId,newPid);
-        edData=newData;edDispatch(newData);refreshEdSidebar();renderEdCanvas();
-        showSavedMsg();
-      }
-      overlay.remove();
+      const np=document.getElementById("mv-sel").value;
+      if(np){const nd=moveN(edData,id,np);edData=nd;window.dispatchEvent(new CustomEvent("editorDataChanged",{detail:JSON.parse(JSON.stringify(nd))}));renderSidebar();renderCanvas();}
+      overlay.remove();showSaved();
     };
   }
 
-  function edExportA3(){
-    if(!window.__genPageSVG){alert("Cargá la aplicación completa primero.");return;}
-    const asel=document.getElementById("ed-area-sel");
-    const areaId=asel?.value||edData?.id||"JG";
-    const areaNode=window.__findNode(edData,areaId);
-    if(!areaNode){alert("Área no encontrada.");return;}
-    try{
-      const svgStr=window.__genPageSVG(areaNode,1,1);
-      window.__dlSVG(svgStr,`organigrama-${areaId.toLowerCase()}-A3.svg`);
-      showSavedMsg();
-    }catch(err){
-      console.error(err);
-      alert("Error al exportar: "+err.message);
-    }
+  function exportAreaA3(){
+    const viewRoot=findN(edData,edViewId)||edData;
+    if(!window.__genSVGA3){alert("Esperá que cargue la app.");return;}
+    const svg=window.__genSVGA3(viewRoot,1,1);
+    window.__dlSVG(svg,`organigrama-${edViewId}-A3.svg`);
+    showSaved();
   }
 
-  function edResetLayout(){
-    const posKey=edViewRootId||edCurrentRootId;
-    if(!posKey)return;
-    if(!confirm("¿Restablecer el layout automático? Se perderán las posiciones y waypoints que editaste para esta área."))return;
-    clearPositionsForRoot(posKey);
-    clearWaypointsForRoot(posKey);
-    edInitialized=false;
-    edTransform=d3.zoomIdentity;
-    renderEdCanvas();
+  function showSaved(){
+    const el=document.getElementById("ed-saved-msg");
+    if(!el)return;
+    el.style.opacity="1";clearTimeout(el._t);
+    el._t=setTimeout(()=>el.style.opacity="0",2000);
   }
 
-  // ── Wire up controls ──────────────────────────────────────
-  document.getElementById("ed-zi").onclick=()=>{if(edZoom)d3.select("#ed-svg").call(edZoom.scaleBy,1.3);};
-  document.getElementById("ed-zo").onclick=()=>{if(edZoom)d3.select("#ed-svg").call(edZoom.scaleBy,0.77);};
-  document.getElementById("ed-zr").onclick=()=>{edTransform=d3.zoomIdentity;edInitialized=false;renderEdCanvas();};
-  document.getElementById("ed-save").onclick=()=>edSave();
-  document.getElementById("ed-move").onclick=()=>edMoveModal();
-  document.getElementById("ed-del").onclick=()=>edDelete();
-  document.getElementById("ed-save-layout").onclick=()=>edSaveLayout();
-  document.getElementById("ed-export-a3").onclick=()=>edExportA3();
+  function resetLayout(){
+    if(!edViewId)return;
+    if(!confirm("¿Restablecer el layout automático para esta área?"))return;
+    clearArea(edViewId);edFitted=false;edTransform=d3.zoomIdentity;
+    renderCanvas();showSaved();
+  }
 
-  // Área selector: cambiar subárbol
+  // ── Wire buttons ─────────────────────────────────────────
+  function wire(id,fn){const el=document.getElementById(id);if(el)el.onclick=fn;}
+  wire("ed-zi",()=>{if(edZoom)d3.select("#ed-svg").call(edZoom.scaleBy,1.3);});
+  wire("ed-zo",()=>{if(edZoom)d3.select("#ed-svg").call(edZoom.scaleBy,0.77);});
+  wire("ed-zr",()=>{edTransform=d3.zoomIdentity;edFitted=false;renderCanvas();});
+  wire("ed-btn-save",()=>{savePosForArea();saveWPForArea();showSaved();});
+  wire("ed-btn-export",()=>exportAreaA3());
+  wire("ed-btn-reset",()=>resetLayout());
+  wire("ed-btn-back",()=>{if(window.__goToOrganigrama)window.__goToOrganigrama();});
+  wire("ed-btn-node-save",()=>saveNodeChanges());
+  wire("ed-btn-move",()=>showMoveModal());
+  wire("ed-btn-delete",()=>deleteNode());
+
   document.getElementById("ed-area-sel").onchange=function(){
-    edViewRootId=this.value;
-    edSelectedId=null;
-    edInitialized=false;
-    edTransform=d3.zoomIdentity;
-    refreshEdSidebar();
-    renderEdCanvas();
-    renderEdInspector(null);
+    edViewId=this.value;edSelectedIds.clear();edFitted=false;edTransform=d3.zoomIdentity;
+    renderSidebar();renderCanvas();renderInspector(null);
     document.getElementById("ed-actions").style.display="none";
   };
 
-  // estilo de líneas: siempre ortogonal, se edita con waypoints
+  window.addEventListener("resize",()=>{
+    if(document.getElementById("ed-pane").classList.contains("visible"))renderCanvas();
+  });
 
-  // ── Init & sync ───────────────────────────────────────────
+  // ── Activación desde React ───────────────────────────────
   window.addEventListener("editorActivated",e=>{
     edData=e.detail;
-    edCurrentRootId=e.detail.id;
-    edLineStyle='orthogonal';
-    // Poblar el selector
-    populateAreaSelector();
-    // Restaurar selección previa o default al primero disponible
-    const asel=document.getElementById("ed-area-sel");
-    if(asel){
-      // Si edViewRootId existe y está en el selector, usarlo; sino el primero
-      if(edViewRootId&&asel.querySelector(`option[value="${edViewRootId}"]`)){
-        asel.value=edViewRootId;
-      } else {
-        // Default: JG (primer ítem)
-        edViewRootId=asel.options[0]?.value||e.detail.id;
-        asel.value=edViewRootId;
-      }
+    populateAreaSel();
+    // Si no hay área seleccionada, tomar la primera del selector
+    if(!edViewId||!findN(edData,edViewId)){
+      const sel=document.getElementById("ed-area-sel");
+      edViewId=sel?.options[0]?.value||edData.id;
+      if(sel)sel.value=edViewId;
     }
-    // No resetear transform si ya hay posiciones guardadas para esta área
-    const posKey=edViewRootId||edCurrentRootId;
-    const saved=loadPositionsForRoot(posKey);
-    if(!saved||Object.keys(saved).length===0){
-      edInitialized=false;
-      edTransform=d3.zoomIdentity;
-    }
-    refreshEdSidebar();
-    renderEdCanvas();
+    edFitted=false;
+    renderSidebar();
+    renderCanvas();
   });
 
   window.addEventListener("orgDataChanged",e=>{
     edData=e.detail;
-    if(!edCurrentRootId)edCurrentRootId=e.detail.id;
-    if(!edViewRootId)edViewRootId=e.detail.id;
-    if(document.getElementById("editor-pane").classList.contains("active")){
-      populateAreaSelector();
-      refreshEdSidebar();
-      renderEdCanvas();
+    if(document.getElementById("ed-pane").classList.contains("visible")){
+      populateAreaSel();renderSidebar();renderCanvas();
     }
   });
 
-  window.addEventListener("resize",()=>{
-    if(document.getElementById("editor-pane").classList.contains("active"))renderEdCanvas();
-  });
-
-  window.edResetLayout=edResetLayout;
 })();
 </script>
 </body>
 </html>
+        
