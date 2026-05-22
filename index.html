@@ -115,13 +115,10 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
     <select id="ed-area-sel" style="min-width:240px;flex:1;max-width:380px;"></select>
     <span style="font-size:10px;color:var(--ed-text3);margin-left:8px;">· doble clic en línea = punto de quiebre · clic der en punto = eliminar</span>
     <span style="font-size:10px;color:var(--ed-text3);margin-left:12px;">Nodo:</span>
-    <span style="font-size:10px;color:var(--ed-text3);">W</span>
-    <input id="ed-nw" type="number" min="60" max="400" step="5" value="158"
-      style="width:58px;background:var(--ed-surface2);border:1px solid var(--ed-border2);color:var(--ed-text);font-family:inherit;font-size:11px;padding:3px 6px;border-radius:5px;outline:none;"/>
-    <span style="font-size:10px;color:var(--ed-text3);">H</span>
-    <input id="ed-nh" type="number" min="30" max="200" step="5" value="50"
-      style="width:52px;background:var(--ed-surface2);border:1px solid var(--ed-border2);color:var(--ed-text);font-family:inherit;font-size:11px;padding:3px 6px;border-radius:5px;outline:none;"/>
-    <button id="ed-btn-apply-size" style="background:var(--ed-surface2);border:1px solid var(--ed-border2);color:var(--ed-text2);font-family:inherit;font-size:11px;padding:3px 8px;border-radius:5px;cursor:pointer;">↺ Aplicar</button>
+    <span style="font-size:10px;color:var(--ed-text3);">Texto</span>
+    <input id="ed-fs" type="number" min="6" max="20" step="0.5" value="9.5"
+      style="width:46px;background:var(--ed-surface2);border:1px solid var(--ed-border2);color:var(--ed-text);font-family:inherit;font-size:11px;padding:3px 6px;border-radius:5px;outline:none;"/>
+    <button id="ed-btn-apply-size" style="background:var(--ed-accent);border:none;color:#fff;font-family:inherit;font-size:11px;font-weight:500;padding:4px 10px;border-radius:5px;cursor:pointer;">↺ Aplicar</button>
     <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
       <span class="ed-saved" id="ed-saved-msg">✓ Guardado</span>
       <button class="ed-zb" id="ed-btn-save" title="Guardar posiciones" style="width:auto;padding:0 12px;font-size:11.5px;">💾 Guardar</button>
@@ -606,7 +603,7 @@ function genSVGA3(root,pn=1,tot=1){
     })(root,0);
     const visIds=new Set(visible.map(n=>n.id));
 
-    nodes=visible.map(n=>({x:savedPos[n.id]?.x??0,y:savedPos[n.id]?.y??0,data:n}));
+    nodes=visible.map(n=>({x:savedPos[n.id]?.x??0,y:savedPos[n.id]?.y??0,w:savedPos[n.id]?.w||ED_NW,h:savedPos[n.id]?.h||ED_NH,data:n}));
 
     // Links
     (function walk(node,depth){
@@ -624,9 +621,9 @@ function genSVGA3(root,pn=1,tot=1){
 
     // Escalar para que el contenido llene el A3
     // El editor usa NW=158,NH=50. Escalamos para que bbox llene AW×AH
-    // Leer tamaño de nodo guardado para esta área (si existe)
+    // Leer tamaño de nodo y fuente guardados para esta área
     const savedSize=JSON.parse(localStorage.getItem("gcba_org_nodesize_v1")||"{}")[root.id]||null;
-    const ED_NW=savedSize?.nw||158,ED_NH=savedSize?.nh||50;
+    const ED_NW=savedSize?.nw||158,ED_NH=savedSize?.nh||50,ED_FS=savedSize?.fs||0;
     const tW=d3.max(nodes,n=>n.x)+ED_NW,tH=d3.max(nodes,n=>n.y)+ED_NH;
     const sc=Math.min(AW/tW,AH/tH)*0.96;
     nodes.forEach(n=>{n.x*=sc;n.y*=sc;});
@@ -668,8 +665,8 @@ function genSVGA3(root,pn=1,tot=1){
       NW=Math.max(80,Math.floor((AW-(spanX-1)*HGAP)/spanX));
       NW=Math.min(NW,280);
       // NH: usar el espacio vertical completo dividido en filas
-      NH=Math.floor((AH-(numRows-1)*VGAP)/numRows);
-      NH=Math.max(NH,52);
+      NH=Math.min(Math.floor((AH-(numRows-1)*VGAP)/numRows), Math.round(NW/2.6));
+      NH=Math.max(NH,36);
       const HPAD=Math.max(HGAP,Math.round((AW-NW*spanX)/(spanX+1)));
       const VPAD=Math.max(VGAP,Math.round((AH-NH*numRows)/(numRows+1)));
       const makeRow=(items,rowY)=>{
@@ -699,8 +696,8 @@ function genSVGA3(root,pn=1,tot=1){
       NW=Math.max(80,Math.floor((AW-(leafCount-1)*HGAP)/leafCount));
       NW=Math.min(NW,280);
       // NH: usar el espacio vertical completo
-      NH=Math.floor((AH-(depthCount-1)*VGAP)/depthCount);
-      NH=Math.max(NH,52);
+      NH=Math.min(Math.floor((AH-(depthCount-1)*VGAP)/depthCount), Math.round(NW/2.6));
+      NH=Math.max(NH,36);
 
       const HPAD=Math.max(HGAP,Math.round((AW-NW*leafCount)/(leafCount+1)));
       const VPAD=Math.max(VGAP,Math.round((AH-NH*depthCount)/(depthCount+1)));
@@ -731,13 +728,14 @@ function genSVGA3(root,pn=1,tot=1){
   const ox=MAR+(AW-usedW)/2,oy=HH+(AH-usedH)/2;
 
   // Tamaños de fuente proporcionales al nodo
-  const fsN=Math.max(7,Math.min(13,NW/11));
-  const fsT=Math.max(6,Math.min(10.5,NW/15));
+  const fsN=ED_FS>0?ED_FS:Math.max(7,Math.min(13,NW/11));
+  const fsT=ED_FS>0?ED_FS*0.82:Math.max(6,Math.min(10.5,NW/15));
   const sw=Math.max(0.6,NW/220);
 
   // Líneas
   function lPath(s,t,wps){
-    const sx=s.x,sy=s.y+NH,tx=t.x,ty=t.y;
+    const sh=s.h||NH,th=t.h||NH;
+    const sx=s.x,sy=s.y+sh,tx=t.x,ty=t.y;
     if(wps?.length){
       const scWP=NW/158;
       const pts=[{x:sx,y:sy},...wps.map(p=>({x:p.x*scWP,y:p.y*scWP})),{x:tx,y:ty}];
@@ -757,7 +755,12 @@ function genSVGA3(root,pn=1,tot=1){
     const wps=waypoints[`${lk.s.data?.id}-${lk.t.data?.id}`]||[];
     linesSVG+=lPath(lk.s,lk.t,wps);
   });
-  nodes.forEach(n=>{nodesSVG+=svgBox(n.x-NW/2,n.y,n.data,NW,NH,!!n.data?.dashed,fsN,fsT);});
+  nodes.forEach(n=>{
+    const nw=n.w||NW,nh=n.h||NH;
+    const fsNn=ED_FS>0?ED_FS:Math.max(7,Math.min(13,nw/11));
+    const fsTn=ED_FS>0?ED_FS*0.82:Math.max(6,Math.min(10.5,nw/15));
+    nodesSVG+=svgBox(n.x-nw/2,n.y,n.data,nw,nh,!!n.data?.dashed,fsNn,fsTn);
+  });
 
   // (organismos fuera de nivel no se muestran en el A3 — tienen su propia página)
 
@@ -1179,6 +1182,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
   let edFitted=false;
   let edNW=158;
   let edNH=50;
+  let edFS=9.5;  // font size override (0 = auto)
 
   // ── LocalStorage helpers ─────────────────────────────────
   function readLS(key){try{return JSON.parse(localStorage.getItem(key)||"{}");}catch{return{};}}
@@ -1209,12 +1213,13 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
   }
   function saveWPForArea(){writeLS(WP_KEY,{...readLS(WP_KEY),[edViewId]:edWaypoints});}
   const SIZE_KEY="gcba_org_nodesize_v1";
-  function saveSizeForArea(){writeLS(SIZE_KEY,{...readLS(SIZE_KEY),[edViewId]:{nw:edNW,nh:edNH}});}
-  function loadSizeForArea(id){const s=readLS(SIZE_KEY)[id];if(s){edNW=s.nw||158;edNH=s.nh||50;}else{edNW=158;edNH=50;}}
+  function saveSizeForArea(){writeLS(SIZE_KEY,{...readLS(SIZE_KEY),[edViewId]:{nw:edNW,nh:edNH,fs:edFS}});}
+  function loadSizeForArea(id){const s=readLS(SIZE_KEY)[id];if(s){edNW=s.nw||158;edNH=s.nh||50;edFS=s.fs||9.5;}else{edNW=158;edNH=50;edFS=9.5;}}
   function syncSizeInputs(){
-    const nwEl=document.getElementById("ed-nw"),nhEl=document.getElementById("ed-nh");
+    const nwEl=document.getElementById("ed-nw"),nhEl=document.getElementById("ed-nh"),fsEl=document.getElementById("ed-fs");
     if(nwEl)nwEl.value=Math.round(edNW);
     if(nhEl)nhEl.value=Math.round(edNH);
+    if(fsEl)fsEl.value=Number(edFS).toFixed(1);
   }
   function loadPosForArea(id){return readLS(POS_KEY)[id]||null;}
   function loadWPForArea(id){return readLS(WP_KEY)[id]||{};}
@@ -1341,7 +1346,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     const saved=loadPosForArea(edViewId)||{};
     edPositions={};
     nodes.forEach(n=>{
-      edPositions[n.id]=saved[n.id]?{x:saved[n.id].x,y:saved[n.id].y}:{...(d3pos[n.id]||{x:0,y:0})};
+      edPositions[n.id]=saved[n.id]?{x:saved[n.id].x,y:saved[n.id].y,w:saved[n.id].w||edNW,h:saved[n.id].h||edNH}:{...(d3pos[n.id]||{x:0,y:0}),w:edNW,h:edNH};
     });
     edWaypoints=loadWPForArea(edViewId);
 
@@ -1357,7 +1362,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     function linkPath(sid,tid){
       const sp=edPositions[sid]||{x:0,y:0};
       const tp=edPositions[tid]||{x:0,y:0};
-      const sx=sp.x,sy=sp.y+NH,tx=tp.x,ty=tp.y;
+      const sh=sp.h||NH,_th=tp.h||NH;
+      const sx=sp.x,sy=sp.y+sh,tx=tp.x,ty=tp.y;
       const wps=edWaypoints[sid+"-"+tid]||[];
       if(wps.length>0){
         const pts=[{x:sx,y:sy},...wps,{x:tx,y:ty}];
@@ -1456,28 +1462,111 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       .on("end",()=>{savePosForArea();recalcNodeSize();renderCanvas();showSaved();})
     );
 
-    ng.append("rect").attr("width",NW).attr("height",NH).attr("rx",7)
+    ng.append("rect")
+      .attr("width",d=>(edPositions[d.id]?.w||NW))
+      .attr("height",d=>(edPositions[d.id]?.h||NH))
+      .attr("rx",7)
       .attr("fill",d=>getColor(d))
       .attr("stroke",d=>d.dashed?"rgba(255,255,255,0.4)":"none")
       .attr("stroke-width",1.5).attr("stroke-dasharray",d=>d.dashed?"5,3":"none");
 
     ng.each(function(d){
       const g2=d3.select(this);
-      const words=(d.nombre||"").split(" ");
-      let l1="",l2="";
-      for(const w of words){if((l1+" "+w).trim().length<=20)l1=(l1+" "+w).trim();else l2=(l2+" "+w).trim();}
+      const nw=edPositions[d.id]?.w||NW;
+      const nh=edPositions[d.id]?.h||NH;
+      // Tamaño de fuente: del editor o calculado del ancho del nodo
+      const fsMain=edFS>0?edFS:Math.max(7,Math.min(13,nw/11));
+      const fsTit=edFS>0?edFS*0.82:Math.max(6,Math.min(10,nw/15));
+      const charsPerLine=Math.max(8,Math.floor(nw/(fsMain*0.52)));
+      // Wrap texto
+      function wrapLocal(t){
+        if(!t)return[];
+        const ws=t.split(" ");const ls=[];let c="";
+        for(const w of ws){const test=c?" "+w:w;if(c.length+test.length>charsPerLine&&c){ls.push(c);c=w;}else c=(c+test).trim();}
+        if(c)ls.push(c);
+        if(ls.length>2){const last=ls.splice(1).join(" ");ls[1]=last;}
+        return ls;
+      }
+      const lines=wrapLocal(d.nombre||"");
       const hasTit=d.titular&&d.titular.trim();
-      const lines=l2?[l1,l2]:[l1];
-      const lh=12,sy2=NH/2-(lines.length+(hasTit?1:0))*lh/2+lh*0.85;
-      lines.forEach((l,i)=>g2.append("text").attr("x",NW/2).attr("y",sy2+i*lh)
-        .attr("text-anchor","middle").attr("font-size",9.5).attr("font-weight",600)
-        .attr("fill","#fff").attr("font-family","Inter,sans-serif").text(l));
-      if(hasTit)g2.append("text").attr("x",NW/2).attr("y",sy2+lines.length*lh+1.5)
-        .attr("text-anchor","middle").attr("font-size",8).attr("fill","rgba(255,255,255,0.7)")
-        .attr("font-family","Inter,sans-serif").text(d.titular.length>24?d.titular.slice(0,24)+"…":d.titular);
+      const lhN=fsMain*1.32,lhT=fsTit*1.28;
+      const gap=hasTit?fsMain*0.3:0;
+      const blockH=lines.length*lhN+gap+(hasTit?lhT:0);
+      // Reducir fuente si no entra
+      const maxH=nh*0.88;
+      const shrink=blockH>maxH?maxH/blockH:1;
+      const afsMain=fsMain*shrink,afsTit=fsTit*shrink;
+      const alhN=lhN*shrink,alhT=lhT*shrink,agap=gap*shrink;
+      let ty=nh/2-(lines.length*alhN+agap+(hasTit?alhT:0))/2+alhN*0.85;
+      lines.forEach((l,i)=>{
+        g2.append("text").attr("x",NW/2).attr("y",ty+i*alhN)
+          .attr("text-anchor","middle").attr("font-size",afsMain.toFixed(1))
+          .attr("font-weight",600).attr("fill","#fff").attr("font-family","Inter,sans-serif").text(l);
+      });
+      if(hasTit){
+        ty+=lines.length*alhN+agap;
+        const chT=Math.floor(nw/(afsTit*0.52));
+        const short=d.titular.length>chT?d.titular.slice(0,chT-1)+"…":d.titular;
+        g2.append("text").attr("x",NW/2).attr("y",ty)
+          .attr("text-anchor","middle").attr("font-size",afsTit.toFixed(1))
+          .attr("fill","rgba(255,255,255,0.75)").attr("font-family","Inter,sans-serif").text(short);
+      }
     });
 
-    svg.on("click",()=>{edSelectedIds.clear();d3.selectAll(".c-node").classed("sel",false);renderInspector(null);document.getElementById("ed-actions").style.display="none";});
+    // ── Resize handles (esquina inferior derecha, solo en nodos seleccionados) ──
+    const resizeG=g.append("g").attr("class","resize-handles");
+    function renderResizeHandles(){
+      resizeG.selectAll("*").remove();
+      if(edSelectedIds.size!==1)return; // solo cuando hay un nodo seleccionado
+      const selId=[...edSelectedIds][0];
+      const pos=edPositions[selId];
+      if(!pos)return;
+      const nw=pos.w||NW,nh=pos.h||NH;
+      const hx=pos.x+nw/2-5, hy=pos.y+nh-5;
+      // Handle visual
+      resizeG.append("rect")
+        .attr("x",hx).attr("y",hy).attr("width",10).attr("height",10)
+        .attr("rx",2).attr("fill","#4f7ef8").attr("stroke","#fff").attr("stroke-width",1.5)
+        .style("cursor","se-resize");
+      // Drag to resize
+      resizeG.select("rect").call(d3.drag()
+        .on("drag",function(e){
+          const dx=e.dx/edTransform.k,dy=e.dy/edTransform.k;
+          const p=edPositions[selId];
+          p.w=Math.max(60,Math.round((p.w||NW)+dx));
+          p.h=Math.max(30,Math.round((p.h||NH)+dy));
+          // Redraw node
+          d3.selectAll(".c-node").filter(n=>n.id===selId)
+            .select("rect").attr("width",p.w).attr("height",p.h);
+          d3.selectAll(".c-node").filter(n=>n.id===selId).each(function(d){
+            d3.select(this).selectAll("text").remove();
+            const nwL=p.w,nhL=p.h;
+            const fsM2=edFS>0?edFS:Math.max(7,Math.min(13,nwL/11));
+            const fsT2=edFS>0?edFS*0.82:Math.max(6,Math.min(10,nwL/15));
+            const cpl=Math.max(8,Math.floor(nwL/(fsM2*0.52)));
+            function wl(t){if(!t)return[];const ws=t.split(" ");const ls=[];let c="";for(const w of ws){const test=c?" "+w:w;if(c.length+test.length>cpl&&c){ls.push(c);c=w;}else c=(c+test).trim();}if(c)ls.push(c);if(ls.length>2){const last=ls.splice(1).join(" ");ls[1]=last;}return ls;}
+            const lns=wl(d.nombre||"");
+            const hasTit2=d.titular&&d.titular.trim();
+            const lhN2=fsM2*1.32,lhT2=fsT2*1.28,gap2=hasTit2?fsM2*0.3:0;
+            const bH=lns.length*lhN2+gap2+(hasTit2?lhT2:0);
+            const shrink2=bH>nhL*0.88?nhL*0.88/bH:1;
+            const af=fsM2*shrink2,aft=fsT2*shrink2,alh=lhN2*shrink2,alht=lhT2*shrink2,ag=gap2*shrink2;
+            let ty=nhL/2-(lns.length*alh+ag+(hasTit2?alht:0))/2+alh*0.85;
+            const g3=d3.select(this);
+            lns.forEach((l,i)=>g3.append("text").attr("x",nwL/2).attr("y",ty+i*alh).attr("text-anchor","middle").attr("font-size",af.toFixed(1)).attr("font-weight",600).attr("fill","#fff").attr("font-family","Inter,sans-serif").text(l));
+            if(hasTit2){ty+=lns.length*alh+ag;const chT=Math.floor(nwL/(aft*0.52));const sh=d.titular.length>chT?d.titular.slice(0,chT-1)+"…":d.titular;g3.append("text").attr("x",nwL/2).attr("y",ty).attr("text-anchor","middle").attr("font-size",aft.toFixed(1)).attr("fill","rgba(255,255,255,0.75)").attr("font-family","Inter,sans-serif").text(sh);}
+          });
+          // Move resize handle
+          const hx2=pos.x+pos.w/2-5,hy2=pos.y+pos.h-5;
+          d3.select(this).attr("x",hx2).attr("y",hy2);
+          drawLinks();drawWPs();
+        })
+        .on("end",()=>{savePosForArea();showSaved();})
+      );
+    }
+    renderResizeHandles();
+
+    svg.on("click",()=>{edSelectedIds.clear();d3.selectAll(".c-node").classed("sel",false);resizeG.selectAll("*").remove();renderInspector(null);document.getElementById("ed-actions").style.display="none";});
 
     // Auto-fit si no hay posiciones guardadas para esta área
     if(!Object.keys(saved).length||!edFitted){
@@ -1504,6 +1593,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     document.querySelectorAll(".ed-ni").forEach(el=>el.classList.toggle("sel",el.dataset.id===id));
     const node=id?findN(edData,id):null;
     renderInspector(node);
+    if(typeof renderResizeHandles==="function")renderResizeHandles();
     if(id){const el=document.querySelector(`.ed-ni[data-id="${id}"]`);if(el)el.scrollIntoView({block:"nearest"});}
   }
 
@@ -1623,9 +1713,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
   wire("ed-zr",()=>{edTransform=d3.zoomIdentity;edFitted=false;renderCanvas();});
   wire("ed-btn-save",()=>{savePosForArea();saveWPForArea();recalcNodeSize();saveSizeForArea();showSaved();});
   wire("ed-btn-apply-size",()=>{
-    const nwEl=document.getElementById("ed-nw"),nhEl=document.getElementById("ed-nh");
+    const nwEl=document.getElementById("ed-nw"),nhEl=document.getElementById("ed-nh"),fsEl=document.getElementById("ed-fs");
     edNW=Math.max(60,Math.min(400,parseInt(nwEl?.value)||158));
     edNH=Math.max(30,Math.min(200,parseInt(nhEl?.value)||50));
+    edFS=Math.max(6,Math.min(20,parseFloat(fsEl?.value)||9.5));
     syncSizeInputs();saveSizeForArea();edFitted=false;renderCanvas();
   });
   wire("ed-btn-export",()=>exportAreaA3());
