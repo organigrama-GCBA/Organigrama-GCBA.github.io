@@ -92,6 +92,7 @@ input:focus,select:focus{border-color:var(--azul)!important;box-shadow:0 0 0 3px
     <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
       <span id="ed-saved-msg" style="font-size:11px;color:#22c55e;opacity:0;transition:opacity .3s;">✓ Guardado</span>
       <button id="ed-save-layout" style="background:#4f7ef8;border:none;color:#fff;font-family:inherit;font-size:11.5px;font-weight:500;padding:5px 14px;border-radius:7px;cursor:pointer;">💾 Guardar layout</button>
+      <button id="ed-export-a3" style="background:#166534;border:none;color:#fff;font-family:inherit;font-size:11.5px;font-weight:500;padding:5px 14px;border-radius:7px;cursor:pointer;">🖨 Exportar A3</button>
       <button id="ed-reset-layout-btn" onclick="window.edResetLayout&&window.edResetLayout()" style="background:#232636;border:1px solid #444870;color:#9da3c4;font-family:inherit;font-size:11.5px;padding:5px 12px;border-radius:7px;cursor:pointer;" title="Volver al layout automático D3">↺ Resetear</button>
       <button onclick="window.__switchToOrganigrama&&window.__switchToOrganigrama()" style="background:#232636;border:1px solid #4f7ef8;color:#7c9fff;font-family:inherit;font-size:11.5px;font-weight:500;padding:5px 12px;border-radius:7px;cursor:pointer;" title="Volver al organigrama">← Organigrama</button>
     </div>
@@ -1726,25 +1727,35 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     const minY=Math.min(...allD3.map(p=>p.y));
     Object.keys(d3pos).forEach(id=>{d3pos[id].x-=minX;d3pos[id].y-=minY;});
 
+    // Para JG: solo nodos directos (viewRoot + sus hijos directos sin expandir)
+    function visibleNodes(node,depth=0){
+      const arr=[node];
+      if(isViewJG&&depth>=1) return arr; // para JG, no bajar más de 1 nivel
+      (node.children||[]).forEach(ch=>arr.push(...visibleNodes(ch,depth+1)));
+      return arr;
+    }
+
     // Usar posiciones guardadas (clave = viewRoot.id para que cada área tenga las suyas)
     const posKey=edViewRootId||edCurrentRootId;
     const saved=loadPositionsForRoot(posKey)||{};
     edPositions={};
-    const allNodes=flatED(viewRoot);
+    const allNodes=visibleNodes(viewRoot);
     allNodes.forEach(n=>{
       if(saved[n.id]) edPositions[n.id]={x:saved[n.id].x,y:saved[n.id].y};
       else edPositions[n.id]={...(d3pos[n.id]||{x:0,y:0})};
     });
 
-    // Links
+    // Links — solo entre nodos visibles
+    const visibleIds=new Set(allNodes.map(n=>n.id));
     const links=[];
-    function buildL(node){
+    function buildL(node,depth=0){
       const pos=edPositions[node.id];
       if(!pos)return;
       (node.children||[]).forEach(ch=>{
+        if(!visibleIds.has(ch.id))return;
         const cp=edPositions[ch.id];
         if(cp)links.push({sid:node.id,tid:ch.id,dashed:!!ch.dashed});
-        buildL(ch);
+        if(!(isViewJG&&depth>=1)) buildL(ch,depth+1);
       });
     }
     buildL(viewRoot);
@@ -2043,6 +2054,85 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     };
   }
 
+  function edExportA3(){
+    const svgEl=document.getElementById("ed-svg");
+    if(!svgEl){alert("El editor no está activo.");return;}
+    const canvasRoot=svgEl.querySelector("g.canvas-root");
+    if(!canvasRoot){alert("El editor está vacío.");return;}
+    try{
+      const bbox=canvasRoot.getBBox();
+      if(!bbox.width||!bbox.height){alert("No hay contenido en el canvas.");return;}
+
+      // A3 landscape
+      const PW=1587,PH=1123,MAR=45,HH=72,FH=36;
+      const AW=PW-MAR*2,AH=PH-HH-FH-MAR;
+      const scale=Math.min(AW/(bbox.width+60),AH/(bbox.height+60));
+      const sw=(bbox.width+60)*scale,sh=(bbox.height+60)*scale;
+      const ox=MAR+(AW-sw)/2,oy=HH+(AH-sh)/2;
+
+      // Serializar el contenido del canvas (sin la transformación de zoom/pan)
+      // Necesitamos el contenido en coordenadas absolutas del canvas
+      const serializer=new XMLSerializer();
+
+      // Clonar el grupo y remover la transformación de zoom para que quede en coords base
+      const clone=canvasRoot.cloneNode(true);
+      clone.removeAttribute("transform");
+
+      // Serializar los hijos (líneas + nodos)
+      let innerSVG='';
+      Array.from(clone.children).forEach(child=>{
+        innerSVG+=serializer.serializeToString(child);
+      });
+
+      const asel=document.getElementById("ed-area-sel");
+      const areaName=asel?.options[asel.selectedIndex]?.textContent?.replace(/^\[.*?\]\s*/,'').trim()||'Organigrama';
+      const today=new Date();
+      const fecha=`${String(today.getDate()).padStart(2,'0')}/${String(today.getMonth()+1).padStart(2,'0')}/${today.getFullYear()}`;
+
+      const leg=[["#9B1C1C","Jefatura"],["#92400E","Ministerio"],["#78350F","Secretaría"],
+                 ["#1E3A5F","Subsecretaría"],["#14532D","Dir. General"],["#374151","Org. desc."]];
+      const lw=120,lx=(PW-leg.length*lw)/2,ly=PH-FH+11;
+      const legSVG=leg.map((it,i)=>
+        `<rect x="${(lx+i*lw).toFixed(1)}" y="${ly}" width="9" height="9" rx="2" fill="${it[0]}"/>` +
+        `<text x="${(lx+i*lw+13).toFixed(1)}" y="${ly+8}" font-size="8" fill="#718096" font-family="Inter,Arial,sans-serif">${it[1]}</text>`
+      ).join('');
+
+      const svgA3=`<svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}">
+<defs>
+  <linearGradient id="hgA3x" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#003D6E"/><stop offset="100%" stop-color="#003D6ECC"/>
+  </linearGradient>
+  <clipPath id="cc"><rect x="${MAR}" y="${HH}" width="${AW}" height="${AH}"/></clipPath>
+</defs>
+<rect width="${PW}" height="${PH}" fill="#F8FAFC"/>
+<rect x="0" y="0" width="${PW}" height="${HH}" fill="url(#hgA3x)"/>
+<line x1="0" y1="${HH}" x2="${PW}" y2="${HH}" stroke="#E2E8F0" stroke-width="1"/>
+<text x="${PW/2}" y="${(HH*0.47).toFixed(1)}" text-anchor="middle" font-size="22" font-weight="700" fill="#fff" font-family="Inter,Arial,sans-serif">${areaName}</text>
+<text x="${PW/2}" y="${(HH*0.78).toFixed(1)}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.72)" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · ${fecha}</text>
+<g clip-path="url(#cc)">
+  <g transform="translate(${ox.toFixed(1)},${oy.toFixed(1)}) scale(${scale.toFixed(6)}) translate(${(-bbox.x-20).toFixed(1)},${(-bbox.y-20).toFixed(1)})">
+    ${innerSVG}
+  </g>
+</g>
+<rect x="0" y="${PH-FH}" width="${PW}" height="${FH}" fill="#F8FAFC"/>
+<line x1="0" y1="${PH-FH}" x2="${PW}" y2="${PH-FH}" stroke="#E2E8F0" stroke-width="0.8"/>
+${legSVG}
+</svg>`;
+
+      // Descargar
+      const areaId=asel?.value||'organigrama';
+      const blob=new Blob([svgA3],{type:'image/svg+xml'});
+      const url=URL.createObjectURL(blob);
+      const a=Object.assign(document.createElement('a'),{href:url,download:`organigrama-${areaId.toLowerCase()}-A3.svg`});
+      a.click();
+      URL.revokeObjectURL(url);
+      showSavedMsg();
+    }catch(err){
+      console.error(err);
+      alert('Error al exportar: '+err.message);
+    }
+  }
+
   function edResetLayout(){
     const posKey=edViewRootId||edCurrentRootId;
     if(!posKey)return;
@@ -2062,6 +2152,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
   document.getElementById("ed-move").onclick=()=>edMoveModal();
   document.getElementById("ed-del").onclick=()=>edDelete();
   document.getElementById("ed-save-layout").onclick=()=>edSaveLayout();
+  document.getElementById("ed-export-a3").onclick=()=>edExportA3();
 
   // Área selector: cambiar subárbol
   document.getElementById("ed-area-sel").onchange=function(){
