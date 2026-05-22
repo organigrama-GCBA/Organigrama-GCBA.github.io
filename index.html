@@ -541,22 +541,41 @@ const fv=v=>Number(v).toFixed(1);
 function wrapTxt(t,max){
   if(!t)return[];
   const ws=t.split(" ");const ls=[];let c="";
-  for(const w of ws){const test=c?" "+w:w;if(c.length+test.length>max&&c){ls.push(c);c=w;}else c=(c+test).trim();}
-  if(c)ls.push(c);return ls;
+  for(const w of ws){
+    const test=c?" "+w:w;
+    if(c.length+test.length>max&&c){ls.push(c);c=w;}
+    else c=(c+test).trim();
+  }
+  if(c)ls.push(c);
+  // máximo 3 líneas
+  if(ls.length>3){const last=ls.splice(2).join(" ");ls[2]=last.length>max?last.slice(0,max-1)+"…":last;}
+  return ls;
 }
 
 function svgBox(x,y,node,W,H,dashed,fsN,fsT){
   const fill=getColor(node);
-  const nl=wrapTxt(node.nombre,Math.max(6,Math.floor(W/(fsN*0.55))));
-  const tl=wrapTxt(node.titular||"",Math.max(6,Math.floor(W/(fsT*0.54))));
-  const lhN=fsN*1.3,lhT=fsT*1.25,gap=tl.length?fsN*0.35:0;
+  // Calcular cuántos chars caben por línea según ancho real del nodo
+  const charsPerLineN=Math.max(8,Math.floor(W/(fsN*0.52)));
+  const charsPerLineT=Math.max(8,Math.floor(W/(fsT*0.52)));
+  const nl=wrapTxt(node.nombre,charsPerLineN);
+  const tl=wrapTxt(node.titular||"",charsPerLineT);
+  const lhN=fsN*1.35,lhT=fsT*1.28,gap=tl.length?fsN*0.4:0;
   const blockH=nl.length*lhN+gap+tl.length*lhT;
-  let yt=y+(H-blockH)/2+lhN*0.85;
+  // Si el texto no entra, reducir fuente dinámicamente
+  let actualFsN=fsN,actualFsT=fsT,actualLhN=lhN,actualLhT=lhT,actualGap=gap,actualBlock=blockH;
+  if(blockH>H*0.88){
+    const shrink=(H*0.88)/blockH;
+    actualFsN=fsN*shrink;actualFsT=fsT*shrink;
+    actualLhN=actualFsN*1.35;actualLhT=actualFsT*1.28;
+    actualGap=tl.length?actualFsN*0.4:0;
+    actualBlock=nl.length*actualLhN+actualGap+tl.length*actualLhT;
+  }
+  let yt=y+(H-actualBlock)/2+actualLhN*0.85;
   const da=dashed?`stroke="rgba(255,255,255,0.5)" stroke-width="1.5" stroke-dasharray="5,3"`:"";
-  let s=`<rect x="${fv(x)}" y="${fv(y)}" width="${fv(W)}" height="${fv(H)}" rx="${fv(Math.max(4,H*0.12))}" fill="${fill}" ${da}/>`;
-  nl.forEach(l=>{s+=`<text x="${fv(x+W/2)}" y="${fv(yt)}" text-anchor="middle" font-size="${fv(fsN)}" font-weight="600" fill="#fff" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=lhN;});
-  yt+=gap;
-  tl.forEach(l=>{s+=`<text x="${fv(x+W/2)}" y="${fv(yt)}" text-anchor="middle" font-size="${fv(fsT)}" fill="rgba(255,255,255,0.82)" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=lhT;});
+  let s=`<rect x="${fv(x)}" y="${fv(y)}" width="${fv(W)}" height="${fv(H)}" rx="${fv(Math.max(4,H*0.1))}" fill="${fill}" ${da}/>`;
+  nl.forEach(l=>{s+=`<text x="${fv(x+W/2)}" y="${fv(yt)}" text-anchor="middle" font-size="${fv(actualFsN)}" font-weight="600" fill="#fff" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=actualLhN;});
+  yt+=actualGap;
+  tl.forEach(l=>{s+=`<text x="${fv(x+W/2)}" y="${fv(yt)}" text-anchor="middle" font-size="${fv(actualFsT)}" fill="rgba(255,255,255,0.85)" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=actualLhT;});
   return s;
 }
 
@@ -609,7 +628,7 @@ function genSVGA3(root,pn=1,tot=1){
     const savedSize=JSON.parse(localStorage.getItem("gcba_org_nodesize_v1")||"{}")[root.id]||null;
     const ED_NW=savedSize?.nw||158,ED_NH=savedSize?.nh||50;
     const tW=d3.max(nodes,n=>n.x)+ED_NW,tH=d3.max(nodes,n=>n.y)+ED_NH;
-    const sc=Math.min(AW/tW,AH/tH)*0.94;
+    const sc=Math.min(AW/tW,AH/tH)*0.96;
     nodes.forEach(n=>{n.x*=sc;n.y*=sc;});
     NW=ED_NW*sc;NH=ED_NH*sc;
     // Garantizar NH mínimo para que el texto entre
@@ -646,11 +665,11 @@ function genSVGA3(root,pn=1,tot=1){
       const spanX=Math.max(useRow1.length,useRow2.length,1);
       const numRows=(useRow2.length>0?3:2); // JG + fila1 + fila2
       // NW: dividir ancho disponible entre columnas
-      NW=Math.max(60,Math.floor((AW-(spanX-1)*HGAP)/spanX));
-      NW=Math.min(NW,240);
+      NW=Math.max(80,Math.floor((AW-(spanX-1)*HGAP)/spanX));
+      NW=Math.min(NW,280);
       // NH: usar el espacio vertical completo dividido en filas
       NH=Math.floor((AH-(numRows-1)*VGAP)/numRows);
-      NH=Math.max(NH,40);
+      NH=Math.max(NH,52);
       const HPAD=Math.max(HGAP,Math.round((AW-NW*spanX)/(spanX+1)));
       const VPAD=Math.max(VGAP,Math.round((AH-NH*numRows)/(numRows+1)));
       const makeRow=(items,rowY)=>{
@@ -677,11 +696,11 @@ function genSVGA3(root,pn=1,tot=1){
       const depthCount=(hier.height||1)+1;
 
       // NW basado en cantidad de hojas, NH basado en profundidad
-      NW=Math.max(60,Math.floor((AW-(leafCount-1)*HGAP)/leafCount));
-      NW=Math.min(NW,240);
+      NW=Math.max(80,Math.floor((AW-(leafCount-1)*HGAP)/leafCount));
+      NW=Math.min(NW,280);
       // NH: usar el espacio vertical completo
       NH=Math.floor((AH-(depthCount-1)*VGAP)/depthCount);
-      NH=Math.max(NH,40);
+      NH=Math.max(NH,52);
 
       const HPAD=Math.max(HGAP,Math.round((AW-NW*leafCount)/(leafCount+1)));
       const VPAD=Math.max(VGAP,Math.round((AH-NH*depthCount)/(depthCount+1)));
@@ -700,7 +719,7 @@ function genSVGA3(root,pn=1,tot=1){
       // Escalar para llenar el A3 ajustando NW y NH proporcionalmente
       const tW=d3.max(nodes,n=>n.x+NW/2),tH=d3.max(nodes,n=>n.y+NH);
       const scX=AW/tW,scY=AH/tH;
-      const sc=Math.min(scX,scY)*0.94;
+      const sc=Math.min(scX,scY)*0.96;
       nodes.forEach(n=>{n.x*=sc;n.y*=sc;});
       NW*=sc;NH*=sc;
     }
@@ -712,8 +731,8 @@ function genSVGA3(root,pn=1,tot=1){
   const ox=MAR+(AW-usedW)/2,oy=HH+(AH-usedH)/2;
 
   // Tamaños de fuente proporcionales al nodo
-  const fsN=Math.max(5.5,Math.min(11,NW/13));
-  const fsT=Math.max(5,Math.min(9,NW/17));
+  const fsN=Math.max(7,Math.min(13,NW/11));
+  const fsT=Math.max(6,Math.min(10.5,NW/15));
   const sw=Math.max(0.6,NW/220);
 
   // Líneas
@@ -1178,7 +1197,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     const spanH=Math.max(...ys)-Math.min(...ys)+edNH;
     if(spanW<=0||spanH<=0)return;
     // Calcular cuánto espacio tiene cada nodo en el A3
-    const scaleToA3=Math.min(AW/spanW,AH/spanH)*0.94;
+    const scaleToA3=Math.min(AW/spanW,AH/spanH)*0.96;
     const newNW=Math.round(edNW*scaleToA3);
     const newNH=Math.round(edNH*scaleToA3);
     if(Math.abs(newNW-edNW)>2||Math.abs(newNH-edNH)>2){
