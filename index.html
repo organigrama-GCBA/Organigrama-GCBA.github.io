@@ -602,57 +602,121 @@ function genSVGA3(root,pn=1,tot=1){
     const sc=Math.min(AW/tW,AH/tH)*0.94;
     nodes.forEach(n=>{n.x*=sc;n.y*=sc;});
     NW=ED_NW*sc;NH=ED_NH*sc;
+    // Garantizar NH mínimo para que el texto entre
+    // Si NH es muy chico, escalar todo uniformemente manteniendo proporciones
+    const MIN_NH=Math.max(36, NW/2.2);
+    if(NH<MIN_NH){
+      const scUp=MIN_NH/NH;
+      // Solo escalar NH — ajustar posiciones Y proporcionalmente
+      nodes.forEach(n=>{n.y*=scUp;});
+      NH=MIN_NH;
+      // Re-escalar todo para que quepa en A3
+      const tH2=d3.max(nodes,n=>n.y)+NH;
+      if(tH2>AH){const sc2=AH/tH2*0.94;nodes.forEach(n=>{n.x*=sc2;n.y*=sc2;});NW*=sc2;NH*=sc2;}
+    }
 
   }else{
     // ── Layout D3 automático ───────────────────────────────
-    // Paso 1: medir el árbol con nodeSize unitario para contar columnas y filas
-    function toHier(node,depth){
-      if(isJG&&depth>=1)return{...node,_k:[],children:undefined};
-      const kids=(node.children||[]).filter(c=>!c.dashed);
-      return{...node,_k:kids.map(c=>toHier(c,depth+1)),children:undefined};
-    }
-    const hier=d3.hierarchy(toHier(root,0),d=>d._k.length?d._k:null);
-    d3.tree().nodeSize([1,1])(hier);
-    const allD3=hier.descendants();
-    const spanX=(d3.max(allD3,n=>n.x)-d3.min(allD3,n=>n.x))+1;
-    const spanY=(d3.max(allD3,n=>n.depth)||1)+1;
-
-    // Paso 2: calcular NW/NH para que spanX×spanY llene AW×AH
     const HGAP=10,VGAP=24;
-    NW=Math.max(60,Math.floor((AW-(spanX-1)*HGAP)/spanX));
-    NH=Math.max(28,Math.floor((AH-(spanY-1)*VGAP)/spanY));
-    // Ajustar relación aspecto: NW:NH ~ 3:1
-    NH=Math.min(NH,Math.round(NW/2.8));
-    NH=Math.max(NH,28);
-    NW=Math.min(NW,240);
 
-    // Paso 3: layout con los tamaños calculados
-    const HPAD=Math.max(HGAP,Math.round((AW-NW*spanX)/(spanX+1)));
-    const VPAD=Math.max(VGAP,Math.round((AH-NH*spanY)/(spanY+1)));
+    if(isJG){
+      // JG: layout manual en 2 filas — ministerios/VJG arriba, secretarías abajo
+      // No usar D3 tree para evitar que distribuya todo horizontalmente
+      const hier=(root.children||[]).filter(c=>!c.dashed);
+      const mins=hier.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
+      const secs=hier.filter(c=>c.tipo==="SEC");
+      const spanX=Math.max(mins.length,secs.length,1);
+      const spanY=secs.length>0?3:2; // JG + fila mins + fila secs
+      NW=Math.max(60,Math.floor((AW-(spanX-1)*HGAP)/spanX));
+      NW=Math.min(NW,240);
+      // NH: suficiente para 2 líneas de nombre + 1 titular con margen
+      NH=Math.max(40,Math.round(NW/2.2));
+      NH=Math.min(NH,Math.floor((AH-(spanY-1)*VGAP)/spanY));
+      NH=Math.max(NH,40);
+      const HPAD=Math.max(HGAP,Math.round((AW-NW*spanX)/(spanX+1)));
+      const VPAD=Math.max(VGAP,Math.round((AH-NH*spanY)/(spanY+1)));
+      const makeRow=(items,rowY)=>{
+        const total=items.length*(NW+HPAD)-HPAD;
+        let x=(AW-total)/2+NW/2;
+        return items.map(c=>{const n={x,y:rowY,data:c,depth:1};x+=NW+HPAD;return n;});
+      };
+      const rn={x:AW/2,y:0,data:root,depth:0};
+      const mn=makeRow(mins,NH+VPAD);
+      const sn=makeRow(secs,NH+VPAD+NH+VPAD);
+      nodes=[rn,...mn,...sn];
+      links=[...mn.map(t=>({s:rn,t})),...sn.map(t=>({s:rn,t}))];
+    } else {
+      // Otros: D3 tree
+      // Paso 1: medir con nodeSize unitario
+      function toHier(node,depth){
+        const kids=(node.children||[]).filter(c=>!c.dashed);
+        return{...node,_k:kids.map(c=>toHier(c,depth+1)),children:undefined};
+      }
+      const hier=d3.hierarchy(toHier(root,0),d=>d._k.length?d._k:null);
+      d3.tree().nodeSize([1,1])(hier);
+      const allD3=hier.descendants();
+      const spanX=(d3.max(allD3,n=>n.x)-d3.min(allD3,n=>n.x))+1;
+      const spanY=(d3.max(allD3,n=>n.depth)||1)+1;
 
-    d3.tree().nodeSize([NW+HPAD,NH+VPAD])(hier);
-    const allN=hier.descendants();
-    nodes=allN.map(n=>({x:n.x,y:n.y,data:n.data,depth:n.depth}));
-    const allL=hier.links();
-    links=allL.map(l=>({
-      s:nodes.find(n=>n.data.id===l.source.data.id),
-      t:nodes.find(n=>n.data.id===l.target.data.id)
-    })).filter(l=>l.s&&l.t);
+      // Paso 2: NW/NH que llena el A3
+      NW=Math.max(60,Math.floor((AW-(spanX-1)*HGAP)/spanX));
+      NW=Math.min(NW,240);
+      // NH: suficiente para 2 líneas nombre + 1 titular — mínimo NW/2
+      NH=Math.max(40,Math.round(NW/2.2));
+      NH=Math.min(NH,Math.floor((AH-(spanY-1)*VGAP)/spanY));
+      NH=Math.max(NH,40);
 
-    // Normalizar a (0,0)
-    const mnX=d3.min(nodes,n=>n.x)-NW/2,mnY=d3.min(nodes,n=>n.y);
-    nodes.forEach(n=>{n.x-=mnX;n.y-=mnY;});
+      // Paso 3: layout final
+      const HPAD=Math.max(HGAP,Math.round((AW-NW*spanX)/(spanX+1)));
+      const VPAD=Math.max(VGAP,Math.round((AH-NH*spanY)/(spanY+1)));
+      d3.tree().nodeSize([NW+HPAD,NH+VPAD])(hier);
+      const allN=hier.descendants();
+      nodes=allN.map(n=>({x:n.x,y:n.y,data:n.data,depth:n.depth}));
+      const allL=hier.links();
+      links=allL.map(l=>({
+        s:nodes.find(n=>n.data.id===l.source.data.id),
+        t:nodes.find(n=>n.data.id===l.target.data.id)
+      })).filter(l=>l.s&&l.t);
 
-    // Escalar para llenar el A3
-    const tW=d3.max(nodes,n=>n.x+NW/2),tH=d3.max(nodes,n=>n.y+NH);
-    const sc=Math.min(AW/tW,AH/tH)*0.94;
-    nodes.forEach(n=>{n.x*=sc;n.y*=sc;});
-    NW*=sc;NH*=sc;
+      // Normalizar a (0,0)
+      const mnX=d3.min(nodes,n=>n.x)-NW/2,mnY=d3.min(nodes,n=>n.y);
+      nodes.forEach(n=>{n.x-=mnX;n.y-=mnY;});
+
+      // Escalar para llenar el A3
+      const tW=d3.max(nodes,n=>n.x+NW/2),tH=d3.max(nodes,n=>n.y+NH);
+      const sc=Math.min(AW/tW,AH/tH)*0.94;
+      nodes.forEach(n=>{n.x*=sc;n.y*=sc;});
+      NW*=sc;NH*=sc;
+    }
   }
 
-  // Centrar en el A3
+  // Organismos fuera de nivel (dashed) del nodo raíz — solo sus cajas, sin estructura interna
+  // Para JG: los dashed directos. Para otros: los dashed directos del root.
+  const dashedOrgs=(root.children||[]).filter(c=>c.dashed);
+  const hasOrgs=dashedOrgs.length>0;
+
+  // Reservar espacio inferior para los dashed si los hay
+  const ORG_GAP=20;     // separación entre jerarquía y sección de orgs
+  const ORG_MIN_H=60;   // altura mínima de cada caja org
+  const ORG_COLS=Math.min(dashedOrgs.length,8)||1;
+  const ORG_ROWS=Math.ceil(dashedOrgs.length/ORG_COLS);
+  const ORG_SECTION_H=hasOrgs?ORG_ROWS*ORG_MIN_H+(ORG_ROWS-1)*8+ORG_GAP+14:0;
+
+  // Reducir AH disponible para la jerarquía si hay orgs
+  const hierH=AH-ORG_SECTION_H;
+
+  // Re-escalar la jerarquía al espacio reducido
+  if(hasOrgs){
+    const usedH_now=d3.max(nodes,n=>n.y)+NH;
+    if(usedH_now>0){
+      const sc2=Math.min(1,(hierH/usedH_now));
+      if(sc2<1){nodes.forEach(n=>{n.x*=sc2;n.y*=sc2;});NW*=sc2;NH*=sc2;}
+    }
+  }
+
+  // Centrar jerarquía en su espacio
   const usedW=d3.max(nodes,n=>n.x)+NW,usedH=d3.max(nodes,n=>n.y)+NH;
-  const ox=MAR+(AW-usedW)/2,oy=HH+(AH-usedH)/2;
+  const ox=MAR+(AW-usedW)/2,oy=HH+(hierH-usedH)/2;
 
   // Tamaños de fuente proporcionales al nodo
   const fsN=Math.max(5.5,Math.min(11,NW/13));
@@ -683,6 +747,28 @@ function genSVGA3(root,pn=1,tot=1){
   });
   nodes.forEach(n=>{nodesSVG+=svgBox(n.x-NW/2,n.y,n.data,NW,NH,!!n.data?.dashed,fsN,fsT);});
 
+  // Sección organismos fuera de nivel
+  let orgsSVG="";
+  if(hasOrgs){
+    const sepY=HH+hierH+ORG_GAP;
+    // Línea separadora y título
+    orgsSVG+=`<line x1="${MAR}" y1="${fv(sepY)}" x2="${fv(PW-MAR)}" y2="${fv(sepY)}" stroke="#CBD5E0" stroke-width="0.8" stroke-dasharray="5,4"/>`;
+    orgsSVG+=`<text x="${fv(PW/2)}" y="${fv(sepY+11)}" text-anchor="middle" font-size="7.5" fill="#A0AEC0" font-family="Inter,Arial,sans-serif" letter-spacing="1.5">ORGANISMOS DESCENTRALIZADOS Y FUERA DE NIVEL</text>`;
+
+    const ORG_W=Math.min(180,Math.floor((AW-(ORG_COLS-1)*8)/ORG_COLS));
+    const ORG_H=Math.max(ORG_MIN_H,Math.min(70,Math.round(ORG_W/2.8)));
+    const orgStartX=MAR+(AW-(ORG_COLS*ORG_W+(ORG_COLS-1)*8))/2;
+    const fsO=Math.max(5.5,Math.min(10,ORG_W/14));
+    const fsOT=Math.max(5,Math.min(8.5,ORG_W/18));
+
+    dashedOrgs.forEach((org,i)=>{
+      const col=i%ORG_COLS,row=Math.floor(i/ORG_COLS);
+      const ox2=orgStartX+col*(ORG_W+8);
+      const oy2=sepY+16+row*(ORG_H+8);
+      orgsSVG+=svgBox(ox2,oy2,org,ORG_W,ORG_H,true,fsO,fsOT);
+    });
+  }
+
   const leg=[["#9B1C1C","Jefatura"],["#92400E","Ministerio"],["#78350F","Secretaría"],
              ["#1E3A5F","Subsecretaría"],["#14532D","Dir. General"],["#374151","Org. desc."]];
   const lw=118,lx=(PW-leg.length*lw)/2,ly=PH-FH+11;
@@ -703,6 +789,7 @@ function genSVGA3(root,pn=1,tot=1){
 <text x="${fv(PW/2)}" y="${fv(HH*0.45)}" text-anchor="middle" font-size="22" font-weight="700" fill="#fff" font-family="Inter,Arial,sans-serif">${root.nombre}</text>
 <text x="${fv(PW/2)}" y="${fv(HH*0.78)}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.7)" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · ${fecha}</text>
 <g transform="translate(${fv(ox)},${fv(oy)})">${linesSVG}${nodesSVG}</g>
+${orgsSVG}
 <rect x="0" y="${PH-FH}" width="${PW}" height="${FH}" fill="#F8FAFC"/>
 <line x1="0" y1="${PH-FH}" x2="${PW}" y2="${PH-FH}" stroke="#E2E8F0" stroke-width="0.8"/>
 ${legSVG}${pgSVG}
