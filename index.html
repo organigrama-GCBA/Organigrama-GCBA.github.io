@@ -595,7 +595,7 @@ function genSVGA3(root,pn=1,tot=1){
   
   let nodes=[],links=[],NW,NH;
 
-  if(savedPos&&Object.keys(savedPos).length>0){
+  if(savedPos&&Object.keys(savedPos).length>0&&!isJG){
     // ── Posiciones del editor ──────────────────────────────
     // Recopilar nodos visibles (JG: 1 nivel)
     const visible=[];
@@ -1247,7 +1247,13 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
   function addChildN(tree,pid,child){return updateN(tree,pid,n=>({...n,children:[...(n.children||[]),child]}));}
   function moveN(tree,nid,pid){const n=findN(tree,nid);if(!n)return tree;return addChildN(removeN(tree,nid),pid,n);}
 
-  function isJGView(){return edData&&edViewId===edData.id;}
+  function isJGView(){
+    if(!edData||!edViewId)return false;
+    const vr=findN(edData,edViewId)||edData;
+    // Shallow si es el nodo raíz JG, o cualquier nodo con hijos directos MIN/VJG
+    const direct=(vr.children||[]).filter(c=>!c.dashed);
+    return vr.tipo==="JG"||direct.some(c=>c.tipo==="MIN"||c.tipo==="VJG");
+  }
 
   // Nodos visibles para el área actual (JG: solo 1 nivel)
   function visibleNodes(){
@@ -1767,6 +1773,12 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       if(sel)sel.value=edViewId;
     }
     loadSizeForArea(edViewId);syncSizeInputs();
+    // Para JG: siempre usar layout automático (limpiar posiciones guardadas)
+    const activeRoot=findN(edData,edViewId)||edData;
+    const activeIsDirect=(activeRoot.children||[]).filter(c=>!c.dashed).some(c=>c.tipo==="MIN"||c.tipo==="VJG");
+    if(activeRoot.tipo==="JG"||activeIsDirect){
+      clearArea(edViewId);
+    }
     edFitted=false;
     renderSidebar();
     renderCanvas();
