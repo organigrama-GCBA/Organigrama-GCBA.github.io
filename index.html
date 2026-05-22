@@ -1097,64 +1097,129 @@ function ChildCard({node,onClick}){
 /* ── App ─────────────────────────────────────────── */
 /* ── Modal Vista A3 ──────────────────────────────── */
 function ModalA3({data,allNodes,onClose}){
-  // Nodos que tiene sentido ver en A3: Ministerios, VJG, SECs directas de JG, ORGs con hijos
-  const a3Nodes=React.useMemo(()=>{
-    const direct=(data.children||[]);
-    const result=[];
-    // Ministerios y VJG
-    direct.filter(n=>n.tipo==="MIN"||n.tipo==="VJG").forEach(n=>result.push(n));
-    // Secretarías directas de JG
-    direct.filter(n=>n.tipo==="SEC").forEach(n=>result.push(n));
-    // Organismos fuera de nivel con hijos propios
-    direct.filter(n=>n.dashed&&(n.children||[]).length>0).forEach(n=>result.push(n));
-    // También organismos dentro de ministerios que tengan hijos (ej: PG, CDNNYA)
-    allNodes.filter(n=>n.dashed&&(n.children||[]).length>0&&!direct.find(d=>d.id===n.id)).forEach(n=>result.push(n));
-    return result;
-  },[data,allNodes]);
-
-  const[selId,setSelId]=React.useState(a3Nodes[0]?.id||data.id);
   const[svgStr,setSvgStr]=React.useState("");
-  const selNode=React.useMemo(()=>findNode(data,selId)||data,[data,selId]);
-
-  // Forzar re-render cada vez que se monta el modal (para leer posiciones frescas)
-  const[tick,setTick]=React.useState(0);
-  React.useEffect(()=>{ setTick(t=>t+1); },[]);
+  const[status,setStatus]=React.useState("Generando vista…");
 
   React.useEffect(()=>{
+    // Capturar el SVG actual del editor visual y escalarlo a A3
+    // Si el editor no está activo, usar el canvas actual si existe
+    const edSvg=document.getElementById("ed-svg");
+    if(!edSvg){setStatus("Abrí el Editor visual primero para generar el A3.");return;}
+
     try{
-      // Siempre leer de localStorage — genPageSVG ya lo hace internamente
-      setSvgStr(genPageSVG(selNode,1,1));
-    }catch(e){console.error(e);}
-  },[selNode,tick]);
+      // Obtener el contenido del canvas D3 (el grupo canvas-root)
+      const canvasRoot=edSvg.querySelector("g.canvas-root");
+      if(!canvasRoot){setStatus("El editor visual está vacío. Andá al Editor visual primero.");return;}
+
+      // Calcular bounding box del contenido
+      const bbox=canvasRoot.getBBox();
+      if(!bbox.width||!bbox.height){setStatus("No hay contenido en el editor visual.");return;}
+
+      // A3 landscape en px @ 96dpi
+      const PW=1587,PH=1123;
+      const MAR=45,HH=72,FH=36;
+      const AVAIL_W=PW-MAR*2,AVAIL_H=PH-HH-FH-MAR;
+
+      // Escalar el contenido para que llene el A3
+      const scale=Math.min(AVAIL_W/(bbox.width+40),AVAIL_H/(bbox.height+40));
+      const scaledW=(bbox.width+40)*scale,scaledH=(bbox.height+40)*scale;
+      const ox=MAR+(AVAIL_W-scaledW)/2;
+      const oy=HH+(AVAIL_H-scaledH)/2;
+
+      // Obtener el SVG serializado del editor y extraer el grupo de contenido
+      const serializer=new XMLSerializer();
+      const groupStr=serializer.serializeToString(canvasRoot);
+
+      // Construir el SVG A3 con el contenido del editor escalado
+      const edArea=document.getElementById("ed-canvas");
+      const edW=edArea?.clientWidth||800,edH=edArea?.clientHeight||600;
+
+      // La transformación del grupo ya incluye pan+zoom. Necesitamos extraer solo el contenido.
+      // Obtenemos la transform actual del grupo
+      const gTransform=canvasRoot.getAttribute("transform")||"";
+
+      const today=new Date();
+      const fecha=`${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
+
+      // Título desde el selector de área
+      const asel=document.getElementById("ed-area-sel");
+      const areaName=asel?.options[asel.selectedIndex]?.text?.replace(/^\[.*?\]\s*/,"")||"Organigrama";
+      const areaColor=(()=>{
+        if(!window.__edData)return"#003D6E";
+        const asel2=document.getElementById("ed-area-sel");
+        if(!asel2)return"#003D6E";
+        const node=window.__edData.id===asel2.value?window.__edData:null;
+        return"#003D6E";
+      })();
+
+      // Leyenda
+      const leg=[["#9B1C1C","Jefatura"],["#92400E","Ministerio"],["#78350F","Secretaría"],
+                 ["#1E3A5F","Subsecretaría"],["#14532D","Dir. General"],["#374151","Org. desc."]];
+      const lw=120,lx=(PW-leg.length*lw)/2,ly=PH-FH+11;
+      const legSVG=leg.map((it,i)=>
+        `<rect x="${(lx+i*lw).toFixed(1)}" y="${ly.toFixed(1)}" width="9" height="9" rx="2" fill="${it[0]}"/>` +
+        `<text x="${(lx+i*lw+13).toFixed(1)}" y="${(ly+8).toFixed(1)}" font-size="8" fill="#718096" font-family="Inter,Arial,sans-serif">${it[1]}</text>`
+      ).join("");
+
+      const svgA3=`<svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}">
+  <defs>
+    <linearGradient id="hgA3" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#003D6E"/>
+      <stop offset="100%" stop-color="#003D6ECC"/>
+    </linearGradient>
+    <clipPath id="contentClip">
+      <rect x="${MAR}" y="${HH}" width="${AVAIL_W}" height="${AVAIL_H}"/>
+    </clipPath>
+  </defs>
+  <rect width="${PW}" height="${PH}" fill="#F8FAFC"/>
+  <rect x="0" y="0" width="${PW}" height="${HH}" fill="url(#hgA3)"/>
+  <line x1="0" y1="${HH}" x2="${PW}" y2="${HH}" stroke="#E2E8F0" stroke-width="1"/>
+  <text x="${(PW/2).toFixed(1)}" y="${(HH*0.47).toFixed(1)}" text-anchor="middle" font-size="22" font-weight="700" fill="#fff" font-family="Inter,Arial,sans-serif">${areaName}</text>
+  <text x="${(PW/2).toFixed(1)}" y="${(HH*0.78).toFixed(1)}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.72)" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · ${fecha}</text>
+  <g clip-path="url(#contentClip)">
+    <g transform="translate(${ox.toFixed(1)},${oy.toFixed(1)}) scale(${scale.toFixed(5)}) translate(${(-bbox.x+20).toFixed(1)},${(-bbox.y+20).toFixed(1)})" style="transform-origin:0 0">
+      ${groupStr.replace(/^<g[^>]*>/,'').replace(/<\/g>$/,'')}
+    </g>
+  </g>
+  <rect x="0" y="${PH-FH}" width="${PW}" height="${FH}" fill="#F8FAFC"/>
+  <line x1="0" y1="${PH-FH}" x2="${PW}" y2="${PH-FH}" stroke="#E2E8F0" stroke-width="0.8"/>
+  ${legSVG}
+</svg>`;
+
+      setSvgStr(svgA3);
+      setStatus("");
+    }catch(err){
+      console.error(err);
+      setStatus("Error al generar el A3: "+err.message);
+    }
+  },[]);
 
   const download=()=>{
-    window.__edPositions=JSON.parse(localStorage.getItem('gcba_org_positions_v1')||"{}");
-    dlSVG(genPageSVG(selNode,1,1),`organigrama-${selId.toLowerCase()}-A3.svg`);
+    if(!svgStr)return;
+    const asel=document.getElementById("ed-area-sel");
+    const areaId=asel?.value||"organigrama";
+    dlSVG(svgStr,`organigrama-${areaId.toLowerCase()}-A3.svg`);
   };
 
   return(
     <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(10,15,30,0.85)",zIndex:2000,display:"flex",flexDirection:"column",backdropFilter:"blur(4px)"}}>
       <div onClick={e=>e.stopPropagation()} style={{display:"flex",flexDirection:"column",height:"100%"}}>
-        {/* toolbar */}
         <div style={{background:"#1a1d27",borderBottom:"1px solid #333650",padding:"10px 16px",display:"flex",gap:10,alignItems:"center",flexShrink:0}}>
-          <span style={{color:"#9da3c4",fontSize:12,fontWeight:600,textTransform:"uppercase",letterSpacing:".06em"}}>Vista A3 imprimible</span>
-          <select value={selId} onChange={e=>setSelId(e.target.value)}
-            style={{background:"#232636",border:"1px solid #444870",color:"#e8eaf2",fontFamily:"inherit",fontSize:12,padding:"6px 10px",borderRadius:7,outline:"none",minWidth:300}}>
-            {a3Nodes.map(n=><option key={n.id} value={n.id}>[{(COLORS[n.tipo]||COLORS.ORG).label}] {n.nombre}</option>)}
-          </select>
-          <button onClick={download}
+          <span style={{color:"#9da3c4",fontSize:12,fontWeight:600,textTransform:"uppercase",letterSpacing:".06em"}}>Vista A3 — captura del editor visual</span>
+          <span style={{fontSize:11,color:"#6b7199"}}>Lo que ves en el editor es lo que se exporta</span>
+          {svgStr&&<button onClick={download}
             style={{background:"#4f7ef8",border:"none",color:"#fff",fontFamily:"inherit",fontSize:12,fontWeight:500,padding:"6px 14px",borderRadius:7,cursor:"pointer",marginLeft:"auto"}}>
             ⬇ Descargar SVG A3
-          </button>
+          </button>}
           <button onClick={onClose}
-            style={{background:"#232636",border:"1px solid #444870",color:"#9da3c4",fontFamily:"inherit",fontSize:12,padding:"6px 12px",borderRadius:7,cursor:"pointer"}}>
+            style={{background:"#232636",border:"1px solid #444870",color:"#9da3c4",fontFamily:"inherit",fontSize:12,padding:"6px 12px",borderRadius:7,cursor:"pointer",marginLeft:svgStr?"0":"auto"}}>
             ✕ Cerrar
           </button>
         </div>
-        {/* preview */}
-        <div style={{flex:1,overflow:"auto",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:20,background:"#0f1117"}}
-          dangerouslySetInnerHTML={{__html:svgStr?`<div style="border-radius:8px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,.7);max-width:100%">${svgStr}</div>`:""}}
-        />
+        <div style={{flex:1,overflow:"auto",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:20,background:"#0f1117"}}>
+          {status?<div style={{color:"#9da3c4",fontSize:13,marginTop:40}}>{status}</div>
+            :<div dangerouslySetInnerHTML={{__html:`<div style="border-radius:8px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,.7);max-width:100%">${svgStr}</div>`}}/>}
+        </div>
       </div>
     </div>
   );
@@ -1506,7 +1571,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
   function moveED(tree,nodeId,newPid){const node=findED(tree,nodeId);if(!node)return tree;return addChildED(removeED(tree,nodeId),newPid,node);}
 
   const NW=158,NH=50,HPAD=18,VPAD=58;
-  let edData=null,edSelectedId=null,edZoom=null,edTransform=d3.zoomIdentity,edInitialized=false;
+  let edData=null,edSelectedId=null,edSelectedIds=new Set(),edZoom=null,edTransform=d3.zoomIdentity,edInitialized=false;
 
   function edDispatch(newData){
     edData=newData;
@@ -1772,19 +1837,45 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       .append("g").attr("class",d=>"c-node"+(d.id===edSelectedId?" sel":""))
       .attr("transform",d=>{const p=edPositions[d.id]||{x:0,y:0};return`translate(${p.x-NW/2},${p.y})`;})
       .style("cursor","pointer")
-      .on("click",(e,d)=>{e.stopPropagation();edSelect(d.id);});
+      .on("click",(e,d)=>{
+        e.stopPropagation();
+        if(e.shiftKey){
+          // Shift+clic: toggle nodo + todos sus descendientes
+          const nodeAndDesc=flatED(findED(edData,d.id)||{children:[]}).map(n=>n.id);
+          const allIn=nodeAndDesc.every(id=>edSelectedIds.has(id));
+          if(allIn){ nodeAndDesc.forEach(id=>edSelectedIds.delete(id)); }
+          else { nodeAndDesc.forEach(id=>edSelectedIds.add(id)); }
+          edSelectedId=edSelectedIds.size===1?[...edSelectedIds][0]:d.id;
+          d3.selectAll(".c-node").classed("sel",n=>edSelectedIds.has(n.id));
+          renderEdInspector(findED(edData,d.id));
+          document.getElementById("ed-actions").style.display="flex";
+        } else {
+          edSelect(d.id);
+        }
+      });
 
     ng.call(d3.drag()
+      .on("start",function(e,d){
+        if(!edSelectedIds.has(d.id)){
+          edSelectedIds.clear();
+          edSelectedIds.add(d.id);
+          edSelectedId=d.id;
+          d3.selectAll(".c-node").classed("sel",n=>edSelectedIds.has(n.id));
+        }
+      })
       .on("drag",function(e,d){
-        if(!edPositions[d.id])return;
-        edPositions[d.id].x+=e.dx/edTransform.k;
-        edPositions[d.id].y+=e.dy/edTransform.k;
-        d3.select(this).attr("transform",`translate(${edPositions[d.id].x-NW/2},${edPositions[d.id].y})`);
+        const dx=e.dx/edTransform.k, dy=e.dy/edTransform.k;
+        edSelectedIds.forEach(id=>{
+          if(!edPositions[id])return;
+          edPositions[id].x+=dx;
+          edPositions[id].y+=dy;
+        });
+        d3.selectAll(".c-node").filter(n=>edSelectedIds.has(n.id))
+          .attr("transform",n=>{const p=edPositions[n.id]||{x:0,y:0};return`translate(${p.x-NW/2},${p.y})`;});
         drawLinks();
       })
       .on("end",()=>{
-        // Auto-save on drag end
-        savePositionsForRoot(posKey,edPositions);
+        savePositionsForRoot(posKey2,edPositions);
         showSavedMsg();
       })
     );
@@ -1816,7 +1907,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       }
     });
 
-    svg.on("click",()=>edSelect(null));
+    svg.on("click",()=>{edSelectedIds.clear();edSelect(null);});
 
     // Auto-fit si no hay posiciones guardadas
     const hasSaved=Object.keys(saved).length>0;
@@ -1838,7 +1929,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
   // ── Selection & Inspector ─────────────────────────────────
   function edSelect(id){
     edSelectedId=id;
-    d3.selectAll(".c-node").classed("sel",d=>d.id===id);
+    edSelectedIds.clear();
+    if(id)edSelectedIds.add(id);
+    d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));
     document.querySelectorAll(".ed-ni").forEach(el=>el.classList.toggle("sel",el.dataset.id===id));
     const node=id?findED(edData,id):null;
     renderEdInspector(node);
@@ -1850,7 +1943,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     const actions=document.getElementById("ed-actions");
     const idEl=document.getElementById("ed-ins-id");
     if(!node){
-      body.innerHTML='<div class="ed-ins-empty"><div class="ico">⬡</div><p>Seleccioná un nodo</p></div>';
+      body.innerHTML='<div class="ed-ins-empty"><div class="ico">⬡</div><p>Clic para seleccionar</p><p style="font-size:10px;color:#444870;margin-top:4px;">Shift+clic selecciona el nodo<br>con todos sus dependientes</p></div>';
       actions.style.display="none";idEl.textContent="";return;
     }
     idEl.textContent=node.id;
@@ -1988,13 +2081,22 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
   window.addEventListener("editorActivated",e=>{
     edData=e.detail;
     edCurrentRootId=e.detail.id;
-    edViewRootId=edViewRootId||e.detail.id;
     edLineStyle='orthogonal';
-    // Restaurar área selector
+    // Poblar el selector
     populateAreaSelector();
+    // Restaurar selección previa o default al primero disponible
     const asel=document.getElementById("ed-area-sel");
-    if(asel&&edViewRootId)asel.value=edViewRootId;
-    // No resetear si ya hay posiciones guardadas
+    if(asel){
+      // Si edViewRootId existe y está en el selector, usarlo; sino el primero
+      if(edViewRootId&&asel.querySelector(`option[value="${edViewRootId}"]`)){
+        asel.value=edViewRootId;
+      } else {
+        // Default: JG (primer ítem)
+        edViewRootId=asel.options[0]?.value||e.detail.id;
+        asel.value=edViewRootId;
+      }
+    }
+    // No resetear transform si ya hay posiciones guardadas para esta área
     const posKey=edViewRootId||edCurrentRootId;
     const saved=loadPositionsForRoot(posKey);
     if(!saved||Object.keys(saved).length===0){
