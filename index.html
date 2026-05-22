@@ -7,6 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -32,6 +33,9 @@ input:focus,select:focus{border-color:var(--azul)!important;box-shadow:0 0 0 3px
 <script type="text/babel">
 const{useState,useMemo,useCallback,useEffect}=React;
 
+// CUSTOM_TIPO_PREFIX se usa para identificar tipos personalizados
+const CUSTOM_TIPO_PREFIX = "CUSTOM:";
+
 const COLORS={
   JG :{bg:"#9B1C1C",text:"#fff",light:"#FEE2E2",label:"Jefatura"},
   VJG:{bg:"#9B1C1C",text:"#fff",light:"#FEE2E2",label:"Vicejefatura"},
@@ -43,6 +47,20 @@ const COLORS={
   GO :{bg:"#064E3B",text:"#fff",light:"#D1FAE5",label:"Gerencia Operativa"},
   ORG:{bg:"#374151",text:"#fff",light:"#F3F4F6",label:"Organismo desc."},
 };
+
+function getColorForNode(node){
+  if(node.tipo && node.tipo.startsWith(CUSTOM_TIPO_PREFIX)){
+    return {bg:"#5B21B6",text:"#fff",light:"#EDE9FE",label:node.tipoLabel||node.tipo.replace(CUSTOM_TIPO_PREFIX,"")};
+  }
+  return COLORS[node.tipo]||COLORS.ORG;
+}
+
+function getColorForTipo(tipo, tipoLabel){
+  if(tipo && tipo.startsWith(CUSTOM_TIPO_PREFIX)){
+    return {bg:"#5B21B6",text:"#fff",light:"#EDE9FE",label:tipoLabel||tipo.replace(CUSTOM_TIPO_PREFIX,"")};
+  }
+  return COLORS[tipo]||COLORS.ORG;
+}
 
 const INITIAL={
   id:"JG",nombre:"Jefe de Gobierno",titular:"Jorge Macri",tipo:"JG",children:[
@@ -390,174 +408,81 @@ const INITIAL={
 ]};
 
 /* ── Helpers ─────────────────────────────────────── */
-const STORAGE_KEY="gcba_org_v1";
+const STORAGE_KEY="gcba_org_v2";
 function loadData(){try{const s=localStorage.getItem(STORAGE_KEY);return s?JSON.parse(s):INITIAL;}catch{return INITIAL;}}
 function saveData(d){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}catch{}}
 function flatList(t,a=[]){a.push(t);t.children.forEach(c=>flatList(c,a));return a;}
 function findNode(t,id){if(t.id===id)return t;for(const c of t.children){const f=findNode(c,id);if(f)return f;}return null;}
+function findParent(t,id,parent=null){if(t.id===id)return parent;for(const c of t.children){const f=findParent(c,id,t);if(f!==undefined)return f;}return undefined;}
 function updateNode(t,id,fn){if(t.id===id)return fn(t);return{...t,children:t.children.map(c=>updateNode(c,id,fn))};}
 function removeNode(t,id){return{...t,children:t.children.filter(c=>c.id!==id).map(c=>removeNode(c,id))};}
 function addChild(t,pid,child){return updateNode(t,pid,n=>({...n,children:[...n.children,child]}));}
 
-/* ── SVG export ──────────────────────────────────── */
+/* Move node: remove from current parent, add to new parent */
+function moveNode(t, nodeId, newParentId) {
+  const node = findNode(t, nodeId);
+  if(!node) return t;
+  const withoutNode = removeNode(t, nodeId);
+  return addChild(withoutNode, newParentId, node);
+}
+
+/* ── SVG export con D3 ───────────────────────────── */
 const CF={JG:"#9B1C1C",VJG:"#9B1C1C",MIN:"#92400E",SEC:"#78350F",SS:"#1E3A5F",DG:"#14532D",GG:"#065F46",GO:"#064E3B",ORG:"#374151"};
-const CT={JG:"#fff",VJG:"#fff",MIN:"#fff",SEC:"#fff",SS:"#fff",DG:"#fff",GG:"#fff",GO:"#fff",ORG:"#fff"};
 const fv=v=>Number(v).toFixed(1);
 
-function wrapTxt(t,mx){
+function getSVGColor(node){
+  if(node.tipo&&node.tipo.startsWith(CUSTOM_TIPO_PREFIX))return"#5B21B6";
+  return CF[node.tipo]||"#374151";
+}
+
+function wrapTxt(t,maxChars){
   if(!t)return[];
-  const ws=t.split(" ");const ls=[];let c="";
-  for(const w of ws){if((c+" "+w).trim().length>mx){if(c)ls.push(c.trim());c=w;}else c=(c+" "+w).trim();}
-  if(c)ls.push(c.trim());return ls;
-}
-
-function splitChildren(node){
-  return{
-    hier:node.children.filter(c=>!c.dashed),
-    orgs:node.children.filter(c=>c.dashed)
-  };
-}
-
-function mW(node,BW,HGAP){
-  const{hier}=splitChildren(node);
-  if(!hier.length)return BW;
-  if(node.tipo==="JG"){
-    const mins=hier.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
-    const secs=hier.filter(c=>c.tipo==="SEC");
-    const wMins=mins.length*BW+Math.max(0,mins.length-1)*HGAP;
-    const wSecs=secs.length*BW+Math.max(0,secs.length-1)*HGAP;
-    return Math.max(BW,wMins,wSecs);
+  const words=t.split(" ");const lines=[];let cur="";
+  for(const w of words){
+    const test=(cur?" "+w:w);
+    if(cur.length+test.length>maxChars&&cur){lines.push(cur);cur=w;}
+    else cur=(cur+test).trim();
   }
-  if(node.tipo==="SS"||node.tipo==="GG"||node.tipo==="GO"){
-    // Ancho = SS + rail + DGs apiladas a la derecha
-    const{hier:dgs}=splitChildren(node);
-    if(!dgs.length) return BW;
-    return BW+18+36+BW; // SS + RAIL_OFFSET + DG_INDENT + DG
-  }
-  return Math.max(BW,hier.reduce((s,c)=>s+mW(c,BW,HGAP),0)+HGAP*(hier.length-1));
+  if(cur)lines.push(cur);
+  return lines;
 }
 
-function buildHierLayout(node,mx,my,BW,BH,HGAP,VGAP,rects=[],lines=[]){
-  rects.push({node,x:mx-BW/2,y:my,dashed:false});
-  const{hier}=splitChildren(node);
-  if(!hier.length)return;
-  const useColumn=node.tipo==="SS"||node.tipo==="GG"||node.tipo==="GO";
-  const isJG=node.tipo==="JG";
-
-  if(useColumn){
-    // Rail lateral: sale del costado derecho de SS, baja, entra horizontalmente a cada DG
-    const CVGAP=12;
-    const RAIL_OFFSET=18; // distancia del rail al borde derecho del nodo SS
-    const DG_INDENT=36;   // DGs desplazadas a la derecha del rail
-    const railX=mx+BW/2+RAIL_OFFSET;
-    const firstDGY=my+BH+VGAP; // primera DG empieza debajo de SS con VGAP
-
-    // línea horizontal SS → rail
-    lines.push(`<line x1="${fv(mx+BW/2)}" y1="${fv(my+BH/2)}" x2="${fv(railX)}" y2="${fv(my+BH/2)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
-
-    // rail vertical completo
-    const lastDGMidY=firstDGY+(hier.length-1)*(BH+CVGAP)+BH/2;
-    lines.push(`<line x1="${fv(railX)}" y1="${fv(my+BH/2)}" x2="${fv(railX)}" y2="${fv(lastDGMidY)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
-
-    hier.forEach((ch,i)=>{
-      const dgY=firstDGY+i*(BH+CVGAP);
-      const dgMidY=dgY+BH/2;
-      const dgX=railX+DG_INDENT;
-
-      // línea horizontal rail → DG
-      lines.push(`<line x1="${fv(railX)}" y1="${fv(dgMidY)}" x2="${fv(dgX)}" y2="${fv(dgMidY)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
-      rects.push({node:ch, x:dgX, y:dgY, dashed:false});
-
-      // sub-hijos del DG (mismo patrón, rail más a la derecha)
-      const{hier:subHier}=splitChildren(ch);
-      if(subHier.length){
-        const subRailX=dgX+BW+RAIL_OFFSET;
-        lines.push(`<line x1="${fv(dgX+BW)}" y1="${fv(dgMidY)}" x2="${fv(subRailX)}" y2="${fv(dgMidY)}" stroke="#CBD5E0" stroke-width="0.9"/>`);
-        const lastSubMidY=dgY+(subHier.length-1)*(BH+CVGAP)+BH/2;
-        lines.push(`<line x1="${fv(subRailX)}" y1="${fv(dgMidY)}" x2="${fv(subRailX)}" y2="${fv(lastSubMidY)}" stroke="#CBD5E0" stroke-width="0.9"/>`);
-        subHier.forEach((sub,j)=>{
-          const subY=dgY+j*(BH+CVGAP);
-          const subMidY=subY+BH/2;
-          lines.push(`<line x1="${fv(subRailX)}" y1="${fv(subMidY)}" x2="${fv(subRailX+DG_INDENT)}" y2="${fv(subMidY)}" stroke="#CBD5E0" stroke-width="0.9"/>`);
-          rects.push({node:sub, x:subRailX+DG_INDENT, y:subY, dashed:false});
-        });
-      }
-    });
-  } else if(isJG){
-    // JG: Ministerios en fila 1, Secretarías en fila 2 — nodos más grandes
-    const JBW=200, JBH=72, JHGAP=16, JVGAP=55;
-    const mins=hier.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
-    const secs=hier.filter(c=>c.tipo==="SEC");
-
-    const renderRow=(nodes,rowY,bw,bh,hgap)=>{
-      if(!nodes.length)return;
-      const tot=nodes.length*bw+hgap*(nodes.length-1);
-      let cx=mx-tot/2;
-      const midY=my+BH+(rowY-(my+BH))/2;
-      if(nodes.length>1){
-        lines.push(`<line x1="${fv(cx+bw/2)}" y1="${fv(midY)}" x2="${fv(cx+(nodes.length-1)*(bw+hgap)+bw/2)}" y2="${fv(midY)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
-      }
-      nodes.forEach(ch=>{
-        const cmx=cx+bw/2;
-        lines.push(`<line x1="${fv(cmx)}" y1="${fv(midY)}" x2="${fv(cmx)}" y2="${fv(rowY)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
-        // nodo con tamaño grande JBW x JBH
-        rects.push({node:ch, x:cx, y:rowY, dashed:false, bw, bh});
-        cx+=bw+hgap;
-      });
-    };
-
-    const row1Y=my+BH+JVGAP;
-    const row2Y=row1Y+JBH+JVGAP;
-
-    // Línea desde JG hacia abajo hasta barra de ministerios
-    const midY1=my+BH+(row1Y-(my+BH))/2;
-    lines.push(`<line x1="${fv(mx)}" y1="${fv(my+BH)}" x2="${fv(mx)}" y2="${fv(midY1)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
-
-    renderRow(mins, row1Y, JBW, JBH, JHGAP);
-
-    if(secs.length){
-      // Línea desde JG hacia abajo hasta barra de secretarías
-      const midY2=row1Y+JBH+(row2Y-(row1Y+JBH))/2;
-      lines.push(`<line x1="${fv(mx)}" y1="${fv(my+BH)}" x2="${fv(mx)}" y2="${fv(midY2)}" stroke="#CBD5E0" stroke-width="1"/>`);
-      renderRow(secs, row2Y, JBW, JBH, JHGAP);
-    }
-  } else {
-    const ws=hier.map(c=>mW(c,BW,HGAP));
-    const tot=ws.reduce((s,k)=>s+k,0)+HGAP*(hier.length-1);
-    let cx=mx-tot/2;
-    const midY=my+BH+VGAP/2;
-    lines.push(`<line x1="${fv(mx)}" y1="${fv(my+BH)}" x2="${fv(mx)}" y2="${fv(midY)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
-    if(hier.length>1){
-      const bL=cx+ws[0]/2,bR=cx+tot-ws[ws.length-1]/2;
-      lines.push(`<line x1="${fv(bL)}" y1="${fv(midY)}" x2="${fv(bR)}" y2="${fv(midY)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
-    }
-    hier.forEach((ch,i)=>{
-      const cmx=cx+ws[i]/2;
-      lines.push(`<line x1="${fv(cmx)}" y1="${fv(midY)}" x2="${fv(cmx)}" y2="${fv(my+BH+VGAP)}" stroke="#CBD5E0" stroke-width="1.1"/>`);
-      buildHierLayout(ch,cmx,my+BH+VGAP,BW,BH,HGAP,VGAP,rects,lines);
-      cx+=ws[i]+HGAP;
-    });
-  }
-}
-
-function svgBox(x,y,node,BW,BH,dashed=false){
-  const fill=CF[node.tipo]||"#374151",tc=CT[node.tipo]||"#fff";
-  const nl=wrapTxt(node.nombre,Math.round(BW/8.5)),tl=wrapTxt(node.titular||"",Math.round(BW/7.5));
-  const lh=11,tot=nl.length+(tl.length?tl.length+0.4:0);
-  let yt=y+BH/2-(tot*lh)/2+lh*0.85;
-  const da=dashed?`stroke="rgba(255,255,255,0.45)" stroke-width="1.5" stroke-dasharray="5,3"`:"";
-  let t=`<rect x="${fv(x)}" y="${fv(y)}" width="${BW}" height="${BH}" rx="7" fill="${fill}" ${da}/>`;
-  nl.forEach(l=>{t+=`<text x="${fv(x+BW/2)}" y="${fv(yt)}" text-anchor="middle" font-size="9" font-weight="600" fill="${tc}" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=lh;});
-  yt+=2;
-  tl.forEach(l=>{t+=`<text x="${fv(x+BW/2)}" y="${fv(yt)}" text-anchor="middle" font-size="7.5" fill="${tc}" opacity="0.8" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=lh;});
+function svgBoxSized(x,y,node,BW,BH,dashed,fsN,fsT){
+  const fill=getSVGColor(node);
+  // Caracteres por línea basado en el ancho real del nodo y el tamaño de fuente
+  // ~0.55em por carácter es una buena estimación para Inter
+  const charsN=Math.max(6,Math.floor(BW/(fsN*0.55)));
+  const charsT=Math.max(6,Math.floor(BW/(fsT*0.54)));
+  const nl=wrapTxt(node.nombre,charsN);
+  const tl=wrapTxt(node.titular||"",charsT);
+  const lhN=fsN*1.3;   // interlineado nombre
+  const lhT=fsT*1.25;  // interlineado titular
+  const gap=tl.length?fsN*0.35:0; // gap entre nombre y titular
+  // Altura total del bloque de texto
+  const blockH=nl.length*lhN+gap+(tl.length?tl.length*lhT:0);
+  // Punto de inicio: centrado verticalmente en el nodo
+  // SVG text y= baseline, así que sumamos lhN para la primera línea
+  let yt=y+(BH-blockH)/2+lhN*0.85;
+  const da=dashed?`stroke="rgba(255,255,255,0.5)" stroke-width="1.5" stroke-dasharray="5,3"`:"";
+  const rx=fv(Math.max(4,BH*0.12));
+  let t=`<rect x="${fv(x)}" y="${fv(y)}" width="${fv(BW)}" height="${fv(BH)}" rx="${rx}" fill="${fill}" ${da}/>`;
+  nl.forEach(l=>{
+    t+=`<text x="${fv(x+BW/2)}" y="${fv(yt)}" text-anchor="middle" font-size="${fv(fsN)}" font-weight="600" fill="#fff" font-family="Inter,Arial,sans-serif">${l}</text>`;
+    yt+=lhN;
+  });
+  yt+=gap;
+  tl.forEach(l=>{
+    t+=`<text x="${fv(x+BW/2)}" y="${fv(yt)}" text-anchor="middle" font-size="${fv(fsT)}" fill="rgba(255,255,255,0.82)" font-family="Inter,Arial,sans-serif">${l}</text>`;
+    yt+=lhT;
+  });
   return t;
 }
 
-// Wrapper que usa bw/bh custom del rect si los tiene
-function renderRect(r,defBW,defBH){
-  return svgBox(r.x,r.y,r.node,r.bw||defBW,r.bh||defBH,r.dashed||false);
+function svgBox(x,y,node,BW,BH,dashed=false){
+  return svgBoxSized(x,y,node,BW,BH,dashed,Math.max(7,Math.min(11,BW/15)),Math.max(6,Math.min(9,BW/18)));
 }
 
+// collectOrgs recursivo (todos los descendientes dashed)
 function collectOrgs(node,acc=[]){
   node.children.forEach(ch=>{
     if(ch.dashed)acc.push(ch);
@@ -566,82 +491,299 @@ function collectOrgs(node,acc=[]){
   return acc;
 }
 
+// collectOrgs solo hijos directos dashed del nodo
+function collectOrgsRoot(node){
+  return node.children.filter(c=>c.dashed);
+}
+
+// Convierte árbol en jerarquía D3 (excluye dashed).
+// Si un nodo tiene hijos mixtos (contenedores SS/GG + hojas DG),
+// envuelve las hojas en un fantasma para que queden un nivel más profundo
+// (mismo nivel visual que los hijos de los contenedores).
+function toD3Tree(node){
+  const hier=node.children.filter(c=>!c.dashed);
+  if(!hier.length)return{...node,_children:[],children:undefined};
+  const CONTAINERS=["SS","GG","SEC","MIN"];
+  const hasContainer=hier.some(c=>CONTAINERS.includes(c.tipo));
+  const hasDirect=hier.some(c=>!CONTAINERS.includes(c.tipo)&&c.tipo!=="VJG"&&c.tipo!=="JG"&&c.tipo!=="ORG");
+  let kids;
+  if(hasContainer&&hasDirect){
+    const containers=hier.filter(c=>CONTAINERS.includes(c.tipo));
+    const directs=hier.filter(c=>!CONTAINERS.includes(c.tipo)&&c.tipo!=="VJG"&&c.tipo!=="JG"&&c.tipo!=="ORG");
+    const phantom={id:"__ph_"+node.id,nombre:"",titular:"",tipo:"__phantom__",
+      _children:directs.map(toD3Tree),children:undefined};
+    kids=[...containers.map(toD3Tree),phantom];
+  } else {
+    kids=hier.map(toD3Tree);
+  }
+  return{...node,_children:kids,children:undefined};
+}
+
+// Para JG: layout manual en 2 filas (no usa D3 tree)
+// Fila 1: VJG + Ministerios  |  Fila 2: Secretarías
+// Retorna {nodes, links} con coordenadas absolutas ya calculadas
+function layoutJG(root,NW,NH,HPAD,VPAD){
+  const hier=root.children.filter(c=>!c.dashed);
+  const mins=hier.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
+  const secs=hier.filter(c=>c.tipo==="SEC");
+
+  const row1Y=NH+VPAD;                    // fila ministerios
+  const row2Y=row1Y+NH+VPAD;             // fila secretarías
+
+  const makeRow=(items,rowY)=>{
+    const total=items.length*(NW+HPAD)-HPAD;
+    let x=-(total/2)+NW/2;
+    return items.map(c=>{
+      const n={x,y:rowY,data:c,depth:1};
+      x+=NW+HPAD;
+      return n;
+    });
+  };
+
+  const rootNode={x:0,y:0,data:root,depth:0};
+  const minNodes=makeRow(mins,row1Y);
+  const secNodes=makeRow(secs,row2Y);
+  const allNodes=[rootNode,...minNodes,...secNodes];
+
+  // Links: root→cada MIN directamente
+  // root→cada SEC: usamos un nodo "puente" invisible en fila 1.5 para que
+  // la línea baje por un carril lateral y no cruce los ministerios.
+  // Implementación simple: marcamos los links SEC con secLink=true
+  // y en el render los dibujamos con un mid_Y que pase entre fila1 y fila2.
+  const links=[
+    ...minNodes.map(t=>({source:rootNode,target:t,isSec:false})),
+    ...secNodes.map(t=>({source:rootNode,target:t,isSec:true}))
+  ];
+
+  return{nodes:allNodes,links};
+}
+
 function genPageSVG(root,pn,tot){
   const today=new Date();
   const fecha=`${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
-  const PW=1123,PH=1587,MAR=50,HH=88,FH=52,SEP=28;
-  const AVAIL_W=PW-MAR*2,AVAIL_H=PH-HH-FH-MAR;
-  const orgs=collectOrgs(root);
+
+  const PW=1587,PH=1123;
+  const MAR=40,HH=68,FH=34;
+  const AVAIL_W=PW-MAR*2;
+  const AVAIL_H=PH-HH-FH-MAR;
+
+  const isJG=root.tipo==="JG";
+  const orgs=isJG?collectOrgsRoot(root):collectOrgs(root);
   const hasOrgs=orgs.length>0;
-  const ORG_COLS=Math.min(orgs.length||1,5);
-  const ORG_ROWS=Math.ceil((orgs.length||1)/ORG_COLS);
-  const ORG_SECTION_H=hasOrgs?(SEP+20+ORG_ROWS*72):0;
+  const ORG_COLS=Math.min(Math.max(orgs.length,1),8);
+  const ORG_ROWS=Math.ceil(orgs.length/ORG_COLS);
+  const ORG_SECTION_H=hasOrgs?(30+ORG_ROWS*52):0;
   const HIER_H=AVAIL_H-ORG_SECTION_H;
-  const BW0=180,BH0=58,HGAP0=14,VGAP0=66;
-  const rects0=[],lines0=[];
-  buildHierLayout(root,mW(root,BW0,HGAP0)/2,0,BW0,BH0,HGAP0,VGAP0,rects0,lines0);
-  const minX0=rects0.length?Math.min(...rects0.map(r=>r.x)):0;
-  rects0.forEach(r=>r.x-=minX0);
-  const rawW=rects0.length?Math.max(...rects0.map(r=>r.x+BW0)):BW0;
-  const rawH=rects0.length?Math.max(...rects0.map(r=>r.y+BH0)):BH0;
-  const scale=Math.min(AVAIL_W/rawW,HIER_H/rawH,1);
-  const scaledW=rawW*scale,scaledH=rawH*scale;
-  const ox=MAR+(AVAIL_W-scaledW)/2,oy=HH+(HIER_H-scaledH)/2;
-  const hc=CF[root.tipo]||"#1E3A5F";
-  // orgs SVG se construye ANTES que el hierSVG para que quede detrás
+
+  // ── Medir el árbol con layout unitario para calcular span ──
+  let rawSpanX, rawSpanY;
+  if(isJG){
+    const hier=root.children.filter(c=>!c.dashed);
+    const mins=hier.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
+    const secs=hier.filter(c=>c.tipo==="SEC");
+    rawSpanX=Math.max(mins.length,secs.length);
+    rawSpanY=3;
+  } else {
+    const td=toD3Tree(root);
+    const h0=d3.hierarchy(td,d=>d._children);
+    d3.tree().nodeSize([1,1])(h0);
+    const n0=h0.descendants().filter(n=>n.data.tipo!=="__phantom__");
+    rawSpanX=(d3.max(n0,n=>n.x)-d3.min(n0,n=>n.x))+1;
+    rawSpanY=(d3.max(n0,n=>n.depth)||1)+1;
+  }
+
+  // ── Calcular tamaño de nodo ──────────────────────────────
+  // Gaps fijos mínimos
+  const HGAP=8, VGAP=22;
+  // Máximo ancho y alto que entra en el espacio disponible
+  const NW_max=Math.floor((AVAIL_W - HGAP*(rawSpanX-1)) / rawSpanX);
+  const NH_max=Math.floor((HIER_H  - VGAP*(rawSpanY-1)) / rawSpanY);
+
+  // Fuente objetivo: queremos poder mostrar ~20 caracteres en una línea
+  // a ~0.55em/char, eso da NW = 20*fs*0.55. Con fs mínimo de 7px: NW_min ≈ 77px
+  // Preferimos NW estrecho y NH generoso para que entre el texto verticalmente
+  // Relación objetivo: NW:NH = 2.2:1 (más alto que antes)
+  const ASPECT=2.2;
+  let NW=Math.min(NW_max, 220);
+  let NH=Math.min(NH_max, Math.round(NW/ASPECT));
+  // Si NH_max permite más altura, aprovecharlo
+  if(NH_max > NH){ NH=Math.min(NH_max, Math.round(NW/1.6)); }
+  NW=Math.max(NW,65); NH=Math.max(NH,30);
+  NW=Math.round(NW);  NH=Math.round(NH);
+
+  // Tamaños de fuente proporcionales al nodo
+  const fsN=Math.max(6.5, Math.min(12, NW/15));
+  const fsT=Math.max(5.5, Math.min(10, NW/18));
+
+  // NH mínimo garantizado para que 2 líneas de nombre + 1 titular entren
+  const lhN=fsN*1.3, lhT=fsT*1.25;
+  const textH=2*lhN + lhT + fsN*0.6; // 2 líneas nombre + gap + 1 titular
+  const minNH=Math.ceil(textH*1.25);  // 25% padding vertical
+  NH=Math.max(NH, minNH);
+
+  const HPAD=Math.max(HGAP, Math.round((AVAIL_W - NW*rawSpanX)/(rawSpanX+1)));
+  const VPAD=Math.max(VGAP, Math.round((HIER_H  - NH*rawSpanY)/(rawSpanY+1)));
+  const sw=Math.max(0.8, NW/220);
+
+  // ── Layout ──────────────────────────────────────────────
+  let nodes,links;
+  if(isJG){
+    ({nodes,links}=layoutJG(root,NW,NH,HPAD,VPAD));
+  } else {
+    const td=toD3Tree(root);
+    const hier=d3.hierarchy(td,d=>d._children);
+    d3.tree().nodeSize([NW+HPAD,NH+VPAD])(hier);
+    const allN=hier.descendants();
+    const allL=hier.links();
+    nodes=allN.filter(n=>n.data.tipo!=="__phantom__");
+    const realLinks=allL.filter(l=>l.source.data.tipo!=="__phantom__"&&l.target.data.tipo!=="__phantom__");
+    const skipped=[];
+    allL.filter(l=>l.source.data.tipo==="__phantom__").forEach(l=>{
+      if(l.source.parent)skipped.push({source:l.source.parent,target:l.target});
+    });
+    links=[...realLinks,...skipped];
+  }
+
+  // Normalizar: mover a (0,0)
+  const minX=d3.min(nodes,n=>n.x)-NW/2;
+  const minY=d3.min(nodes,n=>n.y);
+  nodes.forEach(n=>{n.x-=minX; n.y-=minY;});
+
+  const treeW=d3.max(nodes,n=>n.x+NW/2);
+  const treeH=d3.max(nodes,n=>n.y+NH);
+
+  // Escalar si el árbol no llena el espacio (o es más grande)
+  const scaleX=AVAIL_W/treeW;
+  const scaleY=HIER_H/treeH;
+  const scale=Math.min(scaleX,scaleY); // puede ser >1 para agrandar
+  nodes.forEach(n=>{n.x*=scale; n.y*=scale;});
+  const SNW=NW*scale, SNH=NH*scale;
+  const sfsN=Math.max(6,   Math.min(13, fsN*scale));
+  const sfsT=Math.max(5,   Math.min(10, fsT*scale));
+  const sVPAD=VPAD*scale;
+
+  const finalW=d3.max(nodes,n=>n.x+SNW/2);
+  const finalH=d3.max(nodes,n=>n.y+SNH);
+  const ox=MAR+(AVAIL_W-finalW)/2;
+  const oy=HH+(HIER_H-finalH)/2;
+  const hc=getSVGColor(root);
+
+  // ── Líneas jerárquicas ──────────────────────────────────
+  // Para JG las SEC usan un carril lateral izquierdo para no cruzar ministerios
+  const minNodesX=nodes.filter(n=>n.depth===1&&(n.data.tipo==="MIN"||n.data.tipo==="VJG")).map(n=>n.x);
+  const leftRailX=minNodesX.length>0?Math.min(...minNodesX)-SNW/2-8:ox-8;
+
+  let linesSVG="";
+  links.forEach(lk=>{
+    const sx=lk.source.x, sy=lk.source.y+SNH;
+    const tx=lk.target.x, ty=lk.target.y;
+
+    if(lk.isSec){
+      // Línea SEC: baja del JG por carril izquierdo, horizontal a cada SEC
+      const railX=leftRailX;
+      const botRow1=sy+sVPAD/2; // nivel entre JG y MIN row
+      const midRow=ty-sVPAD/2;  // nivel entre MIN row y SEC row
+      // Baja del JG al nivel entre filas
+      linesSVG+=`<line x1="${fv(sx)}" y1="${fv(sy)}" x2="${fv(sx)}" y2="${fv(botRow1)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
+      // Va al rail izquierdo
+      linesSVG+=`<line x1="${fv(sx)}" y1="${fv(botRow1)}" x2="${fv(railX)}" y2="${fv(botRow1)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
+      // Baja por el rail hasta el nivel de la fila SEC
+      linesSVG+=`<line x1="${fv(railX)}" y1="${fv(botRow1)}" x2="${fv(railX)}" y2="${fv(midRow)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
+      // Va horizontalmente al SEC
+      linesSVG+=`<line x1="${fv(railX)}" y1="${fv(midRow)}" x2="${fv(tx)}" y2="${fv(midRow)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
+      // Sube al SEC
+      linesSVG+=`<line x1="${fv(tx)}" y1="${fv(midRow)}" x2="${fv(tx)}" y2="${fv(ty)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
+    } else {
+      const mid=sy+sVPAD/2;
+      linesSVG+=`<line x1="${fv(sx)}" y1="${fv(sy)}" x2="${fv(sx)}" y2="${fv(mid)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
+      linesSVG+=`<line x1="${fv(sx)}" y1="${fv(mid)}" x2="${fv(tx)}" y2="${fv(mid)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
+      linesSVG+=`<line x1="${fv(tx)}" y1="${fv(mid)}" x2="${fv(tx)}" y2="${fv(ty)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
+    }
+  });
+
+  // ── Nodos ───────────────────────────────────────────────
+  let nodesSVG="";
+  nodes.forEach(n=>{
+    nodesSVG+=svgBoxSized(n.x-SNW/2,n.y,n.data,SNW,SNH,false,sfsN,sfsT);
+  });
+
+  let hierSVG=`<g transform="translate(${fv(ox)},${fv(oy)})">`;
+  hierSVG+=linesSVG+nodesSVG;
+  hierSVG+=`</g>`;
+
+  // ── Organismos fuera de nivel ────────────────────────────
   let orgsSVG="";
   if(hasOrgs){
     const sepY=HH+HIER_H+8;
-    const OBW=Math.min(180,Math.floor((AVAIL_W-(ORG_COLS-1)*10)/ORG_COLS));
-    const OBH=54,OGAP=10;
+    const OBW=Math.min(150,Math.floor((AVAIL_W-(ORG_COLS-1)*8)/ORG_COLS));
+    const OBH=Math.round(OBW/3.0);
+    const OGAP=8;
     const orgRowW=ORG_COLS*OBW+(ORG_COLS-1)*OGAP;
     const orgStartX=MAR+(AVAIL_W-orgRowW)/2;
-    orgsSVG+=`<line x1="${MAR}" y1="${fv(sepY)}" x2="${fv(PW-MAR)}" y2="${fv(sepY)}" stroke="#A0AEC0" stroke-width="1" stroke-dasharray="6,4"/>`;
-    orgsSVG+=`<text x="${fv(PW/2)}" y="${fv(sepY-5)}" text-anchor="middle" font-size="7.5" fill="#A0AEC0" font-family="Inter,Arial,sans-serif" letter-spacing="1">ORGANISMOS DESCENTRALIZADOS Y FUERA DE NIVEL</text>`;
-    // Líneas punteadas por el costado derecho — no cruzan el árbol
-    const rootCX=ox+scaledW/2;
-    const rootBottomY=oy+BH0*scale;
-    // Costado derecho: columna vertical a la derecha del árbol
-    const sideX=PW-MAR+10; // ligeramente fuera del margen derecho
+    const fsO=Math.max(6.5,Math.min(10,OBW/15));
+
+    orgsSVG+=`<line x1="${MAR}" y1="${fv(sepY)}" x2="${fv(PW-MAR)}" y2="${fv(sepY)}" stroke="#CBD5E0" stroke-width="0.8" stroke-dasharray="5,4"/>`;
+    orgsSVG+=`<text x="${fv(PW/2)}" y="${fv(sepY+12)}" text-anchor="middle" font-size="7.5" fill="#A0AEC0" font-family="Inter,Arial,sans-serif" letter-spacing="1.5">ORGANISMOS DESCENTRALIZADOS Y FUERA DE NIVEL</text>`;
+
+    // Ancla: borde inferior del nodo raíz (coordenadas de página)
+    const rootN=nodes.find(n=>n.depth===0)||nodes[0];
+    const anchorX=ox+rootN.x;
+    const anchorY=oy+rootN.y+SNH;
+
+    // Rail vertical en el MARGEN DERECHO — dentro del viewBox
+    const railX=MAR+AVAIL_W+18; // justo fuera del área de contenido pero dentro del SVG
+    const lastOrgTopY=sepY+18+(ORG_ROWS-1)*(OBH+OGAP);
+
+    // 1. Línea horizontal: ancla → rail
+    orgsSVG+=`<line x1="${fv(anchorX)}" y1="${fv(anchorY)}" x2="${fv(railX)}" y2="${fv(anchorY)}" stroke="#A0AEC0" stroke-width="1" stroke-dasharray="5,3"/>`;
+    // 2. Rail vertical: desde ancla hasta la altura del último org
+    orgsSVG+=`<line x1="${fv(railX)}" y1="${fv(anchorY)}" x2="${fv(railX)}" y2="${fv(lastOrgTopY+OBH/2)}" stroke="#A0AEC0" stroke-width="1" stroke-dasharray="5,3"/>`;
+
+    // 3. Por cada org: línea horizontal del rail → borde derecho del org,
+    //    luego bajada vertical hasta el tope del org
     orgs.forEach((org,i)=>{
-      const col=i%ORG_COLS,row=Math.floor(i/ORG_COLS);
+      const col=i%ORG_COLS, row=Math.floor(i/ORG_COLS);
       const ox2=orgStartX+col*(OBW+OGAP);
       const oy2=sepY+18+row*(OBH+OGAP);
-      const orgCX=ox2+OBW/2;
       const orgTopY=oy2;
-      // Recorrido: raíz → baja por costado derecho → entra horizontal al nodo
-      orgsSVG+=`<polyline points="${fv(rootCX)},${fv(rootBottomY)} ${fv(sideX)},${fv(rootBottomY)} ${fv(sideX)},${fv(orgTopY+OBH/2)} ${fv(ox2+OBW)},${fv(orgTopY+OBH/2)}" fill="none" stroke="#CBD5E0" stroke-width="1" stroke-dasharray="5,4"/>`;
+      const orgMidY=oy2+OBH/2;
+      const orgCX=ox2+OBW/2; // centro horizontal del org
+      // Del rail al centro del org, a la altura media
+      orgsSVG+=`<line x1="${fv(railX)}" y1="${fv(orgMidY)}" x2="${fv(orgCX)}" y2="${fv(orgMidY)}" stroke="#A0AEC0" stroke-width="1" stroke-dasharray="5,3"/>`;
+      // Del centro hacia arriba hasta el tope del nodo
+      orgsSVG+=`<line x1="${fv(orgCX)}" y1="${fv(orgMidY)}" x2="${fv(orgCX)}" y2="${fv(orgTopY)}" stroke="#A0AEC0" stroke-width="1" stroke-dasharray="5,3"/>`;
     });
-    // Nodos encima de las líneas
+
+    // 4. Nodos encima
     orgs.forEach((org,i)=>{
-      const col=i%ORG_COLS,row=Math.floor(i/ORG_COLS);
+      const col=i%ORG_COLS, row=Math.floor(i/ORG_COLS);
       const ox2=orgStartX+col*(OBW+OGAP);
       const oy2=sepY+18+row*(OBH+OGAP);
-      orgsSVG+=svgBox(ox2,oy2,org,OBW,OBH,true);
+      orgsSVG+=svgBoxSized(ox2,oy2,org,OBW,OBH,true,fsO,fsO*0.85);
     });
   }
 
-  let hierSVG=`<g transform="translate(${fv(ox)},${fv(oy)}) scale(${scale.toFixed(5)})">`;
-  // Primero todas las líneas, después todos los nodos (evita que los nodos corten las líneas)
-  hierSVG += lines0.join("");
-  hierSVG += rects0.map(r=>renderRect(r,BW0,BH0)).join("");
-  hierSVG+=`</g>`;
-  const leg=[["#9B1C1C","Jefatura"],["#92400E","Ministerio"],["#78350F","Secretaría"],["#1E3A5F","Subsecretaría"],["#14532D","Dir. Gral."],["#374151","Org. fuera de nivel"]];
-  const lw=118,lx=(PW-(leg.length*lw+10))/2,ly=PH-34;
-  let legSVG=leg.map((it,i)=>`<rect x="${fv(lx+i*lw)}" y="${fv(ly)}" width="10" height="10" rx="2" fill="${it[0]}"/><text x="${fv(lx+i*lw+14)}" y="${fv(ly+9)}" font-size="7.5" fill="#718096" font-family="Inter,Arial,sans-serif">${it[1]}</text>`).join("");
-  legSVG+=`<text x="${fv(PW-MAR)}" y="${fv(ly+9)}" text-anchor="end" font-size="8" fill="#A0AEC0" font-family="Inter,Arial,sans-serif">${pn}/${tot}</text>`;
+  // ── Leyenda ─────────────────────────────────────────────
+  const leg=[["#9B1C1C","Jefatura"],["#92400E","Ministerio"],["#78350F","Secretaría"],["#1E3A5F","Subsecretaría"],["#14532D","Dir. General"],["#374151","Org. desc."],["#5B21B6","Personalizado"]];
+  const lw=125,lx=(PW-(leg.length*lw))/2,ly=PH-FH+12;
+  let legSVG=leg.map((it,i)=>`<rect x="${fv(lx+i*lw)}" y="${fv(ly)}" width="9" height="9" rx="2" fill="${it[0]}"/><text x="${fv(lx+i*lw+13)}" y="${fv(ly+8)}" font-size="8" fill="#718096" font-family="Inter,Arial,sans-serif">${it[1]}</text>`).join("");
+  if(tot>1)legSVG+=`<text x="${fv(PW-MAR)}" y="${fv(ly+8)}" text-anchor="end" font-size="8" fill="#A0AEC0" font-family="Inter,Arial,sans-serif">${pn}/${tot}</text>`;
+
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}">
-<defs><linearGradient id="hg${pn}" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="${hc}"/><stop offset="100%" stop-color="${hc}BB"/></linearGradient></defs>
-<rect width="${PW}" height="${PH}" fill="#F7FAFC"/>
+<defs><linearGradient id="hg${pn}" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="${hc}"/><stop offset="100%" stop-color="${hc}CC"/></linearGradient></defs>
+<rect width="${PW}" height="${PH}" fill="#F8FAFC"/>
 <rect x="0" y="0" width="${PW}" height="${HH}" fill="url(#hg${pn})"/>
 <line x1="0" y1="${HH}" x2="${PW}" y2="${HH}" stroke="#E2E8F0" stroke-width="1"/>
-<text x="${fv(PW/2)}" y="42" text-anchor="middle" font-size="19" font-weight="700" fill="#fff" font-family="Inter,Arial,sans-serif">${root.nombre}</text>
-<text x="${fv(PW/2)}" y="63" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.78)" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · Última actualización: ${fecha}</text>
+<text x="${fv(PW/2)}" y="${fv(HH*0.47)}" text-anchor="middle" font-size="22" font-weight="700" fill="#fff" font-family="Inter,Arial,sans-serif">${root.nombre}</text>
+<text x="${fv(PW/2)}" y="${fv(HH*0.78)}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.72)" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · Última actualización: ${fecha}</text>
 ${hierSVG}${orgsSVG}
-<rect x="0" y="${PH-FH}" width="${PW}" height="${FH}" fill="#F7FAFC"/>
+<rect x="0" y="${PH-FH}" width="${PW}" height="${FH}" fill="#F8FAFC"/>
 <line x1="0" y1="${PH-FH}" x2="${PW}" y2="${PH-FH}" stroke="#E2E8F0" stroke-width="0.8"/>
-${legSVG}</svg>`;
+${legSVG}
+</svg>`;
 }
+
+
 
 function dlSVG(svgStr,fname){
   const blob=new Blob([svgStr],{type:"image/svg+xml;charset=utf-8"});
@@ -656,7 +798,7 @@ function dlSVG(svgStr,fname){
 /* ── Panel item ──────────────────────────────────── */
 function PanelItem({node,onSelect,selectedId,depth=0}){
   const[open,setOpen]=useState(depth<1);
-  const col=COLORS[node.tipo]||COLORS.ORG;
+  const col=getColorForNode(node);
   const isSel=selectedId===node.id;
   return(
     <div style={{marginBottom:2}}>
@@ -687,37 +829,83 @@ function PanelItem({node,onSelect,selectedId,depth=0}){
 }
 
 /* ── Modal ───────────────────────────────────────── */
-function Modal({title,accentColor="#005EA6",children,onClose}){
+function Modal({title,accentColor="#005EA6",children,onClose,wide=false}){
   return(
     <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(15,30,60,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(2px)"}}>
       <div onClick={e=>e.stopPropagation()} className="fade-in"
-        style={{background:"#fff",borderRadius:16,width:400,boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
-        <div style={{background:accentColor,padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        style={{background:"#fff",borderRadius:16,width:wide?520:400,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
+        <div style={{background:accentColor,padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:1}}>
           <div style={{fontSize:14,fontWeight:600,color:"#fff"}}>{title}</div>
           <button onClick={onClose} style={{background:"rgba(255,255,255,0.2)",border:"none",borderRadius:6,color:"#fff",width:28,height:28,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
         </div>
-        <div style={{padding:"20px 20px 24px"}}>{children}</div>
+        <div style={{padding:"20px 20px 24px",overflowY:"auto",maxHeight:"calc(90vh - 60px)"}}>{children}</div>
       </div>
     </div>
   );
 }
 
-function Field({label,value,onChange,type="text"}){
+function Field({label,value,onChange,type="text",children}){
   return(
     <div style={{marginBottom:12}}>
       <label style={{fontSize:11,fontWeight:500,color:"#4A5568",display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.04em"}}>{label}</label>
-      {type==="select"
-        ?<select value={value} onChange={onChange} style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:"1.5px solid #D8E2EE",background:"#fff",color:"#1A2B42"}}>
-          {Object.entries(COLORS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-        </select>
-        :<input value={value} onChange={onChange} style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:"1.5px solid #D8E2EE",color:"#1A2B42"}}/>
-      }
+      {children||<input value={value} onChange={onChange} style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:"1.5px solid #D8E2EE",color:"#1A2B42"}}/>}
+    </div>
+  );
+}
+
+/* Selector de tipo que incluye opción "Otro" con campo libre */
+function TipoSelector({tipo, tipoLabel, onTipoChange, onTipoLabelChange}){
+  const isCustom = tipo && tipo.startsWith(CUSTOM_TIPO_PREFIX);
+  return(
+    <div style={{marginBottom:12}}>
+      <label style={{fontSize:11,fontWeight:500,color:"#4A5568",display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.04em"}}>Tipo de unidad</label>
+      <select value={isCustom?"__custom__":tipo}
+        onChange={e=>{
+          if(e.target.value==="__custom__") onTipoChange(CUSTOM_TIPO_PREFIX+(tipoLabel||""));
+          else onTipoChange(e.target.value);
+        }}
+        style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:"1.5px solid #D8E2EE",background:"#fff",color:"#1A2B42",marginBottom:isCustom?8:0}}>
+        {Object.entries(COLORS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+        <option value="__custom__">✏️ Otro (nombre personalizado)…</option>
+      </select>
+      {isCustom&&(
+        <input
+          value={tipoLabel||""}
+          onChange={e=>{
+            onTipoLabelChange(e.target.value);
+            onTipoChange(CUSTOM_TIPO_PREFIX+e.target.value);
+          }}
+          placeholder="Ej: Gerencia de Auditoría, Unidad de Control…"
+          style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:"1.5px solid #7C3AED",color:"#1A2B42",background:"#F5F3FF"}}
+        />
+      )}
+    </div>
+  );
+}
+
+/* Selector de nodo padre — lista plana de todos los nodos del árbol */
+function PadreSelector({allNodes, currentId, value, onChange}){
+  const options = allNodes.filter(n => n.id !== currentId);
+  return(
+    <div style={{marginBottom:12}}>
+      <label style={{fontSize:11,fontWeight:500,color:"#4A5568",display:"block",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.04em"}}>Depende de</label>
+      <select value={value} onChange={onChange}
+        style={{width:"100%",fontSize:13,padding:"8px 10px",borderRadius:8,border:"1.5px solid #D8E2EE",background:"#fff",color:"#1A2B42"}}>
+        {options.map(n=>{
+          const col=getColorForNode(n);
+          const label=n.tipo&&n.tipo.startsWith(CUSTOM_TIPO_PREFIX)?(n.tipoLabel||n.tipo.replace(CUSTOM_TIPO_PREFIX,"")):(COLORS[n.tipo]||{label:n.tipo}).label;
+          return <option key={n.id} value={n.id}>[{label}] {n.nombre}</option>;
+        })}
+      </select>
     </div>
   );
 }
 
 function NodePreview({form}){
-  const col=COLORS[form.tipo]||COLORS.ORG;
+  const isCustom = form.tipo && form.tipo.startsWith(CUSTOM_TIPO_PREFIX);
+  const col = isCustom
+    ? {bg:"#5B21B6",text:"#fff",label:form.tipoLabel||form.tipo.replace(CUSTOM_TIPO_PREFIX,"")||"Tipo personalizado"}
+    : (COLORS[form.tipo]||COLORS.ORG);
   return(
     <div style={{background:col.bg,color:col.text,borderRadius:10,padding:"12px 14px",marginBottom:16,border:form.dashed?"2px dashed rgba(255,255,255,0.4)":"none",boxShadow:"0 2px 8px rgba(0,0,0,0.12)"}}>
       <div style={{fontSize:11,fontWeight:500,opacity:0.7,marginBottom:2}}>{col.label}</div>
@@ -742,8 +930,9 @@ const Btn=({children,onClick,variant="secondary",small=false,style={}})=>{
   );
 };
 
-function TypeBadge({tipo,dashed}){
-  const col=COLORS[tipo]||COLORS.ORG;
+function TypeBadge({tipo,tipoLabel,dashed}){
+  const isCustom = tipo && tipo.startsWith(CUSTOM_TIPO_PREFIX);
+  const col = isCustom ? {bg:"#5B21B6",text:"#fff",label:tipoLabel||tipo.replace(CUSTOM_TIPO_PREFIX,"")||"Personalizado"} : (COLORS[tipo]||COLORS.ORG);
   return(
     <span style={{background:col.bg,color:col.text,fontSize:10,fontWeight:600,padding:"3px 9px",borderRadius:20,letterSpacing:"0.03em",border:dashed?"1.5px dashed rgba(255,255,255,0.4)":"none"}}>
       {col.label}{dashed?" · Dep. funcional":""}
@@ -752,7 +941,8 @@ function TypeBadge({tipo,dashed}){
 }
 
 function ChildCard({node,onClick}){
-  const col=COLORS[node.tipo]||COLORS.ORG;
+  const col=getColorForNode(node);
+  const label=node.tipo&&node.tipo.startsWith(CUSTOM_TIPO_PREFIX)?(node.tipoLabel||node.tipo.replace(CUSTOM_TIPO_PREFIX,"")):(COLORS[node.tipo]||{label:node.tipo}).label;
   return(
     <div onClick={()=>onClick(node)}
       style={{background:"#fff",borderRadius:12,padding:"12px 14px",cursor:"pointer",border:`1.5px solid ${node.dashed?"#CBD5E0":col.bg+"33"}`,borderLeft:`4px solid ${col.bg}`,boxShadow:"0 1px 4px rgba(0,0,0,0.06)",transition:"all 0.15s"}}
@@ -760,7 +950,7 @@ function ChildCard({node,onClick}){
       onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 4px rgba(0,0,0,0.06)";e.currentTarget.style.borderColor=node.dashed?"#CBD5E0":col.bg+"33";}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
         <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:11,fontWeight:700,color:col.bg,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.04em"}}>{col.label}</div>
+          <div style={{fontSize:11,fontWeight:700,color:col.bg,marginBottom:3,textTransform:"uppercase",letterSpacing:"0.04em"}}>{label}</div>
           <div style={{fontSize:12,fontWeight:600,color:"#1A2B42",lineHeight:1.35}}>{node.nombre}</div>
           {node.titular&&<div style={{fontSize:11,color:"#718096",marginTop:3}}>{node.titular}</div>}
         </div>
@@ -772,14 +962,57 @@ function ChildCard({node,onClick}){
 }
 
 /* ── App ─────────────────────────────────────────── */
+/* ── Modal Vista A3 ──────────────────────────────── */
+function ModalA3({data,allNodes,onClose}){
+  const[selId,setSelId]=React.useState(data.id);
+  const[svgStr,setSvgStr]=React.useState("");
+  const selNode=React.useMemo(()=>findNode(data,selId)||data,[data,selId]);
+
+  React.useEffect(()=>{
+    try{ setSvgStr(genPageSVG(selNode,1,1)); }catch(e){ console.error(e); }
+  },[selNode]);
+
+  const download=()=>{
+    dlSVG(genPageSVG(selNode,1,1),`organigrama-${selId.toLowerCase()}-A3.svg`);
+  };
+
+  return(
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(10,15,30,0.85)",zIndex:2000,display:"flex",flexDirection:"column",backdropFilter:"blur(4px)"}}>
+      <div onClick={e=>e.stopPropagation()} style={{display:"flex",flexDirection:"column",height:"100%"}}>
+        {/* toolbar */}
+        <div style={{background:"#1a1d27",borderBottom:"1px solid #333650",padding:"10px 16px",display:"flex",gap:10,alignItems:"center",flexShrink:0}}>
+          <span style={{color:"#9da3c4",fontSize:12,fontWeight:600,textTransform:"uppercase",letterSpacing:".06em"}}>Vista A3 imprimible</span>
+          <select value={selId} onChange={e=>setSelId(e.target.value)}
+            style={{background:"#232636",border:"1px solid #444870",color:"#e8eaf2",fontFamily:"inherit",fontSize:12,padding:"6px 10px",borderRadius:7,outline:"none",minWidth:300}}>
+            {allNodes.map(n=><option key={n.id} value={n.id}>[{(COLORS[n.tipo]||COLORS.ORG).label}] {n.nombre}</option>)}
+          </select>
+          <button onClick={download}
+            style={{background:"#4f7ef8",border:"none",color:"#fff",fontFamily:"inherit",fontSize:12,fontWeight:500,padding:"6px 14px",borderRadius:7,cursor:"pointer",marginLeft:"auto"}}>
+            ⬇ Descargar SVG A3
+          </button>
+          <button onClick={onClose}
+            style={{background:"#232636",border:"1px solid #444870",color:"#9da3c4",fontFamily:"inherit",fontSize:12,padding:"6px 12px",borderRadius:7,cursor:"pointer"}}>
+            ✕ Cerrar
+          </button>
+        </div>
+        {/* preview */}
+        <div style={{flex:1,overflow:"auto",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:20,background:"#0f1117"}}
+          dangerouslySetInnerHTML={{__html:svgStr?`<div style="border-radius:8px;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,.7);max-width:100%">${svgStr}</div>`:""}}
+        />
+      </div>
+    </div>
+  );
+}
+
 function App(){
   const[data,setData]=useState(()=>loadData());
   const[selected,setSelected]=useState(null);
   const[search,setSearch]=useState("");
   const[modal,setModal]=useState(null);
   const[editForm,setEditForm]=useState({});
-  const[addForm,setAddForm]=useState({nombre:"",titular:"",tipo:"DG",dashed:false});
+  const[addForm,setAddForm]=useState({nombre:"",titular:"",tipo:"DG",tipoLabel:"",dashed:false,parentId:""});
   const[saved,setSaved]=useState(false);
+  const[showA3,setShowA3]=useState(false);
 
   useEffect(()=>{saveData(data);setSaved(true);const t=setTimeout(()=>setSaved(false),1800);return()=>clearTimeout(t);},[data]);
 
@@ -792,35 +1025,78 @@ function App(){
 
   const select=useCallback(node=>setSelected(s=>s?.id===node.id?null:node),[]);
 
-  const saveEdit=()=>{const nd=updateNode(data,selected.id,n=>({...n,...editForm}));setData(nd);setSelected(findNode(nd,selected.id));setModal(null);};
-  const saveAdd=()=>{if(!addForm.nombre.trim())return;const child={...addForm,id:"n_"+Date.now(),children:[]};const nd=addChild(data,selected.id,child);setData(nd);setSelected(findNode(nd,selected.id));setModal(null);};
-  const del=()=>{if(!selected||selected.id==="JG")return;if(!confirm(`¿Eliminar "${selected.nombre}" y todas sus dependencias?`))return;setData(removeNode(data,selected.id));setSelected(null);};
-  const reset=()=>{if(!confirm("¿Restablecer el organigrama al estado original? Se perderán todos los cambios."))return;setData(INITIAL);setSelected(null);localStorage.removeItem(STORAGE_KEY);};
+  const saveEdit=()=>{
+    const nd=updateNode(data,selected.id,n=>({...n,...editForm}));
+    setData(nd);
+    setSelected(findNode(nd,selected.id));
+    setModal(null);
+  };
+
+  const saveAdd=()=>{
+    if(!addForm.nombre.trim())return;
+    const targetParentId = addForm.parentId || selected.id;
+    const child={
+      nombre:addForm.nombre,
+      titular:addForm.titular,
+      tipo:addForm.tipo,
+      tipoLabel:addForm.tipoLabel||undefined,
+      dashed:addForm.dashed,
+      id:"n_"+Date.now(),
+      children:[]
+    };
+    const nd=addChild(data,targetParentId,child);
+    setData(nd);
+    setSelected(findNode(nd,selected.id));
+    setModal(null);
+  };
+
+  const del=()=>{
+    if(!selected||selected.id==="JG")return;
+    if(!confirm(`¿Eliminar "${selected.nombre}" y todas sus dependencias?`))return;
+    setData(removeNode(data,selected.id));
+    setSelected(null);
+  };
+
+  const reset=()=>{
+    if(!confirm("¿Restablecer el organigrama al estado original? Se perderán todos los cambios."))return;
+    setData(INITIAL);setSelected(null);localStorage.removeItem(STORAGE_KEY);
+  };
 
   const dlAll=()=>{
     const subs=[data,...data.children];
-    const PH=1587,PW=1123;
+    const PW=1587,PH=1123;
     const pages=subs.map((s,i)=>genPageSVG(s,i+1,subs.length));
     const combined=`<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH*pages.length}" viewBox="0 0 ${PW} ${PH*pages.length}">${pages.map((p,i)=>`<g transform="translate(0,${i*PH})">${p.replace(/<\/?svg[^>]*>/g,"")}</g>`).join("")}</svg>`;
-    dlSVG(combined,"organigrama-gcba-completo.svg");
+    dlSVG(combined,"organigrama-gcba-A3.svg");
   };
-  const dlSection=()=>{if(!selected)return;dlSVG(genPageSVG(selected,1,1),`organigrama-${selected.id.toLowerCase()}.svg`);};
+  const dlSection=()=>{if(!selected)return;dlSVG(genPageSVG(selected,1,1),`organigrama-${selected.id.toLowerCase()}-A3.svg`);};
 
   const ef=k=>e=>setEditForm(f=>({...f,[k]:e.target.type==="checkbox"?e.target.checked:e.target.value}));
   const af=k=>e=>setAddForm(f=>({...f,[k]:e.target.type==="checkbox"?e.target.checked:e.target.value}));
-  const selCol=selected?(COLORS[selected.tipo]||COLORS.ORG):null;
+  const selCol=selected?(getColorForNode(selected)):null;
 
   const today=new Date();
   const fechaApp=`${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
 
+  const openAdd=()=>{
+    setAddForm({nombre:"",titular:"",tipo:"DG",tipoLabel:"",dashed:false,parentId:selected.id});
+    setModal("add");
+  };
+
   return(
     <div style={{display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden",background:"#F2F5F9"}}>
+      {showA3&&<ModalA3 data={data} allNodes={allNodes} onClose={()=>setShowA3(false)}/>}
       {modal==="edit"&&selected&&(
         <Modal title="Editar nodo" accentColor={selCol?.bg||"#005EA6"} onClose={()=>setModal(null)}>
           <NodePreview form={editForm}/>
           <Field label="Nombre" value={editForm.nombre} onChange={ef("nombre")}/>
           <Field label="Titular" value={editForm.titular} onChange={ef("titular")}/>
-          <Field label="Tipo" value={editForm.tipo} onChange={ef("tipo")} type="select"/>
+          <TipoSelector
+            tipo={editForm.tipo}
+            tipoLabel={editForm.tipoLabel||""}
+            onTipoChange={v=>setEditForm(f=>({...f,tipo:v}))}
+            onTipoLabelChange={v=>setEditForm(f=>({...f,tipoLabel:v}))}
+          />
           <label style={{display:"flex",alignItems:"center",gap:8,marginBottom:20,cursor:"pointer"}}>
             <input type="checkbox" checked={!!editForm.dashed} onChange={ef("dashed")} style={{accentColor:"#005EA6",width:15,height:15}}/>
             <span style={{fontSize:12,color:"#4A5568"}}>Dependencia funcional (línea punteada)</span>
@@ -832,17 +1108,29 @@ function App(){
         </Modal>
       )}
       {modal==="add"&&selected&&(
-        <Modal title={`Agregar dependencia en ${selected.nombre}`} accentColor="#166534" onClose={()=>setModal(null)}>
+        <Modal title="Agregar nueva unidad" accentColor="#166534" onClose={()=>setModal(null)} wide>
           <NodePreview form={addForm}/>
           <Field label="Nombre" value={addForm.nombre} onChange={af("nombre")}/>
           <Field label="Titular" value={addForm.titular} onChange={af("titular")}/>
-          <Field label="Tipo" value={addForm.tipo} onChange={af("tipo")} type="select"/>
+          <TipoSelector
+            tipo={addForm.tipo}
+            tipoLabel={addForm.tipoLabel||""}
+            onTipoChange={v=>setAddForm(f=>({...f,tipo:v}))}
+            onTipoLabelChange={v=>setAddForm(f=>({...f,tipoLabel:v}))}
+          />
+          {/* Selector de nodo padre — libre, no restringido */}
+          <PadreSelector
+            allNodes={allNodes}
+            currentId={null}
+            value={addForm.parentId||selected.id}
+            onChange={e=>setAddForm(f=>({...f,parentId:e.target.value}))}
+          />
           <label style={{display:"flex",alignItems:"center",gap:8,marginBottom:20,cursor:"pointer"}}>
             <input type="checkbox" checked={!!addForm.dashed} onChange={af("dashed")} style={{accentColor:"#005EA6",width:15,height:15}}/>
             <span style={{fontSize:12,color:"#4A5568"}}>Dependencia funcional (línea punteada)</span>
           </label>
           <div style={{display:"flex",gap:8}}>
-            <Btn variant="success" onClick={saveAdd} style={{flex:1,justifyContent:"center"}}>Agregar nodo</Btn>
+            <Btn variant="success" onClick={saveAdd} style={{flex:1,justifyContent:"center"}}>Agregar unidad</Btn>
             <Btn variant="ghost" onClick={()=>setModal(null)} style={{flex:1,justifyContent:"center"}}>Cancelar</Btn>
           </div>
         </Modal>
@@ -870,7 +1158,8 @@ function App(){
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",marginLeft:"auto"}}>
           {saved&&<span style={{fontSize:11,color:"rgba(255,255,255,0.6)",display:"flex",alignItems:"center",gap:4}}><span style={{color:"#68D391"}}>✓</span> Guardado</span>}
-          <Btn variant="ghost" onClick={dlAll} style={{color:"#fff",borderColor:"rgba(255,255,255,0.25)",background:"rgba(255,255,255,0.08)",fontSize:11}}>🖨 Descargar todo</Btn>
+          <Btn variant="ghost" onClick={()=>setShowA3(true)} style={{color:"#fff",borderColor:"rgba(255,255,255,0.25)",background:"rgba(255,255,255,0.08)",fontSize:11}}>🖨 Vista A3</Btn>
+          <Btn variant="ghost" onClick={dlAll} style={{color:"#fff",borderColor:"rgba(255,255,255,0.25)",background:"rgba(255,255,255,0.08)",fontSize:11}}>⬇ Descargar todo</Btn>
           <Btn variant="ghost" onClick={reset} style={{color:"rgba(255,255,255,0.6)",borderColor:"rgba(255,255,255,0.15)",background:"transparent",fontSize:11}}>↺ Restablecer</Btn>
         </div>
       </header>
@@ -883,6 +1172,7 @@ function App(){
               {Object.entries(COLORS).map(([k,v])=>(
                 <span key={k} style={{background:v.bg,color:v.text,fontSize:9,fontWeight:600,padding:"2px 7px",borderRadius:20,letterSpacing:"0.02em"}}>{v.label}</span>
               ))}
+              <span style={{background:"#5B21B6",color:"#fff",fontSize:9,fontWeight:600,padding:"2px 7px",borderRadius:20,letterSpacing:"0.02em"}}>Personalizado</span>
             </div>
           </div>
           <div style={{flex:1,overflowY:"auto",padding:"8px 8px"}}>
@@ -890,7 +1180,7 @@ function App(){
               <div>
                 <div style={{fontSize:10,color:"#718096",marginBottom:8,fontWeight:500}}>{results.length} resultado{results.length!==1?"s":""}</div>
                 {results.slice(0,30).map(n=>{
-                  const col=COLORS[n.tipo]||COLORS.ORG;const isSel=selected?.id===n.id;
+                  const col=getColorForNode(n);const isSel=selected?.id===n.id;
                   return(
                     <div key={n.id} onClick={()=>select(n)} style={{padding:"7px 10px",borderRadius:8,cursor:"pointer",marginBottom:3,background:isSel?col.bg:"#F7FAFC",border:`1.5px solid ${isSel?col.bg:"#E2E8F0"}`,borderLeft:`4px solid ${col.bg}`}}>
                       <div style={{fontSize:11,fontWeight:600,color:isSel?"#fff":col.bg}}>{n.nombre}</div>
@@ -914,7 +1204,7 @@ function App(){
                   <div style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
                     <div style={{flex:1,minWidth:200}}>
                       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                        <TypeBadge tipo={selected.tipo} dashed={selected.dashed}/>
+                        <TypeBadge tipo={selected.tipo} tipoLabel={selected.tipoLabel} dashed={selected.dashed}/>
                       </div>
                       <div style={{fontSize:20,fontWeight:700,color:"#1A2B42",lineHeight:1.2,marginBottom:4}}>{selected.nombre}</div>
                       {selected.titular&&(
@@ -928,8 +1218,11 @@ function App(){
                       </div>
                     </div>
                     <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-                      <Btn variant="secondary" small onClick={()=>{setEditForm({nombre:selected.nombre,titular:selected.titular||"",tipo:selected.tipo,dashed:!!selected.dashed});setModal("edit");}}>✏️ Editar</Btn>
-                      <Btn variant="secondary" small onClick={()=>{setAddForm({nombre:"",titular:"",tipo:"DG",dashed:false});setModal("add");}}>➕ Agregar</Btn>
+                      <Btn variant="secondary" small onClick={()=>{
+                        setEditForm({nombre:selected.nombre,titular:selected.titular||"",tipo:selected.tipo,tipoLabel:selected.tipoLabel||"",dashed:!!selected.dashed});
+                        setModal("edit");
+                      }}>✏️ Editar</Btn>
+                      <Btn variant="secondary" small onClick={openAdd}>➕ Agregar</Btn>
                       {selected.id!=="JG"&&<Btn variant="danger" small onClick={del}>🗑 Eliminar</Btn>}
                       <Btn variant="primary" small onClick={dlSection}>🖨 Descargar</Btn>
                     </div>
