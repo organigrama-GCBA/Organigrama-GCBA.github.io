@@ -619,18 +619,25 @@ function genSVGA3(root,pn=1,tot=1){
     // ── Layout D3 automático ───────────────────────────────
     const HGAP=10,VGAP=24;
 
-    if(isJG){
-      // JG: layout manual en 2 filas — ministerios/VJG arriba, secretarías abajo
-      // No usar D3 tree para evitar que distribuya todo horizontalmente
-      const hier=(root.children||[]).filter(c=>!c.dashed);
-      const mins=hier.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
-      const secs=hier.filter(c=>c.tipo==="SEC");
-      const spanX=Math.max(mins.length,secs.length,1);
-      const spanY=secs.length>0?3:2; // JG + fila mins + fila secs
+    // Detectar si este nodo es de "primer nivel" (JG, o cualquier nodo cuyos
+    // hijos directos son MIN/VJG/SEC — ej: Jefatura de Gabinete NO es isJG
+    // pero tampoco queremos desplegar toda su estructura).
+    // La regla: si el nodo tiene hijos de tipo MIN/VJG/SEC, usar layout de 2 filas.
+    const directHier=(root.children||[]).filter(c=>!c.dashed);
+    const isShallowLayout=isJG||directHier.some(c=>c.tipo==="MIN"||c.tipo==="VJG"||c.tipo==="SEC");
+
+    if(isShallowLayout){
+      // Layout manual de 2 filas: fila 1 = MIN+VJG, fila 2 = SEC
+      // (para JG: sus ministerios y secretarías; para otros: sus hijos directos)
+      const row1=isJG
+        ? directHier.filter(c=>c.tipo==="MIN"||c.tipo==="VJG")
+        : directHier.filter(c=>c.tipo!=="SEC");
+      const row2=directHier.filter(c=>c.tipo==="SEC");
+      const spanX=Math.max(row1.length,row2.length,1);
+      const spanY=row2.length>0?3:2;
       NW=Math.max(60,Math.floor((AW-(spanX-1)*HGAP)/spanX));
       NW=Math.min(NW,240);
-      // NH: suficiente para 2 líneas de nombre + 1 titular con margen
-      NH=Math.max(40,Math.round(NW/2.2));
+      NH=Math.max(40,Math.round(NW/2.0));
       NH=Math.min(NH,Math.floor((AH-(spanY-1)*VGAP)/spanY));
       NH=Math.max(NH,40);
       const HPAD=Math.max(HGAP,Math.round((AW-NW*spanX)/(spanX+1)));
@@ -641,39 +648,36 @@ function genSVGA3(root,pn=1,tot=1){
         return items.map(c=>{const n={x,y:rowY,data:c,depth:1};x+=NW+HPAD;return n;});
       };
       const rn={x:AW/2,y:0,data:root,depth:0};
-      const mn=makeRow(mins,NH+VPAD);
-      const sn=makeRow(secs,NH+VPAD+NH+VPAD);
+      const mn=makeRow(row1,NH+VPAD);
+      const sn=makeRow(row2,NH+VPAD+NH+VPAD);
       nodes=[rn,...mn,...sn];
       links=[...mn.map(t=>({s:rn,t})),...sn.map(t=>({s:rn,t}))];
-    } else {
-      // Otros: D3 tree
-      // Paso 1: medir con nodeSize unitario
-      function toHier(node,depth){
-        const kids=(node.children||[]).filter(c=>!c.dashed);
-        return{...node,_k:kids.map(c=>toHier(c,depth+1)),children:undefined};
-      }
-      const hier=d3.hierarchy(toHier(root,0),d=>d._k.length?d._k:null);
-      d3.tree().nodeSize([1,1])(hier);
-      const allD3=hier.descendants();
-      const spanX=(d3.max(allD3,n=>n.x)-d3.min(allD3,n=>n.x))+1;
-      const spanY=(d3.max(allD3,n=>n.depth)||1)+1;
 
-      // Paso 2: NW/NH que llena el A3
-      NW=Math.max(60,Math.floor((AW-(spanX-1)*HGAP)/spanX));
+    } else {
+      // D3 tree para áreas con jerarquía profunda (SS, DG, etc.)
+      function toHier(node){
+        const kids=(node.children||[]).filter(c=>!c.dashed);
+        return{...node,_k:kids.map(c=>toHier(c)),children:undefined};
+      }
+      const hier=d3.hierarchy(toHier(root),d=>d._k.length?d._k:null);
+
+      // Contar hojas reales (no spanX de coordenadas D3)
+      const leafCount=hier.leaves().length||1;
+      const depthCount=(hier.height||1)+1;
+
+      // NW basado en cantidad de hojas, NH basado en profundidad
+      NW=Math.max(60,Math.floor((AW-(leafCount-1)*HGAP)/leafCount));
       NW=Math.min(NW,240);
-      // NH: suficiente para 2 líneas nombre + 1 titular — mínimo NW/2
-      NH=Math.max(40,Math.round(NW/2.2));
-      NH=Math.min(NH,Math.floor((AH-(spanY-1)*VGAP)/spanY));
+      NH=Math.max(40,Math.round(NW/2.0));
+      NH=Math.min(NH,Math.floor((AH-(depthCount-1)*VGAP)/depthCount));
       NH=Math.max(NH,40);
 
-      // Paso 3: layout final
-      const HPAD=Math.max(HGAP,Math.round((AW-NW*spanX)/(spanX+1)));
-      const VPAD=Math.max(VGAP,Math.round((AH-NH*spanY)/(spanY+1)));
+      const HPAD=Math.max(HGAP,Math.round((AW-NW*leafCount)/(leafCount+1)));
+      const VPAD=Math.max(VGAP,Math.round((AH-NH*depthCount)/(depthCount+1)));
+
       d3.tree().nodeSize([NW+HPAD,NH+VPAD])(hier);
-      const allN=hier.descendants();
-      nodes=allN.map(n=>({x:n.x,y:n.y,data:n.data,depth:n.depth}));
-      const allL=hier.links();
-      links=allL.map(l=>({
+      nodes=hier.descendants().map(n=>({x:n.x,y:n.y,data:n.data,depth:n.depth}));
+      links=hier.links().map(l=>({
         s:nodes.find(n=>n.data.id===l.source.data.id),
         t:nodes.find(n=>n.data.id===l.target.data.id)
       })).filter(l=>l.s&&l.t);
@@ -682,9 +686,10 @@ function genSVGA3(root,pn=1,tot=1){
       const mnX=d3.min(nodes,n=>n.x)-NW/2,mnY=d3.min(nodes,n=>n.y);
       nodes.forEach(n=>{n.x-=mnX;n.y-=mnY;});
 
-      // Escalar para llenar el A3
+      // Escalar para llenar el A3 ajustando NW y NH proporcionalmente
       const tW=d3.max(nodes,n=>n.x+NW/2),tH=d3.max(nodes,n=>n.y+NH);
-      const sc=Math.min(AW/tW,AH/tH)*0.94;
+      const scX=AW/tW,scY=AH/tH;
+      const sc=Math.min(scX,scY)*0.94;
       nodes.forEach(n=>{n.x*=sc;n.y*=sc;});
       NW*=sc;NH*=sc;
     }
