@@ -26,10 +26,90 @@ input:focus,select:focus{border-color:var(--azul)!important;box-shadow:0 0 0 3px
 ::-webkit-scrollbar-thumb{background:var(--azul-medio);border-radius:10px}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 .fade-in{animation:fadeIn .2s ease}
+
+/* ── Editor D3 ── */
+#editor-pane{position:fixed;inset:0;top:56px;display:none;flex-direction:row;z-index:10;background:#0f1117;}
+#editor-pane.active{display:flex;}
+.ed-sidebar{width:240px;flex-shrink:0;background:#1a1d27;border-right:1px solid #333650;display:flex;flex-direction:column;overflow:hidden;}
+.ed-sidebar-hd{padding:10px 12px;border-bottom:1px solid #333650;font-size:10px;font-weight:600;color:#6b7199;text-transform:uppercase;letter-spacing:.06em;}
+.ed-node-list{flex:1;overflow-y:auto;padding:4px;}
+.ed-ni{display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:6px;cursor:pointer;border:1px solid transparent;}
+.ed-ni:hover{background:#232636;}
+.ed-ni.sel{background:rgba(79,126,248,.15);border-color:#4f7ef8;}
+.ed-dot{width:7px;height:7px;border-radius:2px;flex-shrink:0;}
+.ed-nm{font-size:11px;color:#e8eaf2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
+.ed-tp{font-size:9.5px;color:#6b7199;flex-shrink:0;}
+.ed-canvas{flex:1;position:relative;overflow:hidden;background:#0f1117;}
+.ed-canvas::before{content:'';position:absolute;inset:0;background-image:radial-gradient(circle,#333650 1px,transparent 1px);background-size:26px 26px;opacity:.3;pointer-events:none;}
+.ed-canvas svg{width:100%;height:100%;}
+.ed-zoom{position:absolute;bottom:14px;right:14px;display:flex;gap:3px;}
+.ed-zb{width:28px;height:28px;border-radius:7px;background:#1a1d27;border:1px solid #333650;color:#9da3c4;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.ed-zb:hover{border-color:#4f7ef8;color:#4f7ef8;}
+.ed-inspector{width:268px;flex-shrink:0;background:#1a1d27;border-left:1px solid #333650;display:flex;flex-direction:column;overflow:hidden;}
+.ed-ins-hd{padding:10px 12px;border-bottom:1px solid #333650;font-size:10px;font-weight:600;color:#6b7199;text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center;}
+.ed-ins-id{font-size:9px;color:#444870;font-family:monospace;}
+.ed-ins-body{flex:1;overflow-y:auto;padding:12px;}
+.ed-ins-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:6px;color:#444870;}
+.ed-ins-empty .ico{font-size:28px;opacity:.4;}
+.ed-ins-empty p{font-size:11px;}
+.ed-field{margin-bottom:12px;}
+.ed-field label{font-size:10px;font-weight:600;color:#6b7199;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;}
+.ed-field input,.ed-field select{width:100%;background:#232636;border:1px solid #333650;color:#e8eaf2;font-family:inherit;font-size:12px;padding:6px 9px;border-radius:6px;outline:none;}
+.ed-field input:focus,.ed-field select:focus{border-color:#4f7ef8;}
+.ed-field select option{background:#232636;}
+.ed-preview{border-radius:8px;padding:10px 12px;margin-bottom:12px;}
+.ed-preview .ed-plabel{font-size:9px;font-weight:600;opacity:.65;text-transform:uppercase;letter-spacing:.05em;}
+.ed-preview .ed-pnombre{font-size:12px;font-weight:700;line-height:1.3;color:#fff;}
+.ed-preview .ed-ptitular{font-size:10.5px;color:rgba(255,255,255,.75);}
+.ed-actions{padding:10px 12px;border-top:1px solid #333650;display:flex;flex-direction:column;gap:5px;}
+.ed-btn{padding:6px 12px;border-radius:7px;font-size:11.5px;font-weight:500;cursor:pointer;border:1px solid #333650;background:#232636;color:#e8eaf2;font-family:inherit;width:100%;text-align:left;}
+.ed-btn:hover{border-color:#4f7ef8;color:#4f7ef8;}
+.ed-btn.primary{background:#4f7ef8;border-color:#4f7ef8;color:#fff;}
+.ed-btn.primary:hover{opacity:.85;}
+.ed-btn.danger{border-color:#ef444455;color:#ef4444;}
+.ed-btn.danger:hover{background:#ef444415;}
+/* c-node/link */
+.c-node rect{transition:filter .12s;}
+.c-node:hover rect{filter:brightness(1.18);}
+.c-node.sel rect{stroke:#fff;stroke-width:2;}
+.c-link{fill:none;stroke:#444870;stroke-width:1.1;}
+.c-link.dashed{stroke-dasharray:5,3;stroke:#333650;}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:#444870;border-radius:4px;}
 </style>
 </head>
 <body>
 <div id="root" style="height:100vh"></div>
+
+<!-- Editor visual D3 — se muestra/oculta desde React -->
+<div id="editor-pane">
+  <div class="ed-sidebar">
+    <div class="ed-sidebar-hd">Estructura</div>
+    <div class="ed-node-list" id="ed-node-list"></div>
+  </div>
+  <div class="ed-canvas" id="ed-canvas">
+    <svg id="ed-svg"></svg>
+    <div class="ed-zoom">
+      <button class="ed-zb" id="ed-zi" title="Acercar">+</button>
+      <button class="ed-zb" id="ed-zr" title="Centrar vista">⌂</button>
+      <button class="ed-zb" id="ed-zo" title="Alejar">−</button>
+      <button class="ed-zb" id="ed-reset-layout" onclick="window.edResetLayout&&window.edResetLayout()" title="Restablecer layout automático" style="font-size:12px;">↺</button>
+    </div>
+  </div>
+  <div class="ed-inspector">
+    <div class="ed-ins-hd">Inspector <span class="ed-ins-id" id="ed-ins-id"></span></div>
+    <div class="ed-ins-body" id="ed-ins-body">
+      <div class="ed-ins-empty"><div class="ico">⬡</div><p>Seleccioná un nodo</p></div>
+    </div>
+    <div class="ed-actions" id="ed-actions" style="display:none">
+      <button class="ed-btn primary" id="ed-save">✓ Guardar cambios</button>
+      <button class="ed-btn" id="ed-move">↕ Mover a otro padre</button>
+      <button class="ed-btn danger" id="ed-del">✕ Eliminar nodo</button>
+    </div>
+  </div>
+</div>
+
 <script type="text/babel">
 const{useState,useMemo,useCallback,useEffect}=React;
 
@@ -625,47 +705,63 @@ function genPageSVG(root,pn,tot){
   const VPAD=Math.max(VGAP, Math.round((HIER_H  - NH*rawSpanY)/(rawSpanY+1)));
   const sw=Math.max(0.8, NW/220);
 
-  // ── Layout ──────────────────────────────────────────────
-  let nodes,links;
-  if(isJG){
-    ({nodes,links}=layoutJG(root,NW,NH,HPAD,VPAD));
+  // ── Layout: posiciones del editor visual o automático D3 ──
+  const savedPos=(window.__edPositions||{})[root.id]||null;
+  const useSaved=savedPos&&Object.keys(savedPos).length>0;
+
+  let nodes,links,SNW,SNH,sfsN,sfsT,sVPAD,ox,oy;
+
+  if(useSaved){
+    // Usar posiciones guardadas por el drag del editor visual
+    function collectHier(node,acc=[]){acc.push(node);(node.children||[]).filter(c=>!c.dashed).forEach(c=>collectHier(c,acc));return acc;}
+    const allTreeNodes=collectHier(root);
+    nodes=allTreeNodes.map(n=>({x:savedPos[n.id]?.x??0,y:savedPos[n.id]?.y??0,data:n,depth:n.id===root.id?0:1}));
+    links=[];
+    function buildSavedLinks(node){
+      const src=nodes.find(n=>n.data.id===node.id);
+      if(!src)return;
+      (node.children||[]).filter(c=>!c.dashed).forEach(ch=>{
+        const tgt=nodes.find(n=>n.data.id===ch.id);
+        if(tgt)links.push({source:src,target:tgt,isSec:false});
+        buildSavedLinks(ch);
+      });
+    }
+    buildSavedLinks(root);
+    // Normalizar y escalar
+    const mnX=d3.min(nodes,n=>n.x)-NW/2,mnY=d3.min(nodes,n=>n.y);
+    nodes.forEach(n=>{n.x-=mnX;n.y-=mnY;});
+    const tW=d3.max(nodes,n=>n.x+NW/2),tH=d3.max(nodes,n=>n.y+NH);
+    const sc=Math.min(AVAIL_W/tW,HIER_H/tH);
+    nodes.forEach(n=>{n.x*=sc;n.y*=sc;});
+    SNW=NW*sc;SNH=NH*sc;
+    sfsN=Math.max(6,Math.min(13,fsN*sc));sfsT=Math.max(5,Math.min(10,fsT*sc));sVPAD=VPAD*sc;
+    const fW=d3.max(nodes,n=>n.x+SNW/2),fH=d3.max(nodes,n=>n.y+SNH);
+    ox=MAR+(AVAIL_W-fW)/2;oy=HH+(HIER_H-fH)/2;
   } else {
-    const td=toD3Tree(root);
-    const hier=d3.hierarchy(td,d=>d._children);
-    d3.tree().nodeSize([NW+HPAD,NH+VPAD])(hier);
-    const allN=hier.descendants();
-    const allL=hier.links();
-    nodes=allN.filter(n=>n.data.tipo!=="__phantom__");
-    const realLinks=allL.filter(l=>l.source.data.tipo!=="__phantom__"&&l.target.data.tipo!=="__phantom__");
-    const skipped=[];
-    allL.filter(l=>l.source.data.tipo==="__phantom__").forEach(l=>{
-      if(l.source.parent)skipped.push({source:l.source.parent,target:l.target});
-    });
-    links=[...realLinks,...skipped];
+    // Layout automático D3
+    if(isJG){
+      ({nodes,links}=layoutJG(root,NW,NH,HPAD,VPAD));
+    } else {
+      const td=toD3Tree(root);
+      const hier=d3.hierarchy(td,d=>d._children);
+      d3.tree().nodeSize([NW+HPAD,NH+VPAD])(hier);
+      const allN=hier.descendants(),allL=hier.links();
+      nodes=allN.filter(n=>n.data.tipo!=="__phantom__");
+      const realLinks=allL.filter(l=>l.source.data.tipo!=="__phantom__"&&l.target.data.tipo!=="__phantom__");
+      const skipped=[];
+      allL.filter(l=>l.source.data.tipo==="__phantom__").forEach(l=>{if(l.source.parent)skipped.push({source:l.source.parent,target:l.target});});
+      links=[...realLinks,...skipped];
+    }
+    const minX=d3.min(nodes,n=>n.x)-NW/2,minY=d3.min(nodes,n=>n.y);
+    nodes.forEach(n=>{n.x-=minX;n.y-=minY;});
+    const treeW=d3.max(nodes,n=>n.x+NW/2),treeH=d3.max(nodes,n=>n.y+NH);
+    const scale=Math.min(AVAIL_W/treeW,HIER_H/treeH);
+    nodes.forEach(n=>{n.x*=scale;n.y*=scale;});
+    SNW=NW*scale;SNH=NH*scale;
+    sfsN=Math.max(6,Math.min(13,fsN*scale));sfsT=Math.max(5,Math.min(10,fsT*scale));sVPAD=VPAD*scale;
+    const finalW=d3.max(nodes,n=>n.x+SNW/2),finalH=d3.max(nodes,n=>n.y+SNH);
+    ox=MAR+(AVAIL_W-finalW)/2;oy=HH+(HIER_H-finalH)/2;
   }
-
-  // Normalizar: mover a (0,0)
-  const minX=d3.min(nodes,n=>n.x)-NW/2;
-  const minY=d3.min(nodes,n=>n.y);
-  nodes.forEach(n=>{n.x-=minX; n.y-=minY;});
-
-  const treeW=d3.max(nodes,n=>n.x+NW/2);
-  const treeH=d3.max(nodes,n=>n.y+NH);
-
-  // Escalar si el árbol no llena el espacio (o es más grande)
-  const scaleX=AVAIL_W/treeW;
-  const scaleY=HIER_H/treeH;
-  const scale=Math.min(scaleX,scaleY); // puede ser >1 para agrandar
-  nodes.forEach(n=>{n.x*=scale; n.y*=scale;});
-  const SNW=NW*scale, SNH=NH*scale;
-  const sfsN=Math.max(6,   Math.min(13, fsN*scale));
-  const sfsT=Math.max(5,   Math.min(10, fsT*scale));
-  const sVPAD=VPAD*scale;
-
-  const finalW=d3.max(nodes,n=>n.x+SNW/2);
-  const finalH=d3.max(nodes,n=>n.y+SNH);
-  const ox=MAR+(AVAIL_W-finalW)/2;
-  const oy=HH+(HIER_H-finalH)/2;
   const hc=getSVGColor(root);
 
   // ── Líneas jerárquicas ──────────────────────────────────
@@ -1013,6 +1109,37 @@ function App(){
   const[addForm,setAddForm]=useState({nombre:"",titular:"",tipo:"DG",tipoLabel:"",dashed:false,parentId:""});
   const[saved,setSaved]=useState(false);
   const[showA3,setShowA3]=useState(false);
+  const[activeTab,setActiveTab]=useState("organigrama"); // "organigrama"|"editor"|"a3"
+
+  // Sync data to D3 editor when tab switches or data changes
+  useEffect(()=>{
+    window.__orgData=data;
+    window.dispatchEvent(new CustomEvent("orgDataChanged",{detail:data}));
+  },[data]);
+
+  // Show/hide editor pane
+  useEffect(()=>{
+    const pane=document.getElementById("editor-pane");
+    const root=document.getElementById("root");
+    if(activeTab==="editor"){
+      pane.classList.add("active");
+      root.style.display="none";
+      window.dispatchEvent(new CustomEvent("editorActivated",{detail:data}));
+    } else {
+      pane.classList.remove("active");
+      root.style.display="";
+    }
+  },[activeTab]);
+
+  // Listen for data changes from D3 editor
+  useEffect(()=>{
+    const handler=(e)=>{
+      setData(e.detail);
+      saveData(e.detail);
+    };
+    window.addEventListener("editorDataChanged",handler);
+    return()=>window.removeEventListener("editorDataChanged",handler);
+  },[]);
 
   useEffect(()=>{saveData(data);setSaved(true);const t=setTimeout(()=>setSaved(false),1800);return()=>clearTimeout(t);},[data]);
 
@@ -1149,6 +1276,18 @@ function App(){
             <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",fontWeight:400}}>Ciudad Autónoma de Buenos Aires</div>
           </div>
         </div>
+        {/* Tabs */}
+        <div style={{display:"flex",gap:2,marginLeft:16}}>
+          {[["organigrama","📋 Organigrama"],["editor","✏️ Editor visual"],["a3","🖨 Vista A3"]].map(([id,label])=>(
+            <button key={id} onClick={()=>{ if(id==="a3"){setShowA3(true);setActiveTab("organigrama");}else{setShowA3(false);setActiveTab(id);} }}
+              style={{padding:"5px 14px",borderRadius:8,fontSize:11.5,fontWeight:500,cursor:"pointer",fontFamily:"inherit",
+                background:activeTab===id?"rgba(255,255,255,0.18)":"transparent",
+                color:activeTab===id?"#fff":"rgba(255,255,255,0.6)",
+                border:activeTab===id?"1px solid rgba(255,255,255,0.3)":"1px solid transparent",
+                transition:"all .15s"}}
+            >{label}</button>
+          ))}
+        </div>
         <div style={{flex:1,maxWidth:320,position:"relative"}}>
           <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:14,color:"rgba(255,255,255,0.4)"}}>🔍</span>
           <input placeholder="Buscar organismo o titular..." value={search} onChange={e=>setSearch(e.target.value)}
@@ -1262,6 +1401,361 @@ function App(){
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+
+<!-- ═══ EDITOR D3 ENGINE ═══════════════════════════════════════════ -->
+<script>
+(function(){
+  // ═══ POSICIONES PERSISTENTES ═══════════════════════════════
+  // edPositions: {rootId: {nodeId: {x,y}, ...}}
+  // Se guarda en localStorage para que el A3 las use
+  const POS_KEY = 'gcba_org_positions_v1';
+  let edPositions = {};  // posiciones del canvas actual, keyed por nodeId
+  let edCurrentRootId = null;
+
+  function loadAllPositions(){
+    try{ return JSON.parse(localStorage.getItem(POS_KEY)||"{}"); }catch{ return {}; }
+  }
+  function savePositionsForRoot(rootId, positions){
+    const all = loadAllPositions();
+    all[rootId] = positions;
+    localStorage.setItem(POS_KEY, JSON.stringify(all));
+    // también exponerlas globalmente para que genPageSVG las use
+    window.__edPositions = all;
+  }
+  function loadPositionsForRoot(rootId){
+    return loadAllPositions()[rootId] || null;
+  }
+  function clearPositionsForRoot(rootId){
+    const all = loadAllPositions();
+    delete all[rootId];
+    localStorage.setItem(POS_KEY, JSON.stringify(all));
+    window.__edPositions = all;
+  }
+  // Exponer al cargar
+  window.__edPositions = loadAllPositions();
+
+  const COLORS_ED={JG:"#9B1C1C",VJG:"#9B1C1C",MIN:"#92400E",SEC:"#78350F",SS:"#1E3A5F",DG:"#14532D",GG:"#065F46",GO:"#064E3B",ORG:"#374151"};
+  const LABELS_ED={JG:"Jefatura",VJG:"Vicejefatura",MIN:"Ministerio",SEC:"Secretaría",SS:"Subsecretaría",DG:"Dir. General",GG:"Gerencia General",GO:"Gerencia Operativa",ORG:"Organismo desc."};
+  function getColorED(n){if(n.tipo&&n.tipo.startsWith("CUSTOM:"))return"#5B21B6";return COLORS_ED[n.tipo]||"#374151";}
+  function getLabelED(n){if(n.tipo&&n.tipo.startsWith("CUSTOM:"))return n.tipoLabel||n.tipo.replace("CUSTOM:","");return LABELS_ED[n.tipo]||n.tipo;}
+  function flatED(n,a=[]){a.push(n);(n.children||[]).forEach(c=>flatED(c,a));return a;}
+  function findED(tree,id){if(tree.id===id)return tree;for(const c of(tree.children||[])){const f=findED(c,id);if(f)return f;}return null;}
+  function removeED(tree,id){return{...tree,children:(tree.children||[]).filter(c=>c.id!==id).map(c=>removeED(c,id))};}
+  function updateED(tree,id,fn){if(tree.id===id)return fn(tree);return{...tree,children:(tree.children||[]).map(c=>updateED(c,id,fn))};}
+  function addChildED(tree,pid,child){return updateED(tree,pid,n=>({...n,children:[...(n.children||[]),child]}));}
+  function moveED(tree,nodeId,newPid){const node=findED(tree,nodeId);if(!node)return tree;return addChildED(removeED(tree,nodeId),newPid,node);}
+
+  const NW=158,NH=50,HPAD=18,VPAD=58;
+  let edData=null, edSelectedId=null, edZoom=null, edTransform=d3.zoomIdentity, edInitialized=false;
+
+  function edDispatch(newData){
+    edData=newData;
+    window.dispatchEvent(new CustomEvent("editorDataChanged",{detail:JSON.parse(JSON.stringify(newData))}));
+  }
+
+  // ── Sidebar ──────────────────────────────────────────────
+  function buildEdSidebar(node,el,depth=0){
+    const item=document.createElement("div");
+    item.className="ed-ni"+(node.id===edSelectedId?" sel":"");
+    item.dataset.id=node.id;
+    item.style.paddingLeft=(8+depth*9)+"px";
+    const color=getColorED(node);
+    item.innerHTML=`<div class="ed-dot" style="background:${color}"></div><div class="ed-nm">${node.nombre||"—"}</div><div class="ed-tp">${getLabelED(node)}</div>`;
+    item.addEventListener("click",()=>edSelect(node.id));
+    el.appendChild(item);
+    (node.children||[]).forEach(c=>buildEdSidebar(c,el,depth+1));
+  }
+  function refreshEdSidebar(){
+    const el=document.getElementById("ed-node-list");
+    if(!el||!edData)return;
+    el.innerHTML="";
+    buildEdSidebar(edData,el);
+  }
+
+  // ── Canvas ────────────────────────────────────────────────
+  function renderEdCanvas(){
+    if(!edData)return;
+    const area=document.getElementById("ed-canvas");
+    const svgEl=document.getElementById("ed-svg");
+    if(!area||!svgEl)return;
+    const W=area.clientWidth,H=area.clientHeight;
+    const svg=d3.select(svgEl).attr("width",W).attr("height",H);
+    svg.selectAll("*").remove();
+
+    // ── Calcular posiciones D3 base
+    function toH(node){const kids=(node.children||[]);return{...node,_k:kids.map(toH),children:undefined};}
+    const root=d3.hierarchy(toH(edData),d=>d._k.length?d._k:null);
+    d3.tree().nodeSize([NW+HPAD,NH+VPAD])(root);
+    const d3pos={};
+    root.each(n=>{d3pos[n.data.id]={x:n.x,y:n.y};});
+    const allD3=Object.values(d3pos);
+    const minX=Math.min(...allD3.map(p=>p.x))-NW/2;
+    const minY=Math.min(...allD3.map(p=>p.y));
+    Object.keys(d3pos).forEach(id=>{d3pos[id].x-=minX;d3pos[id].y-=minY;});
+
+    // ── Usar posiciones guardadas si existen, rellenar con D3 para nodos nuevos
+    const saved = loadPositionsForRoot(edCurrentRootId) || {};
+    edPositions = {};
+    const allNodes=flatED(edData);
+    allNodes.forEach(n=>{
+      if(saved[n.id]){
+        edPositions[n.id]={x:saved[n.id].x, y:saved[n.id].y};
+      } else {
+        // nodo nuevo sin posición guardada: usar D3
+        edPositions[n.id]={...(d3pos[n.id]||{x:0,y:0})};
+      }
+    });
+
+    // ── Build links usando edPositions
+    const links=[];
+    function buildL(node){
+      const pos=edPositions[node.id];
+      if(!pos)return;
+      (node.children||[]).forEach(ch=>{
+        const cp=edPositions[ch.id];
+        if(cp)links.push({sid:node.id,tid:ch.id,dashed:!!ch.dashed});
+        buildL(ch);
+      });
+    }
+    buildL(edData);
+
+    const g=svg.append("g").attr("class","canvas-root");
+    edZoom=d3.zoom().scaleExtent([0.04,3]).on("zoom",e=>{edTransform=e.transform;g.attr("transform",e.transform);});
+    svg.call(edZoom).call(edZoom.transform,edTransform);
+    g.attr("transform",edTransform);
+
+    // Links
+    const linkG=g.append("g");
+    function linkPath(sid,tid){
+      const sp=edPositions[sid]||{x:0,y:0};
+      const tp=edPositions[tid]||{x:0,y:0};
+      const my=sp.y+NH+VPAD/2;
+      return`M${sp.x},${sp.y+NH}L${sp.x},${my}L${tp.x},${my}L${tp.x},${tp.y}`;
+    }
+    linkG.selectAll("path").data(links).enter().append("path")
+      .attr("class",d=>"c-link"+(d.dashed?" dashed":""))
+      .attr("d",d=>linkPath(d.sid,d.tid));
+
+    // Nodes
+    const nodeG=g.append("g");
+    const ng=nodeG.selectAll("g.c-node").data(allNodes,d=>d.id).enter()
+      .append("g").attr("class",d=>"c-node"+(d.id===edSelectedId?" sel":""))
+      .attr("transform",d=>{const p=edPositions[d.id]||{x:0,y:0};return`translate(${p.x-NW/2},${p.y})`;})
+      .style("cursor","pointer")
+      .on("click",(e,d)=>{e.stopPropagation();edSelect(d.id);});
+
+    ng.call(d3.drag()
+      .on("drag",function(e,d){
+        if(!edPositions[d.id])return;
+        edPositions[d.id].x+=e.dx/edTransform.k;
+        edPositions[d.id].y+=e.dy/edTransform.k;
+        d3.select(this).attr("transform",`translate(${edPositions[d.id].x-NW/2},${edPositions[d.id].y})`);
+        linkG.selectAll("path").attr("d",lk=>linkPath(lk.sid,lk.tid));
+      })
+      .on("end",function(){
+        // Guardar posiciones en localStorage al soltar el nodo
+        savePositionsForRoot(edCurrentRootId, edPositions);
+      })
+    );
+
+    ng.append("rect").attr("width",NW).attr("height",NH).attr("rx",7)
+      .attr("fill",d=>getColorED(d))
+      .attr("stroke",d=>d.dashed?"rgba(255,255,255,0.4)":"none")
+      .attr("stroke-width",1.5).attr("stroke-dasharray",d=>d.dashed?"5,3":"none");
+
+    ng.each(function(d){
+      const g2=d3.select(this);
+      const words=(d.nombre||"").split(" ");
+      let l1="",l2="";
+      for(const w of words){if((l1+" "+w).trim().length<=20)l1=(l1+" "+w).trim();else l2=(l2+" "+w).trim();}
+      const hasTit=d.titular&&d.titular.trim();
+      const lines=l2?[l1,l2]:[l1];
+      const total=lines.length+(hasTit?1:0);
+      const lh=12,sy=NH/2-(total*lh)/2+lh*0.85;
+      lines.forEach((l,i)=>{
+        g2.append("text").attr("x",NW/2).attr("y",sy+i*lh)
+          .attr("text-anchor","middle").attr("font-size",9.5).attr("font-weight",600)
+          .attr("fill","#fff").attr("font-family","Inter,sans-serif").text(l);
+      });
+      if(hasTit){
+        const sh=d.titular.length>24?d.titular.slice(0,24)+"…":d.titular;
+        g2.append("text").attr("x",NW/2).attr("y",sy+lines.length*lh+2)
+          .attr("text-anchor","middle").attr("font-size",8).attr("fill","rgba(255,255,255,0.68)")
+          .attr("font-family","Inter,sans-serif").text(sh);
+      }
+    });
+
+    svg.on("click",()=>edSelect(null));
+
+    // Auto-fit primera vez o si no hay posiciones guardadas
+    const hasSaved = Object.keys(saved).length > 0;
+    if(!hasSaved || !edInitialized){
+      edInitialized=true;
+      const allP=Object.values(edPositions);
+      const mxX=Math.max(...allP.map(p=>p.x))+NW/2+20;
+      const myX=Math.max(...allP.map(p=>p.y))+NH+20;
+      const mnX2=Math.min(...allP.map(p=>p.x))-NW/2-20;
+      const mnY2=Math.min(...allP.map(p=>p.y))-20;
+      const sc=Math.min(W/(mxX-mnX2),H/(myX-mnY2),1)*0.9;
+      const tx=W/2-(mnX2+(mxX-mnX2)/2)*sc;
+      const ty=H/2-(mnY2+(myX-mnY2)/2)*sc;
+      edTransform=d3.zoomIdentity.translate(tx,ty).scale(sc);
+      svg.call(edZoom.transform,edTransform);
+    }
+  }
+
+  // ── Selection & Inspector ─────────────────────────────────
+  function edSelect(id){
+    edSelectedId=id;
+    d3.selectAll(".c-node").classed("sel",d=>d.id===id);
+    document.querySelectorAll(".ed-ni").forEach(el=>el.classList.toggle("sel",el.dataset.id===id));
+    const node=id?findED(edData,id):null;
+    renderEdInspector(node);
+    if(id){const el=document.querySelector(`.ed-ni[data-id="${id}"]`);if(el)el.scrollIntoView({block:"nearest"});}
+  }
+
+  function renderEdInspector(node){
+    const body=document.getElementById("ed-ins-body");
+    const actions=document.getElementById("ed-actions");
+    const idEl=document.getElementById("ed-ins-id");
+    if(!node){
+      body.innerHTML='<div class="ed-ins-empty"><div class="ico">⬡</div><p>Seleccioná un nodo</p></div>';
+      actions.style.display="none";idEl.textContent="";return;
+    }
+    idEl.textContent=node.id;
+    actions.style.display="flex";
+    const isCustom=node.tipo&&node.tipo.startsWith("CUSTOM:");
+    const tipoVal=isCustom?"__custom__":node.tipo;
+    const tipoLabel=isCustom?(node.tipoLabel||node.tipo.replace("CUSTOM:","")):"";
+    const color=getColorED(node);
+    const label=getLabelED(node);
+    const tipos=Object.entries(LABELS_ED).map(([k,v])=>`<option value="${k}"${tipoVal===k?" selected":""}>${v}</option>`).join("");
+    body.innerHTML=`
+      <div class="ed-preview" style="background:${color}">
+        <div class="ed-plabel">${label}</div>
+        <div class="ed-pnombre">${node.nombre||"—"}</div>
+        ${node.titular?`<div class="ed-ptitular">${node.titular}</div>`:""}
+      </div>
+      <div class="ed-field"><label>Nombre</label><input id="ei-nombre" value="${(node.nombre||"").replace(/"/g,"&quot;")}"/></div>
+      <div class="ed-field"><label>Titular</label><input id="ei-titular" value="${(node.titular||"").replace(/"/g,"&quot;")}"/></div>
+      <div class="ed-field"><label>Tipo</label>
+        <select id="ei-tipo" onchange="document.getElementById('ei-cw').style.display=this.value==='__custom__'?'block':'none'">
+          ${tipos}<option value="__custom__"${isCustom?" selected":""}>✏️ Personalizado…</option>
+        </select>
+      </div>
+      <div class="ed-field" id="ei-cw" style="display:${isCustom?"block":"none"}"><label>Nombre del tipo</label><input id="ei-tlabel" value="${tipoLabel}"/></div>
+      <div class="ed-field"><label style="display:flex;align-items:center;gap:7px;text-transform:none;font-size:11.5px;cursor:pointer;">
+        <input type="checkbox" id="ei-dashed" ${node.dashed?"checked":""} style="width:13px;height:13px;accent-color:#4f7ef8;"/>
+        Dependencia funcional (línea punteada)
+      </label></div>`;
+  }
+
+  function edSave(){
+    if(!edSelectedId)return;
+    const nombre=document.getElementById("ei-nombre").value.trim();
+    const titular=document.getElementById("ei-titular").value.trim();
+    const tipoRaw=document.getElementById("ei-tipo").value;
+    const tipoLabel=(document.getElementById("ei-tlabel")||{value:""}).value.trim();
+    const dashed=document.getElementById("ei-dashed").checked;
+    let tipo=tipoRaw==="__custom__"?"CUSTOM:"+tipoLabel:tipoRaw;
+    const newData=updateED(edData,edSelectedId,n=>({...n,nombre,titular,tipo,tipoLabel:tipoLabel||undefined,dashed}));
+    edData=newData;
+    edDispatch(newData);
+    refreshEdSidebar();
+    renderEdCanvas();
+    edSelect(edSelectedId);
+  }
+
+  function edDelete(){
+    if(!edSelectedId||edSelectedId==="JG")return;
+    const node=findED(edData,edSelectedId);
+    if(!confirm(`¿Eliminar "${node?.nombre}" y todas sus dependencias?`))return;
+    const newData=removeED(edData,edSelectedId);
+    edSelectedId=null;
+    edData=newData;
+    edDispatch(newData);
+    refreshEdSidebar();
+    renderEdCanvas();
+    renderEdInspector(null);
+    document.getElementById("ed-actions").style.display="none";
+  }
+
+  function edMoveModal(){
+    if(!edSelectedId||edSelectedId==="JG")return;
+    const allN=flatED(edData).filter(n=>n.id!==edSelectedId);
+    const opts=allN.map(n=>`<option value="${n.id}">[${getLabelED(n)}] ${n.nombre}</option>`).join("");
+    const overlay=document.createElement("div");
+    overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:3000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)";
+    overlay.innerHTML=`<div style="background:#1a1d27;border:1px solid #333650;border-radius:12px;width:360px;overflow:hidden;">
+      <div style="background:#232636;padding:12px 16px;border-bottom:1px solid #333650;font-size:13px;font-weight:600;color:#e8eaf2;">Mover a otro padre</div>
+      <div style="padding:16px;">
+        <div class="ed-field"><label>Nuevo padre</label><select id="mv-sel" style="width:100%;background:#232636;border:1px solid #333650;color:#e8eaf2;font-family:inherit;font-size:12px;padding:7px 9px;border-radius:6px;outline:none;">${opts}</select></div>
+      </div>
+      <div style="padding:10px 16px;border-top:1px solid #333650;display:flex;gap:8px;justify-content:flex-end;">
+        <button id="mv-cancel" style="padding:6px 14px;border-radius:7px;background:#232636;border:1px solid #333650;color:#9da3c4;font-family:inherit;font-size:12px;cursor:pointer;">Cancelar</button>
+        <button id="mv-ok" style="padding:6px 14px;border-radius:7px;background:#4f7ef8;border:none;color:#fff;font-family:inherit;font-size:12px;cursor:pointer;">Mover</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    document.getElementById("mv-cancel").onclick=()=>overlay.remove();
+    document.getElementById("mv-ok").onclick=()=>{
+      const newPid=document.getElementById("mv-sel").value;
+      if(newPid&&newPid!==edSelectedId){
+        const newData=moveED(edData,edSelectedId,newPid);
+        edData=newData;edDispatch(newData);refreshEdSidebar();renderEdCanvas();
+      }
+      overlay.remove();
+    };
+  }
+
+  function edResetLayout(){
+    if(!edCurrentRootId)return;
+    if(!confirm("¿Restablecer el layout automático? Se perderán las posiciones que editaste."))return;
+    clearPositionsForRoot(edCurrentRootId);
+    edInitialized=false;
+    edTransform=d3.zoomIdentity;
+    renderEdCanvas();
+  }
+
+  // ── Zoom buttons ──────────────────────────────────────────
+  document.getElementById("ed-zi").onclick=()=>{ if(edZoom)d3.select("#ed-svg").call(edZoom.scaleBy,1.3); };
+  document.getElementById("ed-zo").onclick=()=>{ if(edZoom)d3.select("#ed-svg").call(edZoom.scaleBy,0.77); };
+  document.getElementById("ed-zr").onclick=()=>{ edTransform=d3.zoomIdentity; edInitialized=false; renderEdCanvas(); };
+  document.getElementById("ed-save").onclick=()=>edSave();
+  document.getElementById("ed-move").onclick=()=>edMoveModal();
+  document.getElementById("ed-del").onclick=()=>edDelete();
+
+  // ── Init & sync ───────────────────────────────────────────
+  window.addEventListener("editorActivated",e=>{
+    edData=e.detail;
+    edCurrentRootId=e.detail.id; // siempre JG en esta app
+    // No resetear transform ni initialized si ya hay posiciones guardadas
+    const saved=loadPositionsForRoot(edCurrentRootId);
+    if(!saved||Object.keys(saved).length===0){
+      edInitialized=false;
+      edTransform=d3.zoomIdentity;
+    }
+    refreshEdSidebar();
+    renderEdCanvas();
+  });
+
+  window.addEventListener("orgDataChanged",e=>{
+    edData=e.detail;
+    if(!edCurrentRootId) edCurrentRootId=e.detail.id;
+    if(document.getElementById("editor-pane").classList.contains("active")){
+      refreshEdSidebar();
+      renderEdCanvas();
+    }
+  });
+
+  window.addEventListener("resize",()=>{
+    if(document.getElementById("editor-pane").classList.contains("active")) renderEdCanvas();
+  });
+
+  // Exponer función reset para el botón en React
+  window.edResetLayout=edResetLayout;
+})();
 </script>
 </body>
 </html>
