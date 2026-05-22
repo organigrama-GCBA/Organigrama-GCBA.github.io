@@ -718,10 +718,9 @@ function genPageSVG(root,pn,tot){
   const sw=Math.max(0.8, NW/220);
 
   // ── Layout: posiciones del editor visual o automático D3 ──
-  // Posiciones guardadas por área (clave = root.id del área que se editó)
-  const savedPos=(window.__edPositions||{})[root.id]||null;
-  // Estilo de línea guardado
-  const lineStyleA3=(()=>{try{return localStorage.getItem('gcba_org_linestyle_v1')||'orthogonal';}catch{return'orthogonal';}})();
+  // Leer posiciones SIEMPRE de localStorage (no de window.__edPositions que puede estar desactualizado)
+  const savedPos=(()=>{try{return(JSON.parse(localStorage.getItem('gcba_org_positions_v1')||"{}")[root.id])||null;}catch{return null;}})();
+  const lineStyleA3='orthogonal';
   const useSaved=savedPos&&Object.keys(savedPos).length>0;
 
   let nodes,links,SNW,SNH,sfsN,sfsT,sVPAD,ox,oy;
@@ -789,16 +788,17 @@ function genPageSVG(root,pn,tot){
   // Función de path según estilo guardado y waypoints
   function a3LinkPath(sx,sy,tx,ty,isSec,sid,tid){
     const wps=(a3Waypoints[wpKeyA3(sid,tid)]||[]);
-    if(wps.length>0){
-      // Con waypoints: ortogonal pasando por cada punto
-      const allPts=[{x:sx,y:sy+SNH},...wps.map(wp=>({x:wp.x*scale2||wp.x*(SNW/NW),y:wp.y*scale2||wp.y*(SNH/NH)})),{x:tx,y:ty}];
-      // Usar scale aplicada a las posiciones
-      // Los waypoints están en coordenadas del editor (NW/NH base), escalarlos igual que los nodos
-      const scFactor=useSaved?(SNW/NW):1;
+    if(wps.length>0&&useSaved){
+      // Waypoints solo tienen sentido cuando las posiciones vienen del editor (mismo espacio de coordenadas)
+      const scFactor=SNW/NW; // mismo factor de escala aplicado a los nodos
+      // Las posiciones del editor son en px del canvas sin escalar
+      // Necesitamos el mismo factor de escala que se aplicó a los nodos
       const scaledPts=[{x:sx,y:sy+SNH},...wps.map(wp=>({x:wp.x*scFactor,y:wp.y*scFactor})),{x:tx,y:ty}];
       let d=`M${fv(scaledPts[0].x)},${fv(scaledPts[0].y)}`;
       for(let i=1;i<scaledPts.length;i++){
-        d+=`L${fv(scaledPts[i-1].x)},${fv(scaledPts[i].y)}L${fv(scaledPts[i].x)},${fv(scaledPts[i].y)}`;
+        const prev=scaledPts[i-1], cur=scaledPts[i];
+        // Mismo algoritmo que el editor: horizontal al X del próximo, luego vertical
+        d+=`L${fv(cur.x)},${fv(prev.y)}L${fv(cur.x)},${fv(cur.y)}`;
       }
       return`<path d="${d}" fill="none" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
     }
@@ -1116,13 +1116,16 @@ function ModalA3({data,allNodes,onClose}){
   const[svgStr,setSvgStr]=React.useState("");
   const selNode=React.useMemo(()=>findNode(data,selId)||data,[data,selId]);
 
+  // Forzar re-render cada vez que se monta el modal (para leer posiciones frescas)
+  const[tick,setTick]=React.useState(0);
+  React.useEffect(()=>{ setTick(t=>t+1); },[]);
+
   React.useEffect(()=>{
-    // Leer posiciones frescas de localStorage cada vez que cambia el nodo
     try{
-      window.__edPositions=JSON.parse(localStorage.getItem('gcba_org_positions_v1')||"{}");
+      // Siempre leer de localStorage — genPageSVG ya lo hace internamente
       setSvgStr(genPageSVG(selNode,1,1));
     }catch(e){console.error(e);}
-  },[selNode]);
+  },[selNode,tick]);
 
   const download=()=>{
     window.__edPositions=JSON.parse(localStorage.getItem('gcba_org_positions_v1')||"{}");
@@ -1359,7 +1362,6 @@ function App(){
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center",marginLeft:"auto"}}>
           {saved&&<span style={{fontSize:11,color:"rgba(255,255,255,0.6)",display:"flex",alignItems:"center",gap:4}}><span style={{color:"#68D391"}}>✓</span> Guardado</span>}
-          <Btn variant="ghost" onClick={()=>setShowA3(true)} style={{color:"#fff",borderColor:"rgba(255,255,255,0.25)",background:"rgba(255,255,255,0.08)",fontSize:11}}>🖨 Vista A3</Btn>
           <Btn variant="ghost" onClick={dlAll} style={{color:"#fff",borderColor:"rgba(255,255,255,0.25)",background:"rgba(255,255,255,0.08)",fontSize:11}}>⬇ Descargar todo</Btn>
           <Btn variant="ghost" onClick={reset} style={{color:"rgba(255,255,255,0.6)",borderColor:"rgba(255,255,255,0.15)",background:"transparent",fontSize:11}}>↺ Restablecer</Btn>
         </div>
@@ -1532,10 +1534,12 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       opt.textContent=prefix+'['+getLabelED(node)+'] '+node.nombre;
       sel.appendChild(opt);
     };
-    // Ministerios y VJG primero
-    direct.filter(n=>n.tipo==="MIN"||n.tipo==="VJG").forEach(n=>addOpt(n,""));
+    // Jefe de Gobierno (nivel completo: MIN + SEC)
+    addOpt(edData,"");
+    // Ministerios y VJG
+    direct.filter(n=>n.tipo==="MIN"||n.tipo==="VJG").forEach(n=>addOpt(n,"　"));
     // Secretarías directas de JG
-    direct.filter(n=>n.tipo==="SEC").forEach(n=>addOpt(n,""));
+    direct.filter(n=>n.tipo==="SEC").forEach(n=>addOpt(n,"　"));
     // Organismos fuera de nivel con hijos propios
     flatED(edData).filter(n=>n.dashed&&(n.children||[]).length>0).forEach(n=>addOpt(n,""));
     // Restaurar selección previa
@@ -1596,38 +1600,30 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
   function wpKey(sid,tid){return sid+"-"+tid;}
 
-  function orthogonalPath(pts){
-    // pts: [{x,y}...] incluyendo origen y destino
-    // conecta con líneas ortogonales (solo horizontal/vertical)
-    if(pts.length<2)return"";
-    let d=`M${pts[0].x},${pts[0].y}`;
-    for(let i=1;i<pts.length;i++){
-      const prev=pts[i-1],cur=pts[i];
-      // línea ortogonal: va horizontal primero, luego vertical
-      // (o vertical primero, según cuál sea el movimiento dominante)
-      // Para waypoints intermedios simplemente conectamos en L
-      d+=`L${cur.x},${prev.y}L${cur.x},${cur.y}`;
-    }
-    return d;
-  }
-
   function buildLinkSVGPath(sid,tid){
     const sp=edPositions[sid]||{x:0,y:0};
     const tp=edPositions[tid]||{x:0,y:0};
-    const sx=sp.x, sy=sp.y+NH;
-    const tx=tp.x, ty=tp.y;
+    const sx=sp.x, sy=sp.y+NH; // centro inferior del nodo fuente
+    const tx=tp.x, ty=tp.y;   // centro superior del nodo destino
     const wps=edWaypoints[wpKey(sid,tid)]||[];
+
     if(wps.length===0){
-      // Sin waypoints: ortogonal simple
-      const my=sy+VPAD/2;
+      // Sin waypoints: codo simple en el punto medio vertical
+      const my=sy+(ty-sy)/2;
       return`M${sx},${sy}L${sx},${my}L${tx},${my}L${tx},${ty}`;
     }
-    // Con waypoints: pasa por cada punto intermedio con codos ortogonales
+
+    // Con waypoints: cada waypoint es un PUNTO DE QUIEBRE libre.
+    // El segmento entre dos puntos consecutivos se dibuja en L ortogonal:
+    // horizontal del X_origen al X_destino, luego vertical al Y_destino.
+    // Esto permite ir en cualquier dirección (arriba, abajo, izquierda, derecha).
     const allPts=[{x:sx,y:sy},...wps,{x:tx,y:ty}];
-    let d=`M${allPts[0].x},${allPts[0].y}`;
+    let d=`M${fv(allPts[0].x)},${fv(allPts[0].y)}`;
     for(let i=1;i<allPts.length;i++){
-      const p=allPts[i];
-      d+=`L${allPts[i-1].x},${p.y}L${p.x},${p.y}`;
+      const prev=allPts[i-1], cur=allPts[i];
+      // Va horizontal desde prev.x al cur.x (a la misma altura prev.y)
+      // luego vertical desde prev.y al cur.y (en cur.x)
+      d+=`L${fv(cur.x)},${fv(prev.y)}L${fv(cur.x)},${fv(cur.y)}`;
     }
     return d;
   }
@@ -1646,9 +1642,17 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     const viewRoot=edViewRootId?findED(edData,edViewRootId):edData;
     if(!viewRoot)return;
 
+    // Si es JG, mostrar solo 1 nivel de profundidad (JG → MIN/VJG/SEC)
+    const isViewJG=viewRoot.tipo==="JG";
+
     // Layout D3 base para el subárbol actual
-    function toH(node){const kids=(node.children||[]);return{...node,_k:kids.map(toH),children:undefined};}
-    const root=d3.hierarchy(toH(viewRoot),d=>d._k.length?d._k:null);
+    function toH(node,depth=0){
+      const kids=(node.children||[]);
+      // Para JG: solo expandir 1 nivel (no entrar en los ministerios)
+      if(isViewJG&&depth>=1) return{...node,_k:[],children:undefined};
+      return{...node,_k:kids.map(c=>toH(c,depth+1)),children:undefined};
+    }
+    const root=d3.hierarchy(toH(viewRoot,0),d=>d._k.length?d._k:null);
     d3.tree().nodeSize([NW+HPAD,NH+VPAD])(root);
     const d3pos={};
     root.each(n=>{d3pos[n.data.id]={x:n.x,y:n.y};});
