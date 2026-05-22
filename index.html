@@ -612,43 +612,47 @@ function toD3Tree(node){
   return{...node,_children:kids,children:undefined};
 }
 
-// Para JG: layout manual en 2 filas (no usa D3 tree)
-// Fila 1: VJG + Ministerios  |  Fila 2: Secretarías
-// Retorna {nodes, links} con coordenadas absolutas ya calculadas
-function layoutJG(root,NW,NH,HPAD,VPAD){
+// Para JG: layout manual en 2-3 filas ajustado al A3
+// Recalcula NW/NH para que los nodos llenen el espacio disponible
+function layoutJG(root,NW,NH,HPAD,VPAD,AVAIL_W,HIER_H){
   const hier=root.children.filter(c=>!c.dashed);
   const mins=hier.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
   const secs=hier.filter(c=>c.tipo==="SEC");
 
-  const row1Y=NH+VPAD;                    // fila ministerios
-  const row2Y=row1Y+NH+VPAD;             // fila secretarías
+  // Si se pasaron dimensiones del A3, recalcular NW/NH para llenar el espacio
+  if(AVAIL_W&&HIER_H){
+    const cols=mins.length||1;
+    const rows=secs.length>0?3:2;
+    const gap=12;
+    NW=Math.max(80, Math.floor((AVAIL_W-(cols-1)*gap)/cols));
+    NH=Math.max(40, Math.floor((HIER_H-(rows-1)*VPAD)/rows));
+    NW=Math.min(NW,220); NH=Math.min(NH,90);
+    HPAD=Math.max(gap,Math.round((AVAIL_W-NW*cols)/(cols+1)));
+  }
+
+  const row1Y=NH+VPAD;
+  const row2Y=row1Y+NH+VPAD;
 
   const makeRow=(items,rowY)=>{
     const total=items.length*(NW+HPAD)-HPAD;
     let x=-(total/2)+NW/2;
     return items.map(c=>{
-      const n={x,y:rowY,data:c,depth:1};
+      const n={x,y:rowY,data:c,depth:1,_NW:NW,_NH:NH};
       x+=NW+HPAD;
       return n;
     });
   };
 
-  const rootNode={x:0,y:0,data:root,depth:0};
+  const rootNode={x:0,y:0,data:root,depth:0,_NW:NW,_NH:NH};
   const minNodes=makeRow(mins,row1Y);
   const secNodes=makeRow(secs,row2Y);
   const allNodes=[rootNode,...minNodes,...secNodes];
-
-  // Links: root→cada MIN directamente
-  // root→cada SEC: usamos un nodo "puente" invisible en fila 1.5 para que
-  // la línea baje por un carril lateral y no cruce los ministerios.
-  // Implementación simple: marcamos los links SEC con secLink=true
-  // y en el render los dibujamos con un mid_Y que pase entre fila1 y fila2.
   const links=[
     ...minNodes.map(t=>({source:rootNode,target:t,isSec:false})),
     ...secNodes.map(t=>({source:rootNode,target:t,isSec:true}))
   ];
-
-  return{nodes:allNodes,links};
+  // Devolver NW y NH recalculados para que genPageSVG los use
+  return{nodes:allNodes,links,NW,NH};
 }
 
 function genPageSVG(root,pn,tot){
@@ -674,8 +678,10 @@ function genPageSVG(root,pn,tot){
     const hier=root.children.filter(c=>!c.dashed);
     const mins=hier.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
     const secs=hier.filter(c=>c.tipo==="SEC");
-    rawSpanX=Math.max(mins.length,secs.length);
-    rawSpanY=3;
+    // Para JG en A3: forzar 2 filas con nodos más grandes
+    // Usar solo los ministerios para calcular el span horizontal
+    rawSpanX=mins.length||1;
+    rawSpanY=secs.length>0?3:2; // JG + fila MIN + fila SEC (si hay)
   } else {
     const td=toD3Tree(root);
     const h0=d3.hierarchy(td,d=>d._children);
@@ -764,7 +770,10 @@ function genPageSVG(root,pn,tot){
   } else {
     // Layout automático D3
     if(isJG){
-      ({nodes,links}=layoutJG(root,NW,NH,HPAD,VPAD));
+      let jgResult=layoutJG(root,NW,NH,HPAD,VPAD,AVAIL_W,HIER_H);
+      nodes=jgResult.nodes;links=jgResult.links;
+      // Usar NW/NH recalculados por layoutJG
+      NW=jgResult.NW;NH=jgResult.NH;
     } else {
       const td=toD3Tree(root);
       const hier=d3.hierarchy(td,d=>d._children);
@@ -1550,6 +1559,12 @@ function App(){
   );
 }
 
+// Exponer funciones al scope global para que el editor D3 pueda usarlas
+window.__genPageSVG = genPageSVG;
+window.__dlSVG = dlSVG;
+window.__flatList = flatList;
+window.__findNode = findNode;
+
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 
@@ -2075,19 +2090,19 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
   }
 
   function edExportA3(){
-    // Generar SVG A3 del área actual usando genPageSVG (posiciones de localStorage)
+    if(!window.__genPageSVG){alert("Cargá la aplicación completa primero.");return;}
     const asel=document.getElementById("ed-area-sel");
     const areaId=asel?.value||edData?.id||"JG";
-    const areaNode=findED(edData,areaId);
+    const areaNode=window.__findNode(edData,areaId);
     if(!areaNode){alert("Área no encontrada.");return;}
     try{
-      const svgStr=genPageSVG(areaNode,1,1);
-      const blob=new Blob([svgStr],{type:"image/svg+xml"});
-      const url=URL.createObjectURL(blob);
-      const a=Object.assign(document.createElement("a"),{href:url,download:`organigrama-${areaId.toLowerCase()}-A3.svg`});
-      a.click();URL.revokeObjectURL(url);
+      const svgStr=window.__genPageSVG(areaNode,1,1);
+      window.__dlSVG(svgStr,`organigrama-${areaId.toLowerCase()}-A3.svg`);
       showSavedMsg();
-    }catch(err){alert("Error: "+err.message);}
+    }catch(err){
+      console.error(err);
+      alert("Error al exportar: "+err.message);
+    }
   }
 
   function edResetLayout(){
