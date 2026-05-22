@@ -1385,13 +1385,19 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     // ── Mezclar posiciones: guardadas o D3 ──
     const saved=loadPosForArea(edViewId)||{};
     edPositions={};
+    let hasNewNodes=false;
     nodes.forEach(n=>{
       if(saved[n.id]){
         edPositions[n.id]={x:saved[n.id].x,y:saved[n.id].y,w:saved[n.id].w||NW,h:saved[n.id].h||NH};
       } else {
         edPositions[n.id]={...(d3pos[n.id]||{x:PW/2,y:HH+10}),w:NW,h:NH};
+        hasNewNodes=true;
       }
     });
+    // Guardar posiciones iniciales en localStorage para que genSVGA3 las use
+    if(hasNewNodes||!Object.keys(saved).length){
+      savePosForArea();
+    }
     edWaypoints=loadWPForArea(edViewId);
 
     const g=svg.append("g").attr("class","canvas-root");
@@ -1759,6 +1765,17 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       return;
     }
     try{
+      // Debug: verificar qué posiciones están guardadas
+      const savedDebug=JSON.parse(localStorage.getItem("gcba_org_positions_v1")||"{}");
+      const areaPos=savedDebug[edViewId];
+      console.log("Exportando área:", edViewId);
+      console.log("Posiciones guardadas:", areaPos ? Object.keys(areaPos).length + " nodos" : "NINGUNA - usando layout automático");
+      if(areaPos){
+        const vals=Object.values(areaPos);
+        console.log("Rango X:", Math.min(...vals.map(p=>p.x)).toFixed(0), "→", Math.max(...vals.map(p=>p.x)).toFixed(0));
+        console.log("Rango Y:", Math.min(...vals.map(p=>p.y)).toFixed(0), "→", Math.max(...vals.map(p=>p.y)).toFixed(0));
+        console.log("Tamaño nodo muestra:", vals[0]?.w, "×", vals[0]?.h);
+      }
       const svg=window.__genSVGA3(viewRoot,1,1);
       window.__dlSVG(svg,`organigrama-${edViewId}-A3.svg`);
       showSaved();
