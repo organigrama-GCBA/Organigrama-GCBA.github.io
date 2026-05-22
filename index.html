@@ -1270,7 +1270,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 
 
-
 <!-- ═══════════════════════════════════════════════════════════
      EDITOR D3 — scope plain JS, sin dependencias de Babel
      Lee/escribe en localStorage con la misma clave que React
@@ -1908,19 +1907,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
   function exportAreaA3(){
     const viewRoot=findN(edData,edViewId)||edData;
-    // genSVGA3 disponible globalmente (script plain JS)
-    try{
-      // Debug: verificar qué posiciones están guardadas
-      const savedDebug=JSON.parse(localStorage.getItem("gcba_org_positions_v1")||"{}");
-      const areaPos=savedDebug[edViewId];
-      console.log("Exportando área:", edViewId);
-      console.log("Posiciones guardadas:", areaPos ? Object.keys(areaPos).length + " nodos" : "NINGUNA - usando layout automático");
-      if(areaPos){
-        const vals=Object.values(areaPos);
-        console.log("Rango X:", Math.min(...vals.map(p=>p.x)).toFixed(0), "→", Math.max(...vals.map(p=>p.x)).toFixed(0));
-        console.log("Rango Y:", Math.min(...vals.map(p=>p.y)).toFixed(0), "→", Math.max(...vals.map(p=>p.y)).toFixed(0));
-        console.log("Tamaño nodo muestra:", vals[0]?.w, "×", vals[0]?.h);
-      }
+      try{
+
       const svg=genSVGA3(viewRoot,1,1);
       dlSVG(svg,`organigrama-${edViewId}-A3.svg`);
       showSaved();
