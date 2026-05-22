@@ -160,6 +160,269 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
 <!-- REACT APP -->
 <div id="root" style="height:100vh;"></div>
 
+<script>
+// ── SVG A3 helpers — plain JS (no Babel) ──
+// Disponibles sincrónicamente para el editor D3
+
+// ── Colores (duplicado para uso en genSVGA3 fuera de Babel) ──
+const COLORS_SVG={
+  JG:{bg:"#9B1C1C"},VJG:{bg:"#9B1C1C"},MIN:{bg:"#92400E"},SEC:{bg:"#78350F"},
+  SS:{bg:"#1E3A5F"},DG:{bg:"#14532D"},GG:{bg:"#065F46"},GO:{bg:"#064E3B"},ORG:{bg:"#374151"}
+};
+function getColorSVG(n){if(n?.tipo?.startsWith("CUSTOM:"))return"#5B21B6";return(COLORS_SVG[n?.tipo]||COLORS_SVG.ORG).bg;}
+
+
+// ── SVG A3 ───────────────────────────────────────────────
+const fv=v=>Number(v).toFixed(1);
+
+function wrapTxt(t,max){
+  if(!t)return[];
+  const ws=t.split(" ");const ls=[];let c="";
+  for(const w of ws){
+    const test=c?" "+w:w;
+    if(c.length+test.length>max&&c){ls.push(c);c=w;}
+    else c=(c+test).trim();
+  }
+  if(c)ls.push(c);
+  // máximo 3 líneas
+  if(ls.length>3){const last=ls.splice(2).join(" ");ls[2]=last.length>max?last.slice(0,max-1)+"…":last;}
+  return ls;
+}
+
+function svgBox(x,y,node,W,H,dashed,fsN,fsT){
+  const fill=getColorSVG(node);
+  // Calcular cuántos chars caben por línea según ancho real del nodo
+  const charsPerLineN=Math.max(8,Math.floor(W/(fsN*0.52)));
+  const charsPerLineT=Math.max(8,Math.floor(W/(fsT*0.52)));
+  const nl=wrapTxt(node.nombre,charsPerLineN);
+  const tl=wrapTxt(node.titular||"",charsPerLineT);
+  const lhN=fsN*1.35,lhT=fsT*1.28,gap=tl.length?fsN*0.4:0;
+  const blockH=nl.length*lhN+gap+tl.length*lhT;
+  // Si el texto no entra, reducir fuente dinámicamente
+  let actualFsN=fsN,actualFsT=fsT,actualLhN=lhN,actualLhT=lhT,actualGap=gap,actualBlock=blockH;
+  if(blockH>H*0.88){
+    const shrink=(H*0.88)/blockH;
+    actualFsN=fsN*shrink;actualFsT=fsT*shrink;
+    actualLhN=actualFsN*1.35;actualLhT=actualFsT*1.28;
+    actualGap=tl.length?actualFsN*0.4:0;
+    actualBlock=nl.length*actualLhN+actualGap+tl.length*actualLhT;
+  }
+  let yt=y+(H-actualBlock)/2+actualLhN*0.85;
+  const da=dashed?`stroke="rgba(255,255,255,0.5)" stroke-width="1.5" stroke-dasharray="5,3"`:"";
+  let s=`<rect x="${fv(x)}" y="${fv(y)}" width="${fv(W)}" height="${fv(H)}" rx="${fv(Math.max(4,H*0.1))}" fill="${fill}" ${da}/>`;
+  nl.forEach(l=>{s+=`<text x="${fv(x+W/2)}" y="${fv(yt)}" text-anchor="middle" font-size="${fv(actualFsN)}" font-weight="600" fill="#fff" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=actualLhN;});
+  yt+=actualGap;
+  tl.forEach(l=>{s+=`<text x="${fv(x+W/2)}" y="${fv(yt)}" text-anchor="middle" font-size="${fv(actualFsT)}" fill="rgba(255,255,255,0.85)" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=actualLhT;});
+  return s;
+}
+
+// Genera SVG A3 — el árbol siempre llena el A3 completo.
+// Si hay posiciones del editor guardadas: las usa y escala al A3.
+// Si no: calcula layout D3 y ajusta tamaño de nodo para llenar el A3.
+function genSVGA3(root,pn=1,tot=1){
+  const PW=1587,PH=1123,MAR=40,HH=68,FH=34;
+  const AW=PW-MAR*2,AH=PH-HH-FH-MAR;
+
+  const today=new Date();
+  const fecha=`${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
+
+  const isJG=root.tipo==="JG";
+  const savedPos=JSON.parse(localStorage.getItem("gcba_org_positions_v1")||"{}")[root.id]||null;
+  const waypoints=JSON.parse(localStorage.getItem("gcba_org_waypoints_v1")||"{}")[root.id]||{};
+  const _sz=JSON.parse(localStorage.getItem("gcba_org_nodesize_v1")||"{}")[root.id]||null;
+  const ED_NW=_sz?.nw||158,ED_NH=_sz?.nh||50,ED_FS=_sz?.fs||0;
+
+  
+  let nodes=[],links=[],NW,NH;
+
+  if(savedPos&&Object.keys(savedPos).length>0&&!isJG){
+    // ── Posiciones del editor ──────────────────────────────
+    // Recopilar nodos visibles (JG: 1 nivel)
+    const visible=[];
+    (function collect(node,depth){
+      visible.push(node);
+      if(isJG&&depth>=1)return;
+      (node.children||[]).forEach(c=>collect(c,depth+1));
+    })(root,0);
+    const visIds=new Set(visible.map(n=>n.id));
+
+    nodes=visible.map(n=>({x:savedPos[n.id]?.x??0,y:savedPos[n.id]?.y??0,w:savedPos[n.id]?.w||ED_NW,h:savedPos[n.id]?.h||ED_NH,data:n}));
+
+    // Links
+    (function walk(node,depth){
+      (node.children||[]).forEach(ch=>{
+        if(!visIds.has(ch.id))return;
+        const s=nodes.find(n=>n.data.id===node.id),t=nodes.find(n=>n.data.id===ch.id);
+        if(s&&t)links.push({s,t});
+        if(!(isJG&&depth>=1))walk(ch,depth+1);
+      });
+    })(root,0);
+
+    // Las posiciones ya están en coordenadas A3 (el editor usa el mismo sistema)
+    NW=ED_NW; NH=ED_NH;
+
+  }else{
+    // ── Layout D3 automático ───────────────────────────────
+    const HGAP=10,VGAP=24;
+
+    // Detectar si este nodo es de "primer nivel" (JG, o cualquier nodo cuyos
+    // hijos directos son MIN/VJG/SEC — ej: Jefatura de Gabinete NO es isJG
+    // pero tampoco queremos desplegar toda su estructura).
+    // La regla: si el nodo tiene hijos de tipo MIN/VJG/SEC, usar layout de 2 filas.
+    const directHier=(root.children||[]).filter(c=>!c.dashed);
+    const isShallowLayout=isJG||directHier.some(c=>c.tipo==="MIN"||c.tipo==="VJG"||c.tipo==="SEC");
+
+    if(isShallowLayout){
+      // Layout manual: fila 1 = MIN+VJG (o todos los no-SEC), fila 2 = SEC
+      const row1=directHier.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
+      const row2=directHier.filter(c=>c.tipo==="SEC");
+      // Si no hay row1 (ej: Jefatura de Gabinete que solo tiene SECs), poner todo en row1
+      const useRow1=row1.length>0?row1:directHier.filter(c=>c.tipo!=="SEC");
+      const useRow2=row1.length>0?row2:row2;
+      const spanX=Math.max(useRow1.length,useRow2.length,1);
+      const numRows=(useRow2.length>0?3:2); // JG + fila1 + fila2
+      // NW: dividir ancho disponible entre columnas
+      NW=Math.max(80,Math.floor((AW-(spanX-1)*HGAP)/spanX));
+      NW=Math.min(NW,280);
+      // NH: usar el espacio vertical completo dividido en filas
+      NH=Math.min(Math.floor((AH-(numRows-1)*VGAP)/numRows), Math.round(NW/2.6));
+      NH=Math.max(NH,36);
+      const HPAD=Math.max(HGAP,Math.round((AW-NW*spanX)/(spanX+1)));
+      const VPAD=Math.max(VGAP,Math.round((AH-NH*numRows)/(numRows+1)));
+      const makeRow=(items,rowY)=>{
+        const total=items.length*(NW+HPAD)-HPAD;
+        let x=(AW-total)/2+NW/2;
+        return items.map(c=>{const n={x,y:rowY,data:c,depth:1};x+=NW+HPAD;return n;});
+      };
+      const rn={x:AW/2,y:0,data:root,depth:0};
+      const mn=makeRow(useRow1,NH+VPAD);
+      const sn=makeRow(useRow2,NH+VPAD+NH+VPAD);
+      nodes=[rn,...mn,...sn];
+      links=[...mn.map(t=>({s:rn,t})),...sn.map(t=>({s:rn,t}))];
+
+    } else {
+      // D3 tree para áreas con jerarquía profunda (SS, DG, etc.)
+      function toHier(node){
+        const kids=(node.children||[]).filter(c=>!c.dashed);
+        return{...node,_k:kids.map(c=>toHier(c)),children:undefined};
+      }
+      const hier=d3.hierarchy(toHier(root),d=>d._k.length?d._k:null);
+
+      // Contar hojas reales (no spanX de coordenadas D3)
+      const leafCount=hier.leaves().length||1;
+      const depthCount=(hier.height||1)+1;
+
+      // NW basado en cantidad de hojas, NH basado en profundidad
+      NW=Math.max(80,Math.floor((AW-(leafCount-1)*HGAP)/leafCount));
+      NW=Math.min(NW,280);
+      // NH: usar el espacio vertical completo
+      NH=Math.min(Math.floor((AH-(depthCount-1)*VGAP)/depthCount), Math.round(NW/2.6));
+      NH=Math.max(NH,36);
+
+      const HPAD=Math.max(HGAP,Math.round((AW-NW*leafCount)/(leafCount+1)));
+      const VPAD=Math.max(VGAP,Math.round((AH-NH*depthCount)/(depthCount+1)));
+
+      d3.tree().nodeSize([NW+HPAD,NH+VPAD])(hier);
+      nodes=hier.descendants().map(n=>({x:n.x,y:n.y,data:n.data,depth:n.depth}));
+      links=hier.links().map(l=>({
+        s:nodes.find(n=>n.data.id===l.source.data.id),
+        t:nodes.find(n=>n.data.id===l.target.data.id)
+      })).filter(l=>l.s&&l.t);
+
+      // Normalizar a (0,0)
+      const mnX=d3.min(nodes,n=>n.x)-NW/2,mnY=d3.min(nodes,n=>n.y);
+      nodes.forEach(n=>{n.x-=mnX;n.y-=mnY;});
+
+      // Escalar para llenar el A3 ajustando NW y NH proporcionalmente
+      const tW=d3.max(nodes,n=>n.x+NW/2),tH=d3.max(nodes,n=>n.y+NH);
+      const scX=AW/tW,scY=AH/tH;
+      const sc=Math.min(scX,scY)*0.96;
+      nodes.forEach(n=>{n.x*=sc;n.y*=sc;});
+      NW*=sc;NH*=sc;
+    }
+  }
+
+  // Posiciones ya en coordenadas A3 — offset es 0
+  const ox=0,oy=0;
+
+  // Tamaños de fuente proporcionales al nodo
+  const fsN=ED_FS>0?ED_FS:Math.max(7,Math.min(13,NW/11));
+  const fsT=ED_FS>0?ED_FS*0.82:Math.max(6,Math.min(10.5,NW/15));
+  const sw=Math.max(0.6,NW/220);
+
+  // Líneas
+  function lPath(s,t,wps){
+    const sh=s.h||NH,th=t.h||NH;
+    const sx=s.x,sy=s.y+sh,tx=t.x,ty=t.y;
+    if(wps?.length){
+      const scWP=NW/158;
+      const pts=[{x:sx,y:sy},...wps.map(p=>({x:p.x*scWP,y:p.y*scWP})),{x:tx,y:ty}];
+      let d=`M${fv(pts[0].x)},${fv(pts[0].y)}`;
+      for(let i=1;i<pts.length;i++){d+=`L${fv(pts[i].x)},${fv(pts[i-1].y)}L${fv(pts[i].x)},${fv(pts[i].y)}`;}
+      return`<path d="${d}" fill="none" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
+    }
+    const my=sy+(ty-sy)/2;
+    return`<line x1="${fv(sx)}" y1="${fv(sy)}" x2="${fv(sx)}" y2="${fv(my)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>` +
+           `<line x1="${fv(sx)}" y1="${fv(my)}" x2="${fv(tx)}" y2="${fv(my)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>` +
+           `<line x1="${fv(tx)}" y1="${fv(my)}" x2="${fv(tx)}" y2="${fv(ty)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
+  }
+
+  let linesSVG="",nodesSVG="";
+  links.forEach(lk=>{
+    if(!lk.s||!lk.t)return;
+    const wps=waypoints[`${lk.s.data?.id}-${lk.t.data?.id}`]||[];
+    linesSVG+=lPath(lk.s,lk.t,wps);
+  });
+  nodes.forEach(n=>{
+    const nw=n.w||NW,nh=n.h||NH;
+    const fsNn=ED_FS>0?ED_FS:Math.max(7,Math.min(13,nw/11));
+    const fsTn=ED_FS>0?ED_FS*0.82:Math.max(6,Math.min(10.5,nw/15));
+    nodesSVG+=svgBox(n.x-nw/2,n.y,n.data,nw,nh,!!n.data?.dashed,fsNn,fsTn);
+  });
+
+  // (organismos fuera de nivel no se muestran en el A3 — tienen su propia página)
+
+  const leg=[["#9B1C1C","Jefatura"],["#92400E","Ministerio"],["#78350F","Secretaría"],
+             ["#1E3A5F","Subsecretaría"],["#14532D","Dir. General"],["#374151","Org. desc."]];
+  const lw=118,lx=(PW-leg.length*lw)/2,ly=PH-FH+11;
+  const legSVG=leg.map((it,i)=>
+    `<rect x="${fv(lx+i*lw)}" y="${fv(ly)}" width="9" height="9" rx="2" fill="${it[0]}"/>` +
+    `<text x="${fv(lx+i*lw+13)}" y="${fv(ly+8)}" font-size="8" fill="#718096" font-family="Inter,Arial,sans-serif">${it[1]}</text>`
+  ).join("");
+  const pgSVG=tot>1?`<text x="${fv(PW-MAR)}" y="${fv(ly+8)}" text-anchor="end" font-size="8" fill="#A0AEC0">${pn}/${tot}</text>`:"";
+  const hc=getColorSVG(root);
+
+  return`<svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}">
+<defs><linearGradient id="hg${pn}" x1="0" y1="0" x2="1" y2="0">
+  <stop offset="0%" stop-color="${hc}"/><stop offset="100%" stop-color="${hc}CC"/>
+</linearGradient></defs>
+<rect width="${PW}" height="${PH}" fill="#F8FAFC"/>
+<rect x="0" y="0" width="${PW}" height="${HH}" fill="url(#hg${pn})"/>
+<line x1="0" y1="${HH}" x2="${PW}" y2="${HH}" stroke="#E2E8F0" stroke-width="1"/>
+<text x="${fv(PW/2)}" y="${fv(HH*0.45)}" text-anchor="middle" font-size="22" font-weight="700" fill="#fff" font-family="Inter,Arial,sans-serif">${root.nombre}</text>
+<text x="${fv(PW/2)}" y="${fv(HH*0.78)}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.7)" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · ${fecha}</text>
+<g transform="translate(${fv(ox)},${fv(oy)})">${linesSVG}${nodesSVG}</g>
+<rect x="0" y="${PH-FH}" width="${PW}" height="${FH}" fill="#F8FAFC"/>
+<line x1="0" y1="${PH-FH}" x2="${PW}" y2="${PH-FH}" stroke="#E2E8F0" stroke-width="0.8"/>
+${legSVG}${pgSVG}
+</svg>`;
+}
+
+function dlSVG(svgStr,fname){
+  const blob=new Blob([svgStr],{type:"image/svg+xml"});
+  const url=URL.createObjectURL(blob);
+  Object.assign(document.createElement("a"),{href:url,download:fname}).click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Exponer al scope global para el editor D3 ──
+genSVGA3=genSVGA3;
+dlSVG=dlSVG;
+flatList=flatList;
+findNode=findNode;
+
+</script>
+
 <script type="text/babel">
 const{useState,useEffect,useMemo,useCallback,useRef}=React;
 
@@ -532,254 +795,6 @@ const COLORS={
 function getColor(n){if(n?.tipo?.startsWith("CUSTOM:"))return"#5B21B6";return(COLORS[n?.tipo]||COLORS.ORG).bg;}
 function getLabel(n){if(n?.tipo?.startsWith("CUSTOM:"))return n.tipoLabel||n.tipo.replace("CUSTOM:","");return(COLORS[n?.tipo]||COLORS.ORG).label;}
 
-// ── SVG A3 ───────────────────────────────────────────────
-const fv=v=>Number(v).toFixed(1);
-
-function wrapTxt(t,max){
-  if(!t)return[];
-  const ws=t.split(" ");const ls=[];let c="";
-  for(const w of ws){
-    const test=c?" "+w:w;
-    if(c.length+test.length>max&&c){ls.push(c);c=w;}
-    else c=(c+test).trim();
-  }
-  if(c)ls.push(c);
-  // máximo 3 líneas
-  if(ls.length>3){const last=ls.splice(2).join(" ");ls[2]=last.length>max?last.slice(0,max-1)+"…":last;}
-  return ls;
-}
-
-function svgBox(x,y,node,W,H,dashed,fsN,fsT){
-  const fill=getColor(node);
-  // Calcular cuántos chars caben por línea según ancho real del nodo
-  const charsPerLineN=Math.max(8,Math.floor(W/(fsN*0.52)));
-  const charsPerLineT=Math.max(8,Math.floor(W/(fsT*0.52)));
-  const nl=wrapTxt(node.nombre,charsPerLineN);
-  const tl=wrapTxt(node.titular||"",charsPerLineT);
-  const lhN=fsN*1.35,lhT=fsT*1.28,gap=tl.length?fsN*0.4:0;
-  const blockH=nl.length*lhN+gap+tl.length*lhT;
-  // Si el texto no entra, reducir fuente dinámicamente
-  let actualFsN=fsN,actualFsT=fsT,actualLhN=lhN,actualLhT=lhT,actualGap=gap,actualBlock=blockH;
-  if(blockH>H*0.88){
-    const shrink=(H*0.88)/blockH;
-    actualFsN=fsN*shrink;actualFsT=fsT*shrink;
-    actualLhN=actualFsN*1.35;actualLhT=actualFsT*1.28;
-    actualGap=tl.length?actualFsN*0.4:0;
-    actualBlock=nl.length*actualLhN+actualGap+tl.length*actualLhT;
-  }
-  let yt=y+(H-actualBlock)/2+actualLhN*0.85;
-  const da=dashed?`stroke="rgba(255,255,255,0.5)" stroke-width="1.5" stroke-dasharray="5,3"`:"";
-  let s=`<rect x="${fv(x)}" y="${fv(y)}" width="${fv(W)}" height="${fv(H)}" rx="${fv(Math.max(4,H*0.1))}" fill="${fill}" ${da}/>`;
-  nl.forEach(l=>{s+=`<text x="${fv(x+W/2)}" y="${fv(yt)}" text-anchor="middle" font-size="${fv(actualFsN)}" font-weight="600" fill="#fff" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=actualLhN;});
-  yt+=actualGap;
-  tl.forEach(l=>{s+=`<text x="${fv(x+W/2)}" y="${fv(yt)}" text-anchor="middle" font-size="${fv(actualFsT)}" fill="rgba(255,255,255,0.85)" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=actualLhT;});
-  return s;
-}
-
-// Genera SVG A3 — el árbol siempre llena el A3 completo.
-// Si hay posiciones del editor guardadas: las usa y escala al A3.
-// Si no: calcula layout D3 y ajusta tamaño de nodo para llenar el A3.
-function genSVGA3(root,pn=1,tot=1){
-  const PW=1587,PH=1123,MAR=40,HH=68,FH=34;
-  const AW=PW-MAR*2,AH=PH-HH-FH-MAR;
-
-  const today=new Date();
-  const fecha=`${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
-
-  const isJG=root.tipo==="JG";
-  const savedPos=JSON.parse(localStorage.getItem("gcba_org_positions_v1")||"{}")[root.id]||null;
-  const waypoints=JSON.parse(localStorage.getItem("gcba_org_waypoints_v1")||"{}")[root.id]||{};
-  const _sz=JSON.parse(localStorage.getItem("gcba_org_nodesize_v1")||"{}")[root.id]||null;
-  const ED_NW=_sz?.nw||158,ED_NH=_sz?.nh||50,ED_FS=_sz?.fs||0;
-
-  
-  let nodes=[],links=[],NW,NH;
-
-  if(savedPos&&Object.keys(savedPos).length>0&&!isJG){
-    // ── Posiciones del editor ──────────────────────────────
-    // Recopilar nodos visibles (JG: 1 nivel)
-    const visible=[];
-    (function collect(node,depth){
-      visible.push(node);
-      if(isJG&&depth>=1)return;
-      (node.children||[]).forEach(c=>collect(c,depth+1));
-    })(root,0);
-    const visIds=new Set(visible.map(n=>n.id));
-
-    nodes=visible.map(n=>({x:savedPos[n.id]?.x??0,y:savedPos[n.id]?.y??0,w:savedPos[n.id]?.w||ED_NW,h:savedPos[n.id]?.h||ED_NH,data:n}));
-
-    // Links
-    (function walk(node,depth){
-      (node.children||[]).forEach(ch=>{
-        if(!visIds.has(ch.id))return;
-        const s=nodes.find(n=>n.data.id===node.id),t=nodes.find(n=>n.data.id===ch.id);
-        if(s&&t)links.push({s,t});
-        if(!(isJG&&depth>=1))walk(ch,depth+1);
-      });
-    })(root,0);
-
-    // Las posiciones ya están en coordenadas A3 (el editor usa el mismo sistema)
-    NW=ED_NW; NH=ED_NH;
-
-  }else{
-    // ── Layout D3 automático ───────────────────────────────
-    const HGAP=10,VGAP=24;
-
-    // Detectar si este nodo es de "primer nivel" (JG, o cualquier nodo cuyos
-    // hijos directos son MIN/VJG/SEC — ej: Jefatura de Gabinete NO es isJG
-    // pero tampoco queremos desplegar toda su estructura).
-    // La regla: si el nodo tiene hijos de tipo MIN/VJG/SEC, usar layout de 2 filas.
-    const directHier=(root.children||[]).filter(c=>!c.dashed);
-    const isShallowLayout=isJG||directHier.some(c=>c.tipo==="MIN"||c.tipo==="VJG"||c.tipo==="SEC");
-
-    if(isShallowLayout){
-      // Layout manual: fila 1 = MIN+VJG (o todos los no-SEC), fila 2 = SEC
-      const row1=directHier.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
-      const row2=directHier.filter(c=>c.tipo==="SEC");
-      // Si no hay row1 (ej: Jefatura de Gabinete que solo tiene SECs), poner todo en row1
-      const useRow1=row1.length>0?row1:directHier.filter(c=>c.tipo!=="SEC");
-      const useRow2=row1.length>0?row2:row2;
-      const spanX=Math.max(useRow1.length,useRow2.length,1);
-      const numRows=(useRow2.length>0?3:2); // JG + fila1 + fila2
-      // NW: dividir ancho disponible entre columnas
-      NW=Math.max(80,Math.floor((AW-(spanX-1)*HGAP)/spanX));
-      NW=Math.min(NW,280);
-      // NH: usar el espacio vertical completo dividido en filas
-      NH=Math.min(Math.floor((AH-(numRows-1)*VGAP)/numRows), Math.round(NW/2.6));
-      NH=Math.max(NH,36);
-      const HPAD=Math.max(HGAP,Math.round((AW-NW*spanX)/(spanX+1)));
-      const VPAD=Math.max(VGAP,Math.round((AH-NH*numRows)/(numRows+1)));
-      const makeRow=(items,rowY)=>{
-        const total=items.length*(NW+HPAD)-HPAD;
-        let x=(AW-total)/2+NW/2;
-        return items.map(c=>{const n={x,y:rowY,data:c,depth:1};x+=NW+HPAD;return n;});
-      };
-      const rn={x:AW/2,y:0,data:root,depth:0};
-      const mn=makeRow(useRow1,NH+VPAD);
-      const sn=makeRow(useRow2,NH+VPAD+NH+VPAD);
-      nodes=[rn,...mn,...sn];
-      links=[...mn.map(t=>({s:rn,t})),...sn.map(t=>({s:rn,t}))];
-
-    } else {
-      // D3 tree para áreas con jerarquía profunda (SS, DG, etc.)
-      function toHier(node){
-        const kids=(node.children||[]).filter(c=>!c.dashed);
-        return{...node,_k:kids.map(c=>toHier(c)),children:undefined};
-      }
-      const hier=d3.hierarchy(toHier(root),d=>d._k.length?d._k:null);
-
-      // Contar hojas reales (no spanX de coordenadas D3)
-      const leafCount=hier.leaves().length||1;
-      const depthCount=(hier.height||1)+1;
-
-      // NW basado en cantidad de hojas, NH basado en profundidad
-      NW=Math.max(80,Math.floor((AW-(leafCount-1)*HGAP)/leafCount));
-      NW=Math.min(NW,280);
-      // NH: usar el espacio vertical completo
-      NH=Math.min(Math.floor((AH-(depthCount-1)*VGAP)/depthCount), Math.round(NW/2.6));
-      NH=Math.max(NH,36);
-
-      const HPAD=Math.max(HGAP,Math.round((AW-NW*leafCount)/(leafCount+1)));
-      const VPAD=Math.max(VGAP,Math.round((AH-NH*depthCount)/(depthCount+1)));
-
-      d3.tree().nodeSize([NW+HPAD,NH+VPAD])(hier);
-      nodes=hier.descendants().map(n=>({x:n.x,y:n.y,data:n.data,depth:n.depth}));
-      links=hier.links().map(l=>({
-        s:nodes.find(n=>n.data.id===l.source.data.id),
-        t:nodes.find(n=>n.data.id===l.target.data.id)
-      })).filter(l=>l.s&&l.t);
-
-      // Normalizar a (0,0)
-      const mnX=d3.min(nodes,n=>n.x)-NW/2,mnY=d3.min(nodes,n=>n.y);
-      nodes.forEach(n=>{n.x-=mnX;n.y-=mnY;});
-
-      // Escalar para llenar el A3 ajustando NW y NH proporcionalmente
-      const tW=d3.max(nodes,n=>n.x+NW/2),tH=d3.max(nodes,n=>n.y+NH);
-      const scX=AW/tW,scY=AH/tH;
-      const sc=Math.min(scX,scY)*0.96;
-      nodes.forEach(n=>{n.x*=sc;n.y*=sc;});
-      NW*=sc;NH*=sc;
-    }
-  }
-
-  // Posiciones ya en coordenadas A3 — offset es 0
-  const ox=0,oy=0;
-
-  // Tamaños de fuente proporcionales al nodo
-  const fsN=ED_FS>0?ED_FS:Math.max(7,Math.min(13,NW/11));
-  const fsT=ED_FS>0?ED_FS*0.82:Math.max(6,Math.min(10.5,NW/15));
-  const sw=Math.max(0.6,NW/220);
-
-  // Líneas
-  function lPath(s,t,wps){
-    const sh=s.h||NH,th=t.h||NH;
-    const sx=s.x,sy=s.y+sh,tx=t.x,ty=t.y;
-    if(wps?.length){
-      const scWP=NW/158;
-      const pts=[{x:sx,y:sy},...wps.map(p=>({x:p.x*scWP,y:p.y*scWP})),{x:tx,y:ty}];
-      let d=`M${fv(pts[0].x)},${fv(pts[0].y)}`;
-      for(let i=1;i<pts.length;i++){d+=`L${fv(pts[i].x)},${fv(pts[i-1].y)}L${fv(pts[i].x)},${fv(pts[i].y)}`;}
-      return`<path d="${d}" fill="none" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
-    }
-    const my=sy+(ty-sy)/2;
-    return`<line x1="${fv(sx)}" y1="${fv(sy)}" x2="${fv(sx)}" y2="${fv(my)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>` +
-           `<line x1="${fv(sx)}" y1="${fv(my)}" x2="${fv(tx)}" y2="${fv(my)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>` +
-           `<line x1="${fv(tx)}" y1="${fv(my)}" x2="${fv(tx)}" y2="${fv(ty)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
-  }
-
-  let linesSVG="",nodesSVG="";
-  links.forEach(lk=>{
-    if(!lk.s||!lk.t)return;
-    const wps=waypoints[`${lk.s.data?.id}-${lk.t.data?.id}`]||[];
-    linesSVG+=lPath(lk.s,lk.t,wps);
-  });
-  nodes.forEach(n=>{
-    const nw=n.w||NW,nh=n.h||NH;
-    const fsNn=ED_FS>0?ED_FS:Math.max(7,Math.min(13,nw/11));
-    const fsTn=ED_FS>0?ED_FS*0.82:Math.max(6,Math.min(10.5,nw/15));
-    nodesSVG+=svgBox(n.x-nw/2,n.y,n.data,nw,nh,!!n.data?.dashed,fsNn,fsTn);
-  });
-
-  // (organismos fuera de nivel no se muestran en el A3 — tienen su propia página)
-
-  const leg=[["#9B1C1C","Jefatura"],["#92400E","Ministerio"],["#78350F","Secretaría"],
-             ["#1E3A5F","Subsecretaría"],["#14532D","Dir. General"],["#374151","Org. desc."]];
-  const lw=118,lx=(PW-leg.length*lw)/2,ly=PH-FH+11;
-  const legSVG=leg.map((it,i)=>
-    `<rect x="${fv(lx+i*lw)}" y="${fv(ly)}" width="9" height="9" rx="2" fill="${it[0]}"/>` +
-    `<text x="${fv(lx+i*lw+13)}" y="${fv(ly+8)}" font-size="8" fill="#718096" font-family="Inter,Arial,sans-serif">${it[1]}</text>`
-  ).join("");
-  const pgSVG=tot>1?`<text x="${fv(PW-MAR)}" y="${fv(ly+8)}" text-anchor="end" font-size="8" fill="#A0AEC0">${pn}/${tot}</text>`:"";
-  const hc=getColor(root);
-
-  return`<svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}">
-<defs><linearGradient id="hg${pn}" x1="0" y1="0" x2="1" y2="0">
-  <stop offset="0%" stop-color="${hc}"/><stop offset="100%" stop-color="${hc}CC"/>
-</linearGradient></defs>
-<rect width="${PW}" height="${PH}" fill="#F8FAFC"/>
-<rect x="0" y="0" width="${PW}" height="${HH}" fill="url(#hg${pn})"/>
-<line x1="0" y1="${HH}" x2="${PW}" y2="${HH}" stroke="#E2E8F0" stroke-width="1"/>
-<text x="${fv(PW/2)}" y="${fv(HH*0.45)}" text-anchor="middle" font-size="22" font-weight="700" fill="#fff" font-family="Inter,Arial,sans-serif">${root.nombre}</text>
-<text x="${fv(PW/2)}" y="${fv(HH*0.78)}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.7)" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · ${fecha}</text>
-<g transform="translate(${fv(ox)},${fv(oy)})">${linesSVG}${nodesSVG}</g>
-<rect x="0" y="${PH-FH}" width="${PW}" height="${FH}" fill="#F8FAFC"/>
-<line x1="0" y1="${PH-FH}" x2="${PW}" y2="${PH-FH}" stroke="#E2E8F0" stroke-width="0.8"/>
-${legSVG}${pgSVG}
-</svg>`;
-}
-
-function dlSVG(svgStr,fname){
-  const blob=new Blob([svgStr],{type:"image/svg+xml"});
-  const url=URL.createObjectURL(blob);
-  Object.assign(document.createElement("a"),{href:url,download:fname}).click();
-  URL.revokeObjectURL(url);
-}
-
-// ── Exponer al scope global para el editor D3 ──
-window.__genSVGA3=genSVGA3;
-window.__dlSVG=dlSVG;
-window.__flatList=flatList;
-window.__findNode=findNode;
 
 // ── Componentes React ─────────────────────────────────────
 function Btn({children,onClick,variant="secondary",small=false,style={}}){
@@ -1135,6 +1150,8 @@ function App(){
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
+
+
 
 <!-- ═══════════════════════════════════════════════════════════
      EDITOR D3 — scope plain JS, sin dependencias de Babel
@@ -1752,11 +1769,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
   function exportAreaA3(){
     const viewRoot=findN(edData,edViewId)||edData;
-    if(!window.__genSVGA3){
+    if(!genSVGA3){
       // Babel puede no haber terminado — esperar y reintentar
       setTimeout(()=>{
-        if(window.__genSVGA3){
-          window.__dlSVG(window.__genSVGA3(viewRoot,1,1),`organigrama-${edViewId}-A3.svg`);
+        if(genSVGA3){
+          dlSVG(genSVGA3(viewRoot,1,1),`organigrama-${edViewId}-A3.svg`);
           showSaved();
         } else {
           alert("Error: la app no cargó correctamente. Recargá la página.");
@@ -1776,8 +1793,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
         console.log("Rango Y:", Math.min(...vals.map(p=>p.y)).toFixed(0), "→", Math.max(...vals.map(p=>p.y)).toFixed(0));
         console.log("Tamaño nodo muestra:", vals[0]?.w, "×", vals[0]?.h);
       }
-      const svg=window.__genSVGA3(viewRoot,1,1);
-      window.__dlSVG(svg,`organigrama-${edViewId}-A3.svg`);
+      const svg=genSVGA3(viewRoot,1,1);
+      dlSVG(svg,`organigrama-${edViewId}-A3.svg`);
       showSaved();
     }catch(err){
       console.error("Export error:",err);
