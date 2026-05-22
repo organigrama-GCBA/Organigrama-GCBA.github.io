@@ -1562,7 +1562,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
           d3.select(this).attr("x",pos.x+pos.w/2-10).attr("y",pos.y+pos.h-10);
           drawLinks();drawWPs();
         })
-        .on("end",()=>{savePosForArea();showSaved();})
+        .on("end",()=>{savePosForArea();showSaved();renderCanvas();})
       );
     }
     renderResizeHandles();
