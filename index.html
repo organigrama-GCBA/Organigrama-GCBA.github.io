@@ -88,12 +88,7 @@ input:focus,select:focus{border-color:var(--azul)!important;box-shadow:0 0 0 3px
   <div id="ed-toolbar" style="position:absolute;top:0;left:0;right:0;height:42px;background:#1a1d27;border-bottom:1px solid #333650;display:flex;align-items:center;padding:0 12px;gap:8px;z-index:20;">
     <span style="font-size:10px;font-weight:600;color:#6b7199;text-transform:uppercase;letter-spacing:.06em;">Área:</span>
     <select id="ed-area-sel" style="background:#232636;border:1px solid #444870;color:#e8eaf2;font-family:inherit;font-size:11.5px;padding:4px 8px;border-radius:6px;outline:none;min-width:240px;flex:1;max-width:360px;"></select>
-    <span style="font-size:10px;font-weight:600;color:#6b7199;text-transform:uppercase;letter-spacing:.06em;margin-left:8px;">Líneas:</span>
-    <select id="ed-line-style" style="background:#232636;border:1px solid #444870;color:#e8eaf2;font-family:inherit;font-size:11.5px;padding:4px 8px;border-radius:6px;outline:none;">
-      <option value="orthogonal">Ortogonal (escuadra)</option>
-      <option value="diagonal">Diagonal</option>
-      <option value="curved">Curva suave</option>
-    </select>
+    <span style="font-size:10px;color:#6b7199;margin-left:8px;" title="Doble clic en una línea para agregar un punto de quiebre. Click derecho en el punto para eliminarlo.">💡 Doble clic en línea = agregar punto de quiebre · Click derecho = eliminar</span>
     <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
       <span id="ed-saved-msg" style="font-size:11px;color:#22c55e;opacity:0;transition:opacity .3s;">✓ Guardado</span>
       <button id="ed-save-layout" style="background:#4f7ef8;border:none;color:#fff;font-family:inherit;font-size:11.5px;font-weight:500;padding:5px 14px;border-radius:7px;cursor:pointer;">💾 Guardar layout</button>
@@ -752,6 +747,7 @@ function genPageSVG(root,pn,tot){
     nodes.forEach(n=>{n.x-=mnX;n.y-=mnY;});
     const tW=d3.max(nodes,n=>n.x+NW/2),tH=d3.max(nodes,n=>n.y+NH);
     const sc=Math.min(AVAIL_W/tW,HIER_H/tH);
+    const scale2=sc;
     nodes.forEach(n=>{n.x*=sc;n.y*=sc;});
     SNW=NW*sc;SNH=NH*sc;
     sfsN=Math.max(6,Math.min(13,fsN*sc));sfsT=Math.max(5,Math.min(10,fsT*sc));sVPAD=VPAD*sc;
@@ -785,8 +781,27 @@ function genPageSVG(root,pn,tot){
   const hc=getSVGColor(root);
 
   // ── Líneas jerárquicas ──────────────────────────────────
-  // Función de path según estilo guardado
-  function a3LinkPath(sx,sy,tx,ty,isSec){
+  // Leer waypoints guardados para esta área
+  const a3Waypoints=(()=>{try{return(JSON.parse(localStorage.getItem('gcba_org_waypoints_v1')||"{}")[root.id])||{};}catch{return{};}})();
+
+  function wpKeyA3(sid,tid){return sid+"-"+tid;}
+
+  // Función de path según estilo guardado y waypoints
+  function a3LinkPath(sx,sy,tx,ty,isSec,sid,tid){
+    const wps=(a3Waypoints[wpKeyA3(sid,tid)]||[]);
+    if(wps.length>0){
+      // Con waypoints: ortogonal pasando por cada punto
+      const allPts=[{x:sx,y:sy+SNH},...wps.map(wp=>({x:wp.x*scale2||wp.x*(SNW/NW),y:wp.y*scale2||wp.y*(SNH/NH)})),{x:tx,y:ty}];
+      // Usar scale aplicada a las posiciones
+      // Los waypoints están en coordenadas del editor (NW/NH base), escalarlos igual que los nodos
+      const scFactor=useSaved?(SNW/NW):1;
+      const scaledPts=[{x:sx,y:sy+SNH},...wps.map(wp=>({x:wp.x*scFactor,y:wp.y*scFactor})),{x:tx,y:ty}];
+      let d=`M${fv(scaledPts[0].x)},${fv(scaledPts[0].y)}`;
+      for(let i=1;i<scaledPts.length;i++){
+        d+=`L${fv(scaledPts[i-1].x)},${fv(scaledPts[i].y)}L${fv(scaledPts[i].x)},${fv(scaledPts[i].y)}`;
+      }
+      return`<path d="${d}" fill="none" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
+    }
     if(lineStyleA3==='diagonal'){
       return`<line x1="${fv(sx)}" y1="${fv(sy+SNH)}" x2="${fv(tx)}" y2="${fv(ty)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
     } else if(lineStyleA3==='curved'){
@@ -814,7 +829,9 @@ function genPageSVG(root,pn,tot){
 
   let linesSVG="";
   links.forEach(lk=>{
-    linesSVG+=a3LinkPath(lk.source.x,lk.source.y,lk.target.x,lk.target.y,lk.isSec||false);
+    const sid=lk.source.data?.id||"";
+    const tid=lk.target.data?.id||"";
+    linesSVG+=a3LinkPath(lk.source.x,lk.source.y,lk.target.x,lk.target.y,lk.isSec||false,sid,tid);
   });
 
   // ── Nodos ───────────────────────────────────────────────
@@ -1080,15 +1097,35 @@ function ChildCard({node,onClick}){
 /* ── App ─────────────────────────────────────────── */
 /* ── Modal Vista A3 ──────────────────────────────── */
 function ModalA3({data,allNodes,onClose}){
-  const[selId,setSelId]=React.useState(data.id);
+  // Nodos que tiene sentido ver en A3: Ministerios, VJG, SECs directas de JG, ORGs con hijos
+  const a3Nodes=React.useMemo(()=>{
+    const direct=(data.children||[]);
+    const result=[];
+    // Ministerios y VJG
+    direct.filter(n=>n.tipo==="MIN"||n.tipo==="VJG").forEach(n=>result.push(n));
+    // Secretarías directas de JG
+    direct.filter(n=>n.tipo==="SEC").forEach(n=>result.push(n));
+    // Organismos fuera de nivel con hijos propios
+    direct.filter(n=>n.dashed&&(n.children||[]).length>0).forEach(n=>result.push(n));
+    // También organismos dentro de ministerios que tengan hijos (ej: PG, CDNNYA)
+    allNodes.filter(n=>n.dashed&&(n.children||[]).length>0&&!direct.find(d=>d.id===n.id)).forEach(n=>result.push(n));
+    return result;
+  },[data,allNodes]);
+
+  const[selId,setSelId]=React.useState(a3Nodes[0]?.id||data.id);
   const[svgStr,setSvgStr]=React.useState("");
   const selNode=React.useMemo(()=>findNode(data,selId)||data,[data,selId]);
 
   React.useEffect(()=>{
-    try{ setSvgStr(genPageSVG(selNode,1,1)); }catch(e){ console.error(e); }
+    // Leer posiciones frescas de localStorage cada vez que cambia el nodo
+    try{
+      window.__edPositions=JSON.parse(localStorage.getItem('gcba_org_positions_v1')||"{}");
+      setSvgStr(genPageSVG(selNode,1,1));
+    }catch(e){console.error(e);}
   },[selNode]);
 
   const download=()=>{
+    window.__edPositions=JSON.parse(localStorage.getItem('gcba_org_positions_v1')||"{}");
     dlSVG(genPageSVG(selNode,1,1),`organigrama-${selId.toLowerCase()}-A3.svg`);
   };
 
@@ -1100,7 +1137,7 @@ function ModalA3({data,allNodes,onClose}){
           <span style={{color:"#9da3c4",fontSize:12,fontWeight:600,textTransform:"uppercase",letterSpacing:".06em"}}>Vista A3 imprimible</span>
           <select value={selId} onChange={e=>setSelId(e.target.value)}
             style={{background:"#232636",border:"1px solid #444870",color:"#e8eaf2",fontFamily:"inherit",fontSize:12,padding:"6px 10px",borderRadius:7,outline:"none",minWidth:300}}>
-            {allNodes.map(n=><option key={n.id} value={n.id}>[{(COLORS[n.tipo]||COLORS.ORG).label}] {n.nombre}</option>)}
+            {a3Nodes.map(n=><option key={n.id} value={n.id}>[{(COLORS[n.tipo]||COLORS.ORG).label}] {n.nombre}</option>)}
           </select>
           <button onClick={download}
             style={{background:"#4f7ef8",border:"none",color:"#fff",fontFamily:"inherit",fontSize:12,fontWeight:500,padding:"6px 14px",borderRadius:7,cursor:"pointer",marginLeft:"auto"}}>
@@ -1488,19 +1525,22 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     if(!sel||!edData)return;
     const prev=sel.value;
     sel.innerHTML='';
-    // Añadir JG y todos sus hijos directos (MIN, VJG, SEC) y sus hijos
-    const addOption=(node,depth=0)=>{
+    const direct=(edData.children||[]);
+    const addOpt=(node,prefix)=>{
       const opt=document.createElement("option");
       opt.value=node.id;
-      opt.textContent='　'.repeat(depth)+'['+getLabelED(node)+'] '+node.nombre;
+      opt.textContent=prefix+'['+getLabelED(node)+'] '+node.nombre;
       sel.appendChild(opt);
-      // Mostrar hasta profundidad 2 (ministerios y secretarías)
-      if(depth<2)(node.children||[]).filter(c=>!c.dashed).forEach(c=>addOption(c,depth+1));
     };
-    addOption(edData,0);
-    // Restaurar selección previa si existe
+    // Ministerios y VJG primero
+    direct.filter(n=>n.tipo==="MIN"||n.tipo==="VJG").forEach(n=>addOpt(n,""));
+    // Secretarías directas de JG
+    direct.filter(n=>n.tipo==="SEC").forEach(n=>addOpt(n,""));
+    // Organismos fuera de nivel con hijos propios
+    flatED(edData).filter(n=>n.dashed&&(n.children||[]).length>0).forEach(n=>addOpt(n,""));
+    // Restaurar selección previa
     if(prev&&sel.querySelector(`option[value="${prev}"]`)) sel.value=prev;
-    else sel.value=edData.id;
+    else if(sel.options.length>0) sel.value=sel.options[0].value;
   }
 
   // ── Sidebar ──────────────────────────────────────────────
@@ -1537,6 +1577,59 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       // orthogonal
       return`M${sx},${sy+NH}L${sx},${midY}L${tx},${midY}L${tx},${ty}`;
     }
+  }
+
+  // ── Waypoints (puntos intermedios editables de cada línea) ──
+  const WP_KEY='gcba_org_waypoints_v1';
+  let edWaypoints={}; // {`${sid}-${tid}`: [{x,y},...]}
+
+  function loadAllWaypoints(){try{return JSON.parse(localStorage.getItem(WP_KEY)||"{}");}catch{return{};}}
+  function saveWaypointsForRoot(rootId,wps){
+    const all=loadAllWaypoints();all[rootId]=wps;
+    localStorage.setItem(WP_KEY,JSON.stringify(all));
+  }
+  function loadWaypointsForRoot(rootId){return loadAllWaypoints()[rootId]||{};}
+  function clearWaypointsForRoot(rootId){
+    const all=loadAllWaypoints();delete all[rootId];
+    localStorage.setItem(WP_KEY,JSON.stringify(all));
+  }
+
+  function wpKey(sid,tid){return sid+"-"+tid;}
+
+  function orthogonalPath(pts){
+    // pts: [{x,y}...] incluyendo origen y destino
+    // conecta con líneas ortogonales (solo horizontal/vertical)
+    if(pts.length<2)return"";
+    let d=`M${pts[0].x},${pts[0].y}`;
+    for(let i=1;i<pts.length;i++){
+      const prev=pts[i-1],cur=pts[i];
+      // línea ortogonal: va horizontal primero, luego vertical
+      // (o vertical primero, según cuál sea el movimiento dominante)
+      // Para waypoints intermedios simplemente conectamos en L
+      d+=`L${cur.x},${prev.y}L${cur.x},${cur.y}`;
+    }
+    return d;
+  }
+
+  function buildLinkSVGPath(sid,tid){
+    const sp=edPositions[sid]||{x:0,y:0};
+    const tp=edPositions[tid]||{x:0,y:0};
+    const sx=sp.x, sy=sp.y+NH;
+    const tx=tp.x, ty=tp.y;
+    const wps=edWaypoints[wpKey(sid,tid)]||[];
+    if(wps.length===0){
+      // Sin waypoints: ortogonal simple
+      const my=sy+VPAD/2;
+      return`M${sx},${sy}L${sx},${my}L${tx},${my}L${tx},${ty}`;
+    }
+    // Con waypoints: pasa por cada punto intermedio con codos ortogonales
+    const allPts=[{x:sx,y:sy},...wps,{x:tx,y:ty}];
+    let d=`M${allPts[0].x},${allPts[0].y}`;
+    for(let i=1;i<allPts.length;i++){
+      const p=allPts[i];
+      d+=`L${allPts[i-1].x},${p.y}L${p.x},${p.y}`;
+    }
+    return d;
   }
 
   // ── Canvas ────────────────────────────────────────────────
@@ -1592,15 +1685,81 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     svg.call(edZoom).call(edZoom.transform,edTransform);
     g.attr("transform",edTransform);
 
+    // Load waypoints for this view
+    const posKey2=edViewRootId||edCurrentRootId;
+    edWaypoints=loadWaypointsForRoot(posKey2)||{};
+
     const linkG=g.append("g");
+    const wpG=g.append("g"); // waypoint handles layer (above links, below nodes)
+
     function drawLinks(){
-      linkG.selectAll("path").data(links).join("path")
-        .attr("class",d=>"c-link"+(d.dashed?" dashed":""))
-        .attr("d",d=>makeLinkPath(
-          edPositions[d.sid]?.x||0, edPositions[d.sid]?.y||0,
-          edPositions[d.tid]?.x||0, edPositions[d.tid]?.y||0,
-          edLineStyle
-        ));
+      // Draw link paths
+      linkG.selectAll("path.c-link-path").data(links).join("path")
+        .attr("class",d=>"c-link-path c-link"+(d.dashed?" dashed":""))
+        .attr("d",d=>buildLinkSVGPath(d.sid,d.tid));
+
+      // Draw invisible thick hit area for adding waypoints (dbl-click on link)
+      linkG.selectAll("path.c-link-hit").data(links).join("path")
+        .attr("class","c-link-hit")
+        .attr("d",d=>buildLinkSVGPath(d.sid,d.tid))
+        .attr("fill","none").attr("stroke","transparent").attr("stroke-width",12)
+        .style("cursor","crosshair")
+        .on("dblclick",function(e,d){
+          e.stopPropagation();
+          // Agregar waypoint en la posición del click
+          const svgPt=svgEl.createSVGPoint();
+          svgPt.x=e.clientX; svgPt.y=e.clientY;
+          const p=svgPt.matrixTransform(svgEl.getScreenCTM().inverse());
+          // Convertir a coordenadas del grupo (dividir por transform)
+          const gp={x:(p.x-edTransform.x)/edTransform.k, y:(p.y-edTransform.y)/edTransform.k};
+          const k=wpKey(d.sid,d.tid);
+          if(!edWaypoints[k])edWaypoints[k]=[];
+          edWaypoints[k].push({x:gp.x,y:gp.y});
+          saveWaypointsForRoot(posKey2,edWaypoints);
+          drawLinks(); drawWaypoints();
+        });
+
+      // Waypoint handles
+      drawWaypoints();
+    }
+
+    function drawWaypoints(){
+      wpG.selectAll("*").remove();
+      links.forEach(lk=>{
+        const wps=edWaypoints[wpKey(lk.sid,lk.tid)]||[];
+        wps.forEach((wp,i)=>{
+          // Handle circle
+          const circle=wpG.append("circle")
+            .attr("cx",wp.x).attr("cy",wp.y).attr("r",6)
+            .attr("fill","#4f7ef8").attr("stroke","#fff").attr("stroke-width",1.5)
+            .style("cursor","grab");
+
+          // Drag to move waypoint
+          circle.call(d3.drag()
+            .on("drag",function(e){
+              wp.x+=e.dx/edTransform.k;
+              wp.y+=e.dy/edTransform.k;
+              d3.select(this).attr("cx",wp.x).attr("cy",wp.y);
+              drawLinks();
+            })
+            .on("end",()=>{
+              saveWaypointsForRoot(posKey2,edWaypoints);
+              showSavedMsg();
+            })
+          );
+
+          // Right-click to delete waypoint
+          circle.on("contextmenu",function(e){
+            e.preventDefault();
+            e.stopPropagation();
+            const k=wpKey(lk.sid,lk.tid);
+            edWaypoints[k].splice(i,1);
+            if(edWaypoints[k].length===0)delete edWaypoints[k];
+            saveWaypointsForRoot(posKey2,edWaypoints);
+            drawLinks(); drawWaypoints();
+          });
+        });
+      });
     }
     drawLinks();
 
@@ -1790,8 +1949,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
   function edResetLayout(){
     const posKey=edViewRootId||edCurrentRootId;
     if(!posKey)return;
-    if(!confirm("¿Restablecer el layout automático? Se perderán las posiciones que editaste para esta área."))return;
+    if(!confirm("¿Restablecer el layout automático? Se perderán las posiciones y waypoints que editaste para esta área."))return;
     clearPositionsForRoot(posKey);
+    clearWaypointsForRoot(posKey);
     edInitialized=false;
     edTransform=d3.zoomIdentity;
     renderEdCanvas();
@@ -1818,22 +1978,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     document.getElementById("ed-actions").style.display="none";
   };
 
-  // Estilo de líneas
-  document.getElementById("ed-line-style").onchange=function(){
-    edLineStyle=this.value;
-    saveLineStyle(this.value);
-    renderEdCanvas();
-  };
+  // estilo de líneas: siempre ortogonal, se edita con waypoints
 
   // ── Init & sync ───────────────────────────────────────────
   window.addEventListener("editorActivated",e=>{
     edData=e.detail;
     edCurrentRootId=e.detail.id;
     edViewRootId=edViewRootId||e.detail.id;
-    edLineStyle=loadLineStyle();
-    // Restaurar line style selector
-    const lsel=document.getElementById("ed-line-style");
-    if(lsel)lsel.value=edLineStyle;
+    edLineStyle='orthogonal';
     // Restaurar área selector
     populateAreaSelector();
     const asel=document.getElementById("ed-area-sel");
