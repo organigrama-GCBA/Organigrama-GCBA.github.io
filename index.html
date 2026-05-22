@@ -84,11 +84,28 @@ input:focus,select:focus{border-color:var(--azul)!important;box-shadow:0 0 0 3px
 
 <!-- Editor visual D3 — se muestra/oculta desde React -->
 <div id="editor-pane">
-  <div class="ed-sidebar">
-    <div class="ed-sidebar-hd">Estructura</div>
+  <!-- toolbar superior del editor -->
+  <div id="ed-toolbar" style="position:absolute;top:0;left:0;right:0;height:42px;background:#1a1d27;border-bottom:1px solid #333650;display:flex;align-items:center;padding:0 12px;gap:8px;z-index:20;">
+    <span style="font-size:10px;font-weight:600;color:#6b7199;text-transform:uppercase;letter-spacing:.06em;">Área:</span>
+    <select id="ed-area-sel" style="background:#232636;border:1px solid #444870;color:#e8eaf2;font-family:inherit;font-size:11.5px;padding:4px 8px;border-radius:6px;outline:none;min-width:240px;flex:1;max-width:360px;"></select>
+    <span style="font-size:10px;font-weight:600;color:#6b7199;text-transform:uppercase;letter-spacing:.06em;margin-left:8px;">Líneas:</span>
+    <select id="ed-line-style" style="background:#232636;border:1px solid #444870;color:#e8eaf2;font-family:inherit;font-size:11.5px;padding:4px 8px;border-radius:6px;outline:none;">
+      <option value="orthogonal">Ortogonal (escuadra)</option>
+      <option value="diagonal">Diagonal</option>
+      <option value="curved">Curva suave</option>
+    </select>
+    <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+      <span id="ed-saved-msg" style="font-size:11px;color:#22c55e;opacity:0;transition:opacity .3s;">✓ Guardado</span>
+      <button id="ed-save-layout" style="background:#4f7ef8;border:none;color:#fff;font-family:inherit;font-size:11.5px;font-weight:500;padding:5px 14px;border-radius:7px;cursor:pointer;">💾 Guardar layout</button>
+      <button id="ed-reset-layout-btn" onclick="window.edResetLayout&&window.edResetLayout()" style="background:#232636;border:1px solid #444870;color:#9da3c4;font-family:inherit;font-size:11.5px;padding:5px 12px;border-radius:7px;cursor:pointer;" title="Volver al layout automático D3">↺ Resetear</button>
+      <button onclick="window.__switchToOrganigrama&&window.__switchToOrganigrama()" style="background:#232636;border:1px solid #4f7ef8;color:#7c9fff;font-family:inherit;font-size:11.5px;font-weight:500;padding:5px 12px;border-radius:7px;cursor:pointer;" title="Volver al organigrama">← Organigrama</button>
+    </div>
+  </div>
+  <div class="ed-sidebar" style="margin-top:42px;">
+    <div class="ed-sidebar-hd">Nodos</div>
     <div class="ed-node-list" id="ed-node-list"></div>
   </div>
-  <div class="ed-canvas" id="ed-canvas">
+  <div class="ed-canvas" id="ed-canvas" style="margin-top:42px;">
     <svg id="ed-svg"></svg>
     <div class="ed-zoom">
       <button class="ed-zb" id="ed-zi" title="Acercar">+</button>
@@ -97,7 +114,7 @@ input:focus,select:focus{border-color:var(--azul)!important;box-shadow:0 0 0 3px
       <button class="ed-zb" id="ed-reset-layout" onclick="window.edResetLayout&&window.edResetLayout()" title="Restablecer layout automático" style="font-size:12px;">↺</button>
     </div>
   </div>
-  <div class="ed-inspector">
+  <div class="ed-inspector" style="margin-top:42px;">
     <div class="ed-ins-hd">Inspector <span class="ed-ins-id" id="ed-ins-id"></span></div>
     <div class="ed-ins-body" id="ed-ins-body">
       <div class="ed-ins-empty"><div class="ico">⬡</div><p>Seleccioná un nodo</p></div>
@@ -706,7 +723,10 @@ function genPageSVG(root,pn,tot){
   const sw=Math.max(0.8, NW/220);
 
   // ── Layout: posiciones del editor visual o automático D3 ──
+  // Posiciones guardadas por área (clave = root.id del área que se editó)
   const savedPos=(window.__edPositions||{})[root.id]||null;
+  // Estilo de línea guardado
+  const lineStyleA3=(()=>{try{return localStorage.getItem('gcba_org_linestyle_v1')||'orthogonal';}catch{return'orthogonal';}})();
   const useSaved=savedPos&&Object.keys(savedPos).length>0;
 
   let nodes,links,SNW,SNH,sfsN,sfsT,sVPAD,ox,oy;
@@ -765,36 +785,36 @@ function genPageSVG(root,pn,tot){
   const hc=getSVGColor(root);
 
   // ── Líneas jerárquicas ──────────────────────────────────
-  // Para JG las SEC usan un carril lateral izquierdo para no cruzar ministerios
-  const minNodesX=nodes.filter(n=>n.depth===1&&(n.data.tipo==="MIN"||n.data.tipo==="VJG")).map(n=>n.x);
-  const leftRailX=minNodesX.length>0?Math.min(...minNodesX)-SNW/2-8:ox-8;
+  // Función de path según estilo guardado
+  function a3LinkPath(sx,sy,tx,ty,isSec){
+    if(lineStyleA3==='diagonal'){
+      return`<line x1="${fv(sx)}" y1="${fv(sy+SNH)}" x2="${fv(tx)}" y2="${fv(ty)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
+    } else if(lineStyleA3==='curved'){
+      const cy1=sy+SNH+(ty-(sy+SNH))*0.4;
+      const cy2=sy+SNH+(ty-(sy+SNH))*0.6;
+      return`<path d="M${fv(sx)},${fv(sy+SNH)}C${fv(sx)},${fv(cy1)} ${fv(tx)},${fv(cy2)} ${fv(tx)},${fv(ty)}" fill="none" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
+    } else {
+      // orthogonal — con rail especial para SEC en JG
+      if(isSec){
+        const minNodesX2=nodes.filter(n=>n.depth===1&&(n.data.tipo==="MIN"||n.data.tipo==="VJG")).map(n=>n.x);
+        const railX=minNodesX2.length>0?Math.min(...minNodesX2)-SNW/2-8:0;
+        const b1=sy+SNH+sVPAD/2,mr=ty-sVPAD/2;
+        return`<line x1="${fv(sx)}" y1="${fv(sy+SNH)}" x2="${fv(sx)}" y2="${fv(b1)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`+
+               `<line x1="${fv(sx)}" y1="${fv(b1)}" x2="${fv(railX)}" y2="${fv(b1)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`+
+               `<line x1="${fv(railX)}" y1="${fv(b1)}" x2="${fv(railX)}" y2="${fv(mr)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`+
+               `<line x1="${fv(railX)}" y1="${fv(mr)}" x2="${fv(tx)}" y2="${fv(mr)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`+
+               `<line x1="${fv(tx)}" y1="${fv(mr)}" x2="${fv(tx)}" y2="${fv(ty)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
+      }
+      const mid=sy+SNH+sVPAD/2;
+      return`<line x1="${fv(sx)}" y1="${fv(sy+SNH)}" x2="${fv(sx)}" y2="${fv(mid)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`+
+             `<line x1="${fv(sx)}" y1="${fv(mid)}" x2="${fv(tx)}" y2="${fv(mid)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`+
+             `<line x1="${fv(tx)}" y1="${fv(mid)}" x2="${fv(tx)}" y2="${fv(ty)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
+    }
+  }
 
   let linesSVG="";
   links.forEach(lk=>{
-    const sx=lk.source.x, sy=lk.source.y+SNH;
-    const tx=lk.target.x, ty=lk.target.y;
-
-    if(lk.isSec){
-      // Línea SEC: baja del JG por carril izquierdo, horizontal a cada SEC
-      const railX=leftRailX;
-      const botRow1=sy+sVPAD/2; // nivel entre JG y MIN row
-      const midRow=ty-sVPAD/2;  // nivel entre MIN row y SEC row
-      // Baja del JG al nivel entre filas
-      linesSVG+=`<line x1="${fv(sx)}" y1="${fv(sy)}" x2="${fv(sx)}" y2="${fv(botRow1)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
-      // Va al rail izquierdo
-      linesSVG+=`<line x1="${fv(sx)}" y1="${fv(botRow1)}" x2="${fv(railX)}" y2="${fv(botRow1)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
-      // Baja por el rail hasta el nivel de la fila SEC
-      linesSVG+=`<line x1="${fv(railX)}" y1="${fv(botRow1)}" x2="${fv(railX)}" y2="${fv(midRow)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
-      // Va horizontalmente al SEC
-      linesSVG+=`<line x1="${fv(railX)}" y1="${fv(midRow)}" x2="${fv(tx)}" y2="${fv(midRow)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
-      // Sube al SEC
-      linesSVG+=`<line x1="${fv(tx)}" y1="${fv(midRow)}" x2="${fv(tx)}" y2="${fv(ty)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
-    } else {
-      const mid=sy+sVPAD/2;
-      linesSVG+=`<line x1="${fv(sx)}" y1="${fv(sy)}" x2="${fv(sx)}" y2="${fv(mid)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
-      linesSVG+=`<line x1="${fv(sx)}" y1="${fv(mid)}" x2="${fv(tx)}" y2="${fv(mid)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
-      linesSVG+=`<line x1="${fv(tx)}" y1="${fv(mid)}" x2="${fv(tx)}" y2="${fv(ty)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
-    }
+    linesSVG+=a3LinkPath(lk.source.x,lk.source.y,lk.target.x,lk.target.y,lk.isSec||false);
   });
 
   // ── Nodos ───────────────────────────────────────────────
@@ -1111,6 +1131,11 @@ function App(){
   const[showA3,setShowA3]=useState(false);
   const[activeTab,setActiveTab]=useState("organigrama"); // "organigrama"|"editor"|"a3"
 
+  // Exponer función para que el botón del editor pueda volver al organigrama
+  useEffect(()=>{
+    window.__switchToOrganigrama=()=>setActiveTab("organigrama");
+  },[]);
+
   // Sync data to D3 editor when tab switches or data changes
   useEffect(()=>{
     window.__orgData=data;
@@ -1407,33 +1432,28 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 <script>
 (function(){
   // ═══ POSICIONES PERSISTENTES ═══════════════════════════════
-  // edPositions: {rootId: {nodeId: {x,y}, ...}}
-  // Se guarda en localStorage para que el A3 las use
-  const POS_KEY = 'gcba_org_positions_v1';
-  let edPositions = {};  // posiciones del canvas actual, keyed por nodeId
-  let edCurrentRootId = null;
+  const POS_KEY='gcba_org_positions_v1';
+  const STYLE_KEY='gcba_org_linestyle_v1';
+  let edPositions={};
+  let edCurrentRootId=null;
+  let edLineStyle='orthogonal'; // orthogonal | diagonal | curved
+  let edViewRootId=null; // el subárbol que se está mostrando actualmente
 
-  function loadAllPositions(){
-    try{ return JSON.parse(localStorage.getItem(POS_KEY)||"{}"); }catch{ return {}; }
+  function loadAllPositions(){try{return JSON.parse(localStorage.getItem(POS_KEY)||"{}");}catch{return{};}}
+  function savePositionsForRoot(rootId,positions){
+    const all=loadAllPositions();all[rootId]=positions;
+    localStorage.setItem(POS_KEY,JSON.stringify(all));
+    window.__edPositions=all;
   }
-  function savePositionsForRoot(rootId, positions){
-    const all = loadAllPositions();
-    all[rootId] = positions;
-    localStorage.setItem(POS_KEY, JSON.stringify(all));
-    // también exponerlas globalmente para que genPageSVG las use
-    window.__edPositions = all;
-  }
-  function loadPositionsForRoot(rootId){
-    return loadAllPositions()[rootId] || null;
-  }
+  function loadPositionsForRoot(rootId){return loadAllPositions()[rootId]||null;}
   function clearPositionsForRoot(rootId){
-    const all = loadAllPositions();
-    delete all[rootId];
-    localStorage.setItem(POS_KEY, JSON.stringify(all));
-    window.__edPositions = all;
+    const all=loadAllPositions();delete all[rootId];
+    localStorage.setItem(POS_KEY,JSON.stringify(all));
+    window.__edPositions=all;
   }
-  // Exponer al cargar
-  window.__edPositions = loadAllPositions();
+  function saveLineStyle(style){localStorage.setItem(STYLE_KEY,style);}
+  function loadLineStyle(){return localStorage.getItem(STYLE_KEY)||'orthogonal';}
+  window.__edPositions=loadAllPositions();
 
   const COLORS_ED={JG:"#9B1C1C",VJG:"#9B1C1C",MIN:"#92400E",SEC:"#78350F",SS:"#1E3A5F",DG:"#14532D",GG:"#065F46",GO:"#064E3B",ORG:"#374151"};
   const LABELS_ED={JG:"Jefatura",VJG:"Vicejefatura",MIN:"Ministerio",SEC:"Secretaría",SS:"Subsecretaría",DG:"Dir. General",GG:"Gerencia General",GO:"Gerencia Operativa",ORG:"Organismo desc."};
@@ -1447,11 +1467,40 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
   function moveED(tree,nodeId,newPid){const node=findED(tree,nodeId);if(!node)return tree;return addChildED(removeED(tree,nodeId),newPid,node);}
 
   const NW=158,NH=50,HPAD=18,VPAD=58;
-  let edData=null, edSelectedId=null, edZoom=null, edTransform=d3.zoomIdentity, edInitialized=false;
+  let edData=null,edSelectedId=null,edZoom=null,edTransform=d3.zoomIdentity,edInitialized=false;
 
   function edDispatch(newData){
     edData=newData;
     window.dispatchEvent(new CustomEvent("editorDataChanged",{detail:JSON.parse(JSON.stringify(newData))}));
+  }
+
+  function showSavedMsg(){
+    const el=document.getElementById("ed-saved-msg");
+    if(!el)return;
+    el.style.opacity="1";
+    clearTimeout(el._t);
+    el._t=setTimeout(()=>{el.style.opacity="0";},2000);
+  }
+
+  // ── Área selector ─────────────────────────────────────────
+  function populateAreaSelector(){
+    const sel=document.getElementById("ed-area-sel");
+    if(!sel||!edData)return;
+    const prev=sel.value;
+    sel.innerHTML='';
+    // Añadir JG y todos sus hijos directos (MIN, VJG, SEC) y sus hijos
+    const addOption=(node,depth=0)=>{
+      const opt=document.createElement("option");
+      opt.value=node.id;
+      opt.textContent='　'.repeat(depth)+'['+getLabelED(node)+'] '+node.nombre;
+      sel.appendChild(opt);
+      // Mostrar hasta profundidad 2 (ministerios y secretarías)
+      if(depth<2)(node.children||[]).filter(c=>!c.dashed).forEach(c=>addOption(c,depth+1));
+    };
+    addOption(edData,0);
+    // Restaurar selección previa si existe
+    if(prev&&sel.querySelector(`option[value="${prev}"]`)) sel.value=prev;
+    else sel.value=edData.id;
   }
 
   // ── Sidebar ──────────────────────────────────────────────
@@ -1470,7 +1519,24 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     const el=document.getElementById("ed-node-list");
     if(!el||!edData)return;
     el.innerHTML="";
-    buildEdSidebar(edData,el);
+    // Mostrar solo el subárbol del área seleccionada
+    const viewRoot=edViewRootId?findED(edData,edViewRootId):edData;
+    if(viewRoot) buildEdSidebar(viewRoot,el);
+  }
+
+  // ── Link path según estilo ─────────────────────────────────
+  function makeLinkPath(sx,sy,tx,ty,style){
+    const midY=sy+NH+VPAD/2;
+    if(style==='diagonal'){
+      return`M${sx},${sy+NH}L${tx},${ty}`;
+    } else if(style==='curved'){
+      const cy1=sy+NH+(ty-(sy+NH))*0.4;
+      const cy2=sy+NH+(ty-(sy+NH))*0.6;
+      return`M${sx},${sy+NH}C${sx},${cy1} ${tx},${cy2} ${tx},${ty}`;
+    } else {
+      // orthogonal
+      return`M${sx},${sy+NH}L${sx},${midY}L${tx},${midY}L${tx},${ty}`;
+    }
   }
 
   // ── Canvas ────────────────────────────────────────────────
@@ -1483,9 +1549,13 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     const svg=d3.select(svgEl).attr("width",W).attr("height",H);
     svg.selectAll("*").remove();
 
-    // ── Calcular posiciones D3 base
+    // El subárbol a mostrar
+    const viewRoot=edViewRootId?findED(edData,edViewRootId):edData;
+    if(!viewRoot)return;
+
+    // Layout D3 base para el subárbol actual
     function toH(node){const kids=(node.children||[]);return{...node,_k:kids.map(toH),children:undefined};}
-    const root=d3.hierarchy(toH(edData),d=>d._k.length?d._k:null);
+    const root=d3.hierarchy(toH(viewRoot),d=>d._k.length?d._k:null);
     d3.tree().nodeSize([NW+HPAD,NH+VPAD])(root);
     const d3pos={};
     root.each(n=>{d3pos[n.data.id]={x:n.x,y:n.y};});
@@ -1494,20 +1564,17 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     const minY=Math.min(...allD3.map(p=>p.y));
     Object.keys(d3pos).forEach(id=>{d3pos[id].x-=minX;d3pos[id].y-=minY;});
 
-    // ── Usar posiciones guardadas si existen, rellenar con D3 para nodos nuevos
-    const saved = loadPositionsForRoot(edCurrentRootId) || {};
-    edPositions = {};
-    const allNodes=flatED(edData);
+    // Usar posiciones guardadas (clave = viewRoot.id para que cada área tenga las suyas)
+    const posKey=edViewRootId||edCurrentRootId;
+    const saved=loadPositionsForRoot(posKey)||{};
+    edPositions={};
+    const allNodes=flatED(viewRoot);
     allNodes.forEach(n=>{
-      if(saved[n.id]){
-        edPositions[n.id]={x:saved[n.id].x, y:saved[n.id].y};
-      } else {
-        // nodo nuevo sin posición guardada: usar D3
-        edPositions[n.id]={...(d3pos[n.id]||{x:0,y:0})};
-      }
+      if(saved[n.id]) edPositions[n.id]={x:saved[n.id].x,y:saved[n.id].y};
+      else edPositions[n.id]={...(d3pos[n.id]||{x:0,y:0})};
     });
 
-    // ── Build links usando edPositions
+    // Links
     const links=[];
     function buildL(node){
       const pos=edPositions[node.id];
@@ -1518,26 +1585,25 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
         buildL(ch);
       });
     }
-    buildL(edData);
+    buildL(viewRoot);
 
     const g=svg.append("g").attr("class","canvas-root");
     edZoom=d3.zoom().scaleExtent([0.04,3]).on("zoom",e=>{edTransform=e.transform;g.attr("transform",e.transform);});
     svg.call(edZoom).call(edZoom.transform,edTransform);
     g.attr("transform",edTransform);
 
-    // Links
     const linkG=g.append("g");
-    function linkPath(sid,tid){
-      const sp=edPositions[sid]||{x:0,y:0};
-      const tp=edPositions[tid]||{x:0,y:0};
-      const my=sp.y+NH+VPAD/2;
-      return`M${sp.x},${sp.y+NH}L${sp.x},${my}L${tp.x},${my}L${tp.x},${tp.y}`;
+    function drawLinks(){
+      linkG.selectAll("path").data(links).join("path")
+        .attr("class",d=>"c-link"+(d.dashed?" dashed":""))
+        .attr("d",d=>makeLinkPath(
+          edPositions[d.sid]?.x||0, edPositions[d.sid]?.y||0,
+          edPositions[d.tid]?.x||0, edPositions[d.tid]?.y||0,
+          edLineStyle
+        ));
     }
-    linkG.selectAll("path").data(links).enter().append("path")
-      .attr("class",d=>"c-link"+(d.dashed?" dashed":""))
-      .attr("d",d=>linkPath(d.sid,d.tid));
+    drawLinks();
 
-    // Nodes
     const nodeG=g.append("g");
     const ng=nodeG.selectAll("g.c-node").data(allNodes,d=>d.id).enter()
       .append("g").attr("class",d=>"c-node"+(d.id===edSelectedId?" sel":""))
@@ -1551,11 +1617,12 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
         edPositions[d.id].x+=e.dx/edTransform.k;
         edPositions[d.id].y+=e.dy/edTransform.k;
         d3.select(this).attr("transform",`translate(${edPositions[d.id].x-NW/2},${edPositions[d.id].y})`);
-        linkG.selectAll("path").attr("d",lk=>linkPath(lk.sid,lk.tid));
+        drawLinks();
       })
-      .on("end",function(){
-        // Guardar posiciones en localStorage al soltar el nodo
-        savePositionsForRoot(edCurrentRootId, edPositions);
+      .on("end",()=>{
+        // Auto-save on drag end
+        savePositionsForRoot(posKey,edPositions);
+        showSavedMsg();
       })
     );
 
@@ -1588,16 +1655,16 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
     svg.on("click",()=>edSelect(null));
 
-    // Auto-fit primera vez o si no hay posiciones guardadas
-    const hasSaved = Object.keys(saved).length > 0;
-    if(!hasSaved || !edInitialized){
+    // Auto-fit si no hay posiciones guardadas
+    const hasSaved=Object.keys(saved).length>0;
+    if(!hasSaved||!edInitialized){
       edInitialized=true;
       const allP=Object.values(edPositions);
-      const mxX=Math.max(...allP.map(p=>p.x))+NW/2+20;
-      const myX=Math.max(...allP.map(p=>p.y))+NH+20;
-      const mnX2=Math.min(...allP.map(p=>p.x))-NW/2-20;
-      const mnY2=Math.min(...allP.map(p=>p.y))-20;
-      const sc=Math.min(W/(mxX-mnX2),H/(myX-mnY2),1)*0.9;
+      const mxX=Math.max(...allP.map(p=>p.x))+NW/2+30;
+      const myX=Math.max(...allP.map(p=>p.y))+NH+30;
+      const mnX2=Math.min(...allP.map(p=>p.x))-NW/2-30;
+      const mnY2=Math.min(...allP.map(p=>p.y))-30;
+      const sc=Math.min(W/(mxX-mnX2),H/(myX-mnY2),1)*0.88;
       const tx=W/2-(mnX2+(mxX-mnX2)/2)*sc;
       const ty=H/2-(mnY2+(myX-mnY2)/2)*sc;
       edTransform=d3.zoomIdentity.translate(tx,ty).scale(sc);
@@ -1665,6 +1732,15 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     refreshEdSidebar();
     renderEdCanvas();
     edSelect(edSelectedId);
+    showSavedMsg();
+  }
+
+  function edSaveLayout(){
+    const posKey=edViewRootId||edCurrentRootId;
+    if(posKey&&Object.keys(edPositions).length>0){
+      savePositionsForRoot(posKey,edPositions);
+      showSavedMsg();
+    }
   }
 
   function edDelete(){
@@ -1679,6 +1755,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     renderEdCanvas();
     renderEdInspector(null);
     document.getElementById("ed-actions").style.display="none";
+    showSavedMsg();
   }
 
   function edMoveModal(){
@@ -1704,34 +1781,66 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       if(newPid&&newPid!==edSelectedId){
         const newData=moveED(edData,edSelectedId,newPid);
         edData=newData;edDispatch(newData);refreshEdSidebar();renderEdCanvas();
+        showSavedMsg();
       }
       overlay.remove();
     };
   }
 
   function edResetLayout(){
-    if(!edCurrentRootId)return;
-    if(!confirm("¿Restablecer el layout automático? Se perderán las posiciones que editaste."))return;
-    clearPositionsForRoot(edCurrentRootId);
+    const posKey=edViewRootId||edCurrentRootId;
+    if(!posKey)return;
+    if(!confirm("¿Restablecer el layout automático? Se perderán las posiciones que editaste para esta área."))return;
+    clearPositionsForRoot(posKey);
     edInitialized=false;
     edTransform=d3.zoomIdentity;
     renderEdCanvas();
   }
 
-  // ── Zoom buttons ──────────────────────────────────────────
-  document.getElementById("ed-zi").onclick=()=>{ if(edZoom)d3.select("#ed-svg").call(edZoom.scaleBy,1.3); };
-  document.getElementById("ed-zo").onclick=()=>{ if(edZoom)d3.select("#ed-svg").call(edZoom.scaleBy,0.77); };
-  document.getElementById("ed-zr").onclick=()=>{ edTransform=d3.zoomIdentity; edInitialized=false; renderEdCanvas(); };
+  // ── Wire up controls ──────────────────────────────────────
+  document.getElementById("ed-zi").onclick=()=>{if(edZoom)d3.select("#ed-svg").call(edZoom.scaleBy,1.3);};
+  document.getElementById("ed-zo").onclick=()=>{if(edZoom)d3.select("#ed-svg").call(edZoom.scaleBy,0.77);};
+  document.getElementById("ed-zr").onclick=()=>{edTransform=d3.zoomIdentity;edInitialized=false;renderEdCanvas();};
   document.getElementById("ed-save").onclick=()=>edSave();
   document.getElementById("ed-move").onclick=()=>edMoveModal();
   document.getElementById("ed-del").onclick=()=>edDelete();
+  document.getElementById("ed-save-layout").onclick=()=>edSaveLayout();
+
+  // Área selector: cambiar subárbol
+  document.getElementById("ed-area-sel").onchange=function(){
+    edViewRootId=this.value;
+    edSelectedId=null;
+    edInitialized=false;
+    edTransform=d3.zoomIdentity;
+    refreshEdSidebar();
+    renderEdCanvas();
+    renderEdInspector(null);
+    document.getElementById("ed-actions").style.display="none";
+  };
+
+  // Estilo de líneas
+  document.getElementById("ed-line-style").onchange=function(){
+    edLineStyle=this.value;
+    saveLineStyle(this.value);
+    renderEdCanvas();
+  };
 
   // ── Init & sync ───────────────────────────────────────────
   window.addEventListener("editorActivated",e=>{
     edData=e.detail;
-    edCurrentRootId=e.detail.id; // siempre JG en esta app
-    // No resetear transform ni initialized si ya hay posiciones guardadas
-    const saved=loadPositionsForRoot(edCurrentRootId);
+    edCurrentRootId=e.detail.id;
+    edViewRootId=edViewRootId||e.detail.id;
+    edLineStyle=loadLineStyle();
+    // Restaurar line style selector
+    const lsel=document.getElementById("ed-line-style");
+    if(lsel)lsel.value=edLineStyle;
+    // Restaurar área selector
+    populateAreaSelector();
+    const asel=document.getElementById("ed-area-sel");
+    if(asel&&edViewRootId)asel.value=edViewRootId;
+    // No resetear si ya hay posiciones guardadas
+    const posKey=edViewRootId||edCurrentRootId;
+    const saved=loadPositionsForRoot(posKey);
     if(!saved||Object.keys(saved).length===0){
       edInitialized=false;
       edTransform=d3.zoomIdentity;
@@ -1742,18 +1851,19 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
   window.addEventListener("orgDataChanged",e=>{
     edData=e.detail;
-    if(!edCurrentRootId) edCurrentRootId=e.detail.id;
+    if(!edCurrentRootId)edCurrentRootId=e.detail.id;
+    if(!edViewRootId)edViewRootId=e.detail.id;
     if(document.getElementById("editor-pane").classList.contains("active")){
+      populateAreaSelector();
       refreshEdSidebar();
       renderEdCanvas();
     }
   });
 
   window.addEventListener("resize",()=>{
-    if(document.getElementById("editor-pane").classList.contains("active")) renderEdCanvas();
+    if(document.getElementById("editor-pane").classList.contains("active"))renderEdCanvas();
   });
 
-  // Exponer función reset para el botón en React
   window.edResetLayout=edResetLayout;
 })();
 </script>
