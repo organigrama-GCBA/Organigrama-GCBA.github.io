@@ -113,7 +113,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
   <div id="ed-toolbar">
     <span style="font-size:10px;font-weight:600;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.06em;">Área:</span>
     <select id="ed-area-sel" style="min-width:240px;flex:1;max-width:380px;"></select>
-    <span style="font-size:10px;color:var(--ed-text3);margin-left:8px;">· doble clic en línea = punto de quiebre · clic der en punto = eliminar</span>
+    <span style="font-size:10px;color:var(--ed-text3);margin-left:8px;">· clic en línea = seleccionar · clic derecho en línea = punto de quiebre · clic derecho en punto = eliminar</span>
     <span style="font-size:10px;color:var(--ed-text3);margin-left:12px;">Nodo:</span>
     <span style="font-size:10px;color:var(--ed-text3);">Texto</span>
     <input id="ed-fs" type="number" min="6" max="20" step="0.5" value="9.5"
@@ -876,7 +876,23 @@ const INITIAL={
 
 
 const STORAGE_KEY="gcba_org_v2";
-function loadData(){try{const s=localStorage.getItem(STORAGE_KEY);return s?JSON.parse(s):INITIAL;}catch{return INITIAL;}}
+const APP_VERSION="20260523"; // Cambia con cada nueva versión del archivo
+const VERSION_KEY="gcba_org_version";
+function loadData(){
+  try{
+    const savedVersion=localStorage.getItem(VERSION_KEY);
+    if(savedVersion!==APP_VERSION){
+      // Versión nueva del archivo — limpiar caché y arrancar fresco
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem("gcba_org_positions_v1");
+      localStorage.removeItem("gcba_org_waypoints_v1");
+      localStorage.setItem(VERSION_KEY,APP_VERSION);
+      return INITIAL;
+    }
+    const s=localStorage.getItem(STORAGE_KEY);
+    return s?JSON.parse(s):INITIAL;
+  }catch{return INITIAL;}
+}
 function saveData(d){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}catch{}}
 
 // ── Utilidades de árbol ──────────────────────────────────
@@ -1459,9 +1475,14 @@ function App(){
         {/* Sidebar — solo en pestaña organigrama */}
         {activeTab!=="arbol"&&<>
         <div className="sidebar">
-          <div style={{padding:"10px 12px",borderBottom:"1px solid #E2E8F0",background:"#F3F6F9"}}>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Buscar organismo o titular…"
-              style={{width:"100%",border:"1px solid #CBD5E0",borderRadius:8,padding:"7px 10px",fontSize:12,fontFamily:"inherit",outline:"none"}}/>
+          <div style={{padding:"12px 14px",borderBottom:"1px solid #E2E8F0",background:"#F3F6F9"}}>
+            <div style={{fontSize:10,fontWeight:700,color:"#9AABB8",textTransform:"uppercase",letterSpacing:".07em",marginBottom:8}}>Organismos</div>
+            <div style={{position:"relative"}}>
+              <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",fontSize:12,pointerEvents:"none",opacity:.5}}>🔍</span>
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar organismo o titular…"
+                style={{width:"100%",border:"1px solid #CBD5E0",borderRadius:8,padding:"7px 10px 7px 28px",fontSize:11.5,fontFamily:"inherit",outline:"none",background:"#fff"}}/>
+              {search&&<button onClick={()=>setSearch("")} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#A0AEC0",lineHeight:1}}>×</button>}
+            </div>
           </div>
           <div style={{flex:1,overflow:"auto"}}>
             {filtered
@@ -1481,38 +1502,84 @@ function App(){
           {selected?(
             <div style={{flex:1,overflow:"auto",padding:24}}>
               {/* Header del nodo */}
-              <div style={{borderRadius:12,padding:"20px 24px",marginBottom:20,background:color,color:"#fff"}}>
-                <div style={{fontSize:10,fontWeight:600,opacity:.7,textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>
-                  {getLabel(selected)}{selected.dashed?" · Dependencia funcional":""}
+              <div style={{borderRadius:12,marginBottom:20,overflow:"hidden",boxShadow:"0 2px 12px rgba(0,0,0,.1)"}}>
+                {/* Color bar top */}
+                <div style={{background:color,padding:"16px 20px 14px"}}>
+                  <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
+                    {/* Iniciales / avatar */}
+                    <div style={{width:42,height:42,borderRadius:10,background:"rgba(255,255,255,.2)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:15,fontWeight:700,color:"#fff"}}>
+                      {selected.nombre.split(" ").filter(w=>w.length>2).slice(0,2).map(w=>w[0]).join("")}
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                        <span style={{fontSize:9,fontWeight:700,background:"rgba(255,255,255,.2)",padding:"2px 7px",borderRadius:20,color:"rgba(255,255,255,.9)",letterSpacing:".05em",textTransform:"uppercase"}}>
+                          {getLabel(selected)}{selected.dashed?" · Func.":""}
+                        </span>
+                      </div>
+                      <div style={{fontSize:17,fontWeight:700,color:"#fff",lineHeight:1.25,wordBreak:"break-word"}}>{selected.nombre}</div>
+                    </div>
+                  </div>
                 </div>
-                <div style={{fontSize:22,fontWeight:700,lineHeight:1.2,marginBottom:4}}>{selected.nombre}</div>
-                {selected.titular&&<div style={{fontSize:14,opacity:.85}}>{selected.titular}</div>}
-                <div style={{marginTop:14,display:"flex",gap:8,flexWrap:"wrap"}}>
-                  <Btn variant="secondary" small onClick={()=>openEdit(selected)}>✏️ Editar</Btn>
-                  {selected.id!=="JG"&&<>
-                    <Btn variant="secondary" small onClick={openMove}>↕ Mover</Btn>
-                    <Btn variant="danger" small onClick={del}>✕ Eliminar</Btn>
-                  </>}
-                  <Btn variant="secondary" small onClick={()=>{dlSVG(genSVGA3(selected,1,1),`organigrama-${selected.id}-A3.svg`);}}>🖨 Descargar A3</Btn>
+                {/* Titular + acciones — fondo blanco */}
+                <div style={{background:"#fff",padding:"12px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",borderTop:"1px solid rgba(0,0,0,.06)"}}>
+                  <div>
+                    {selected.titular
+                      ? <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <div style={{width:6,height:6,borderRadius:"50%",background:color,flexShrink:0}}/>
+                          <span style={{fontSize:12,color:"#38485C",fontWeight:500}}>{selected.titular}</span>
+                        </div>
+                      : <span style={{fontSize:11,color:"#A0AEC0",fontStyle:"italic"}}>Sin titular asignado</span>
+                    }
+                  </div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    <Btn variant="secondary" small onClick={()=>openEdit(selected)}>✏️ Editar</Btn>
+                    {selected.id!=="JG"&&<>
+                      <Btn variant="secondary" small onClick={openMove}>↕ Mover</Btn>
+                      <Btn variant="danger" small onClick={del}>✕ Eliminar</Btn>
+                    </>}
+                    <Btn variant="secondary" small onClick={()=>{dlSVG(genSVGA3(selected,1,1),`organigrama-${selected.id}-A3.svg`);}}>🖨 A3</Btn>
+                  </div>
                 </div>
               </div>
               {/* Dependencias */}
               {(selected.children||[]).length>0&&(
                 <div>
-                  <div style={{fontSize:11,fontWeight:600,color:"#718096",textTransform:"uppercase",letterSpacing:".06em",marginBottom:10}}>
-                    Dependencias ({(selected.children||[]).length})
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <div style={{width:3,height:16,borderRadius:2,background:color}}/>
+                      <span style={{fontSize:11,fontWeight:700,color:"#38485C",textTransform:"uppercase",letterSpacing:".06em"}}>
+                        Dependencias
+                      </span>
+                      <span style={{fontSize:10,background:"#EBF4FF",color:"#007BC7",fontWeight:700,padding:"1px 7px",borderRadius:20}}>
+                        {(selected.children||[]).length}
+                      </span>
+                    </div>
                   </div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:10}}>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:8}}>
                     {(selected.children||[]).map(ch=>(
                       <div key={ch.id} onClick={()=>setSelected(ch)}
-                        style={{borderRadius:8,padding:"12px 14px",background:"#fff",border:"1px solid #E2E8F0",
-                          cursor:"pointer",borderLeft:`4px solid ${getColor(ch)}`,transition:"box-shadow .15s"}}
-                        onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 12px rgba(0,0,0,.08)"}
-                        onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
-                        <div style={{fontSize:11,fontWeight:500,color:getColor(ch),marginBottom:3}}>{getLabel(ch)}</div>
-                        <div style={{fontSize:13,fontWeight:600,color:"#1A202C",marginBottom:3}}>{ch.nombre}</div>
-                        {ch.titular&&<div style={{fontSize:11,color:"#718096"}}>{ch.titular}</div>}
-                        {(ch.children||[]).length>0&&<div style={{fontSize:10,color:"#A0AEC0",marginTop:4}}>{ch.children.length} dependencias</div>}
+                        style={{borderRadius:9,background:"#fff",border:"1px solid #E8EDF2",
+                          cursor:"pointer",overflow:"hidden",transition:"all .15s",
+                          boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}
+                        onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 14px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-1px)";}}
+                        onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.04)";e.currentTarget.style.transform="";}}>
+                        {/* Color strip */}
+                        <div style={{height:4,background:getColor(ch),opacity:ch.dashed?.6:1}}/>
+                        <div style={{padding:"10px 12px"}}>
+                          <div style={{fontSize:9,fontWeight:700,color:getColor(ch),textTransform:"uppercase",letterSpacing:".05em",marginBottom:4,opacity:ch.dashed?.7:1}}>
+                            {getLabel(ch)}{ch.dashed?" · Func.":""}
+                          </div>
+                          <div style={{fontSize:12,fontWeight:600,color:"#2D3748",lineHeight:1.35,marginBottom:ch.titular?4:0}}>
+                            {ch.nombre}
+                          </div>
+                          {ch.titular&&<div style={{fontSize:10.5,color:"#718096",lineHeight:1.3}}>{ch.titular}</div>}
+                          {(ch.children||[]).length>0&&(
+                            <div style={{marginTop:6,display:"flex",alignItems:"center",gap:4}}>
+                              <div style={{width:14,height:2,background:"#E2E8F0",borderRadius:2}}/>
+                              <span style={{fontSize:9.5,color:"#A0AEC0",fontWeight:500}}>{ch.children.length} dependencia{ch.children.length!==1?"s":""}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1520,19 +1587,53 @@ function App(){
               )}
             </div>
           ):(
-            <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:8,color:"#A0AEC0"}}>
-              <div style={{fontSize:40,opacity:.3}}>⬡</div>
-              <div style={{fontSize:13,color:"#505E70"}}>Seleccioná un organismo del panel</div>
-              <div style={{fontSize:11,color:"#9AABB8",marginTop:4}}>Los administradores pueden editar desde ✏️ Editor visual</div>
+            <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:0,padding:"0 32px",overflow:"auto"}}>
+              {/* Landing card */}
+              <div style={{maxWidth:480,width:"100%",textAlign:"center"}}>
+                <div style={{width:64,height:64,borderRadius:16,background:"linear-gradient(135deg,#38485C,#007BC7)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px",boxShadow:"0 8px 24px rgba(0,123,199,.25)"}}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" fill="#fff" opacity=".9"/>
+                    <polyline points="9 22 9 12 15 12 15 22" fill="#F5C400" stroke="#38485C" strokeWidth="0.5"/>
+                  </svg>
+                </div>
+                <div style={{fontSize:20,fontWeight:700,color:"#38485C",marginBottom:8,lineHeight:1.2}}>Organigrama de Gobierno</div>
+                <div style={{fontSize:13,color:"#718096",lineHeight:1.6,marginBottom:28}}>Ciudad Autónoma de Buenos Aires · {new Date().getFullYear()}</div>
+                {/* Stats */}
+                <div style={{display:"flex",gap:12,justifyContent:"center",marginBottom:32}}>
+                  {[["📋","Organismos",allNodes.length],["🏛️","Ministerios",allNodes.filter(n=>n.tipo==="MIN").length],["📂","Secretarías",allNodes.filter(n=>n.tipo==="SEC").length]].map(([icon,label,count])=>(
+                    <div key={label} style={{background:"#fff",border:"1px solid #E2E8F0",borderRadius:10,padding:"10px 16px",flex:1,textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
+                      <div style={{fontSize:18,marginBottom:2}}>{icon}</div>
+                      <div style={{fontSize:20,fontWeight:700,color:"#38485C",lineHeight:1}}>{count}</div>
+                      <div style={{fontSize:10,color:"#9AABB8",marginTop:2,fontWeight:500}}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+                {/* Accesos rápidos: JG + ministerios */}
+                <div style={{fontSize:10,fontWeight:700,color:"#9AABB8",textTransform:"uppercase",letterSpacing:".07em",marginBottom:10,textAlign:"left"}}>Acceso rápido</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:6,justifyContent:"flex-start"}}>
+                  {[data,...(data.children||[]).filter(n=>n.tipo==="MIN"||n.tipo==="VJG")].slice(0,9).map(n=>(
+                    <button key={n.id} onClick={()=>setSelected(n)}
+                      style={{padding:"5px 10px",borderRadius:7,fontSize:11,fontWeight:500,cursor:"pointer",
+                        fontFamily:"inherit",border:`1px solid ${getColor(n)}22`,
+                        background:`${getColor(n)}12`,color:getColor(n),
+                        transition:"all .15s"}}
+                      onMouseEnter={e=>{e.currentTarget.style.background=getColor(n);e.currentTarget.style.color="#fff";}}
+                      onMouseLeave={e=>{e.currentTarget.style.background=`${getColor(n)}12`;e.currentTarget.style.color=getColor(n);}}
+                    >{n.nombre.replace("Ministerio de ","Min. ").replace("Secretaría ","Sec. ").replace("Jefatura de Gabinete de Ministros","Jef. de Gabinete")}</button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
           {/* Panel Empresas del Estado */}
           {activeTab!=="arbol"&&activeTab!=="editor"&&(
             <EmpresasPanel/>
           )}
-          <div style={{background:"#fff",borderTop:"1px solid #E2E8F0",padding:"6px 20px",display:"flex",justifyContent:"space-between"}}>
-            <span style={{fontSize:10,color:"#A0AEC0"}}>GCBA · {fechaApp}</span>
-            <span style={{fontSize:10,color:"#A0AEC0"}}>{allNodes.length} organismos</span>
+          <div style={{background:"#F3F6F9",borderTop:"1px solid #E2E8F0",padding:"5px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:10,color:"#A0AEC0"}}>GCBA · Ciudad Autónoma de Buenos Aires · {fechaApp}</span>
+            <div style={{display:"flex",gap:12,alignItems:"center"}}>
+              <span style={{fontSize:10,color:"#A0AEC0"}}>{allNodes.length} organismos</span>
+            </div>
           </div>
         </div>
       </>
@@ -1863,6 +1964,28 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       });
     }
 
+    // ── Posicionar nodos dashed debajo del árbol principal ──
+    {
+      // Encontrar la Y más baja del árbol no-dashed
+      const nonDashedY=Object.values(d3pos).map(p=>p.y);
+      const maxY=nonDashedY.length>0?Math.max(...nonDashedY):HH+10;
+      const dashedStartY=maxY+NH+VGAP*2;
+      // Recopilar nodos dashed del viewRoot (hijos directos dashed)
+      const dashedNodes=(viewRoot.children||[]).filter(c=>c.dashed);
+      if(dashedNodes.length>0){
+        const totalW=dashedNodes.length*(NW+HGAP)-HGAP;
+        let dx=MAR+(AW-totalW)/2+NW/2;
+        dashedNodes.forEach(dn=>{
+          if(!d3pos[dn.id]) d3pos[dn.id]={x:dx,y:dashedStartY};
+          dx+=NW+HGAP;
+        });
+      }
+      // También posicionar dashed anidados (hijos de nodos no-dashed)
+      nodes.filter(n=>n.dashed&&!d3pos[n.id]).forEach((n,i)=>{
+        d3pos[n.id]={x:MAR+NW/2+i*(NW+HGAP),y:dashedStartY+NH+VGAP};
+      });
+    }
+
     // ── Mezclar posiciones: guardadas o D3 ──
     const saved=loadPosForArea(edViewId)||{};
     edPositions={};
@@ -1937,13 +2060,32 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
         .attr("class","lhit")
         .attr("d",d=>linkPath(d.sid,d.tid))
         .attr("fill","none").attr("stroke","transparent").attr("stroke-width",14)
-        .style("cursor","crosshair")
-        .on("dblclick",function(e,d){
+        .style("cursor","pointer")
+        .on("click",function(e,d){
+          // Clic simple: seleccionar/resaltar línea
+          e.stopPropagation();
+          lhitG.selectAll(".lhit").attr("stroke","transparent");
+          linkG.selectAll(".clink,.clink-dashed").attr("stroke-opacity",0.25);
+          d3.select(this).attr("stroke","rgba(0,123,199,0.15)");
+          const k=d.sid+"-"+d.tid;
+          const vis=linkG.selectAll(".clink,.clink-dashed").filter(l=>(l.sid+"-"+l.tid)===k);
+          vis.attr("stroke-opacity",1);
+          // Deselect on next canvas click
+          setTimeout(()=>{
+            svgEl.addEventListener("click",function desel(){
+              linkG.selectAll(".clink,.clink-dashed").attr("stroke-opacity",1);
+              lhitG.selectAll(".lhit").attr("stroke","transparent");
+              svgEl.removeEventListener("click",desel);
+            },{once:true});
+          },0);
+        })
+        .on("contextmenu",function(e,d){
+          // Clic derecho: crear punto de quiebre
+          e.preventDefault();
           e.stopPropagation();
           const pt=svgEl.createSVGPoint();
           pt.x=e.clientX;pt.y=e.clientY;
           const gp=pt.matrixTransform(svgEl.getScreenCTM().inverse());
-          // gp ya está en coordenadas del SVG; convertir a coordenadas del grupo (deshacer zoom/pan)
           const wp={x:(gp.x-edTransform.x)/edTransform.k,y:(gp.y-edTransform.y)/edTransform.k};
           const k=d.sid+"-"+d.tid;
           if(!edWaypoints[k])edWaypoints[k]=[];
