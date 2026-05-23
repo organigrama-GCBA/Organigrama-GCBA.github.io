@@ -97,6 +97,11 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
 .ed-saved{font-size:11px;color:#22c55e;opacity:0;transition:opacity .3s;margin-right:4px;}
 .ed-aln{width:26px!important;height:26px!important;font-size:12px!important;padding:0!important;}
 .ed-aln:hover{background:var(--ed-accent)!important;color:#fff!important;border-color:var(--ed-accent)!important;}
+.ed-tool-btn{background:var(--ed-surface2);border:1px solid var(--ed-border2);color:var(--ed-text2);
+  font-family:inherit;font-size:10px;padding:6px 4px;border-radius:5px;cursor:pointer;
+  text-align:center;line-height:1.2;transition:all .1s;}
+.ed-tool-btn:hover{background:var(--ed-accent);color:#fff;border-color:var(--ed-accent);}
+.ed-tool-btn:active{opacity:.8;}
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--ed-border2);border-radius:4px;}
@@ -180,18 +185,126 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
         <button class="ed-zb" id="ed-zo">−</button>
       </div>
     </div>
-    <div class="ed-inspector">
-      <div class="ed-ins-hd">Inspector <span id="ed-ins-id" style="font-family:monospace;font-size:9px;color:var(--ed-text3);"></span></div>
-      <div class="ed-ins-body" id="ed-ins-body">
-        <div class="ed-ins-empty">
-          <div class="ico">⬡</div>
-          <p>Clic = seleccionar<br>Shift+clic = seleccionar<br>nodo + dependientes</p>
+    <div class="ed-inspector" style="width:300px;">
+      <!-- Tabs -->
+      <div style="display:flex;border-bottom:1px solid var(--ed-border);flex-shrink:0;">
+        <button id="tab-btn-inspector" onclick="switchTab('inspector')"
+          style="flex:1;padding:8px 4px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer;
+            background:var(--ed-accent);border:none;color:#fff;letter-spacing:.04em;">
+          🔍 NODO
+        </button>
+        <button id="tab-btn-tools" onclick="switchTab('tools')"
+          style="flex:1;padding:8px 4px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer;
+            background:var(--ed-surface);border:none;color:var(--ed-text3);border-left:1px solid var(--ed-border);letter-spacing:.04em;">
+          🔧 HERRAMIENTAS
+        </button>
+      </div>
+
+      <!-- Panel: Inspector -->
+      <div id="tab-inspector" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+        <div class="ed-ins-body" id="ed-ins-body">
+          <div class="ed-ins-empty">
+            <div class="ico">⬡</div>
+            <p>Clic en un nodo<br>para editarlo</p>
+          </div>
+        </div>
+        <div class="ed-actions" id="ed-actions" style="display:none;">
+          <button class="ed-btn primary" id="ed-btn-node-save">✓ Guardar cambios</button>
+          <button class="ed-btn" id="ed-btn-move">↕ Mover a otro padre</button>
+          <button class="ed-btn danger" id="ed-btn-delete">✕ Eliminar nodo</button>
         </div>
       </div>
-      <div class="ed-actions" id="ed-actions" style="display:none;">
-        <button class="ed-btn primary" id="ed-btn-node-save">✓ Guardar cambios</button>
-        <button class="ed-btn" id="ed-btn-move">↕ Mover a otro padre</button>
-        <button class="ed-btn danger" id="ed-btn-delete">✕ Eliminar nodo</button>
+
+      <!-- Panel: Herramientas -->
+      <div id="tab-tools" style="display:none;flex-direction:column;flex:1;overflow-y:auto;padding:10px;">
+
+        <!-- Selección múltiple info -->
+        <div id="tools-sel-info" style="background:var(--ed-surface2);border-radius:6px;padding:8px 10px;
+          margin-bottom:10px;font-size:10px;color:var(--ed-text3);text-align:center;display:none;">
+          <span id="tools-sel-count" style="font-size:16px;font-weight:700;color:var(--ed-accent);display:block;"></span>
+          nodos seleccionados
+        </div>
+
+        <!-- Alinear -->
+        <div style="margin-bottom:12px;">
+          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;
+            letter-spacing:.07em;margin-bottom:6px;">Alinear</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;">
+            <button class="ed-tool-btn" id="al-left"   title="Alinear borde izquierdo">◧ Izq.</button>
+            <button class="ed-tool-btn" id="al-center" title="Centrar horizontalmente">⊞ Centro H</button>
+            <button class="ed-tool-btn" id="al-right"  title="Alinear borde derecho">◨ Der.</button>
+            <button class="ed-tool-btn" id="al-top"    title="Alinear borde superior">⬆ Arriba</button>
+            <button class="ed-tool-btn" id="al-middle" title="Centrar verticalmente">⊟ Centro V</button>
+            <button class="ed-tool-btn" id="al-bottom" title="Alinear borde inferior">⬇ Abajo</button>
+          </div>
+        </div>
+
+        <!-- Distribuir -->
+        <div style="margin-bottom:12px;">
+          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;
+            letter-spacing:.07em;margin-bottom:6px;">Distribuir (mín. 3 nodos)</div>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px;">
+            <button class="ed-tool-btn" id="al-dist-h" title="Espaciado horizontal igual">⇿ Horizontal</button>
+            <button class="ed-tool-btn" id="al-dist-v" title="Espaciado vertical igual">↕ Vertical</button>
+          </div>
+        </div>
+
+        <!-- Tamaño -->
+        <div style="margin-bottom:12px;">
+          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;
+            letter-spacing:.07em;margin-bottom:6px;">Igualar tamaño</div>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px;">
+            <button class="ed-tool-btn" id="al-same-w" title="Mismo ancho que el primero">= Ancho</button>
+            <button class="ed-tool-btn" id="al-same-h" title="Misma altura que el primero">= Alto</button>
+          </div>
+        </div>
+
+        <!-- Agrupar -->
+        <div style="margin-bottom:12px;">
+          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;
+            letter-spacing:.07em;margin-bottom:6px;">Ordenar</div>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px;">
+            <button class="ed-tool-btn" id="al-group-h" title="Ordenar en fila horizontal">▭▭ Fila →</button>
+            <button class="ed-tool-btn" id="al-group-v" title="Ordenar en columna vertical">↓ Columna</button>
+          </div>
+        </div>
+
+        <div style="height:1px;background:var(--ed-border);margin:4px 0 12px;"></div>
+
+        <!-- Mover con botones -->
+        <div style="margin-bottom:12px;">
+          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;
+            letter-spacing:.07em;margin-bottom:6px;">Mover nodo(s) — sin teclado</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:4px;">
+            <div></div>
+            <button class="ed-tool-btn" id="mv-up"   onclick="nudge(0,-10)">⬆ Arriba</button>
+            <div></div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:4px;">
+            <button class="ed-tool-btn" id="mv-left"  onclick="nudge(-10,0)">⬅ Izq.</button>
+            <button class="ed-tool-btn" id="mv-down"  onclick="nudge(0,10)">⬇ Abajo</button>
+            <button class="ed-tool-btn" id="mv-right" onclick="nudge(10,0)">➡ Der.</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px;margin-top:4px;">
+            <button class="ed-tool-btn" onclick="nudge(-1,0)" style="font-size:9px;">◀ 1px</button>
+            <button class="ed-tool-btn" onclick="nudge(1,0)"  style="font-size:9px;">1px ▶</button>
+            <button class="ed-tool-btn" onclick="nudge(0,-1)" style="font-size:9px;">▲ 1px</button>
+            <button class="ed-tool-btn" onclick="nudge(0,1)"  style="font-size:9px;">▼ 1px</button>
+          </div>
+        </div>
+
+        <div style="height:1px;background:var(--ed-border);margin:4px 0 12px;"></div>
+
+        <!-- Selección -->
+        <div style="margin-bottom:12px;">
+          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;
+            letter-spacing:.07em;margin-bottom:6px;">Selección</div>
+          <div style="display:grid;grid-template-columns:1fr;gap:4px;">
+            <button class="ed-tool-btn" onclick="selectAllNodes()">☰ Seleccionar todos</button>
+            <button class="ed-tool-btn" onclick="clearSelection()">✕ Deseleccionar</button>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -2872,14 +2985,16 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
   function updateAlignBar(){
     const bar=document.getElementById("ed-align-bar");
-    if(!bar)return;
-    if(edSelectedIds.size>=2){
-      bar.classList.add("visible");
-      const cnt=document.getElementById("ed-sel-count");
-      if(cnt)cnt.textContent=edSelectedIds.size;
-    } else {
-      bar.classList.remove("visible");
+    if(bar){
+      if(edSelectedIds.size>=2){
+        bar.classList.add("visible");
+        const cnt=document.getElementById("ed-sel-count");
+        if(cnt)cnt.textContent=edSelectedIds.size;
+      } else {
+        bar.classList.remove("visible");
+      }
     }
+    updateToolsSelInfo();
   }
 
 
@@ -2891,6 +3006,61 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
   }
 
   // ── Wire buttons ─────────────────────────────────────────
+  // ── Tab switching ────────────────────────────────────────────────
+  function switchTab(tab){
+    const tabs=["inspector","tools"];
+    tabs.forEach(t=>{
+      const panel=document.getElementById("tab-"+t);
+      const btn=document.getElementById("tab-btn-"+t);
+      if(!panel||!btn)return;
+      const active=t===tab;
+      panel.style.display=active?"flex":"none";
+      btn.style.background=active?"var(--ed-accent)":"var(--ed-surface)";
+      btn.style.color=active?"#fff":"var(--ed-text3)";
+    });
+  }
+
+  // ── Nudge: mover nodos seleccionados sin teclado ──────────────────
+  function nudge(dx,dy){
+    if(!edSelectedIds.size)return;
+    edSelectedIds.forEach(id=>{
+      if(edPositions[id]){edPositions[id].x+=dx;edPositions[id].y+=dy;}
+    });
+    d3.selectAll(".c-node").filter(n=>edSelectedIds.has(n.id))
+      .attr("transform",n=>{const p=edPositions[n.id]||{x:0,y:0};return`translate(${p.x-(p.w||NW)/2},${p.y})`;});
+    drawLinks();drawWPs();
+    savePosForArea();
+  }
+
+  // ── Select all / clear ────────────────────────────────────────────
+  function selectAllNodes(){
+    const nodes=visibleNodes();
+    edSelectedIds.clear();
+    nodes.forEach(n=>edSelectedIds.add(n.id));
+    d3.selectAll(".c-node").classed("sel",true);
+    updateAlignBar();
+    updateToolsSelInfo();
+  }
+  function clearSelection(){
+    edSelectedIds.clear();
+    d3.selectAll(".c-node").classed("sel",false);
+    updateAlignBar();
+    updateToolsSelInfo();
+    renderInspector(null);
+    document.getElementById("ed-actions").style.display="none";
+  }
+  function updateToolsSelInfo(){
+    const info=document.getElementById("tools-sel-info");
+    const cnt=document.getElementById("tools-sel-count");
+    if(!info||!cnt)return;
+    if(edSelectedIds.size>0){
+      info.style.display="block";
+      cnt.textContent=edSelectedIds.size;
+    } else {
+      info.style.display="none";
+    }
+  }
+
   function wire(id,fn){const el=document.getElementById(id);if(el)el.onclick=fn;}
   // Alignment buttons
   wire("al-left",   ()=>applyAlignment(alignLeft));
