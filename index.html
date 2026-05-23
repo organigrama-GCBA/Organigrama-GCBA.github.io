@@ -1177,7 +1177,27 @@ function App(){
         <div className="app-tabs">
           {[["organigrama","📋 Organigrama"],["arbol","🌐 Vista completa"],["editor","✏️ Editor visual"]].map(([id,label])=>(
             <button key={id} className={`app-tab${activeTab===id?" active":""}`}
-              onClick={()=>setActiveTab(id)}>{label}</button>
+              onClick={()=>{
+                if(id==="editor"){
+                  // Verificar autenticación
+                  if(sessionStorage.getItem("gcba_editor_auth")==="1"){setActiveTab(id);return;}
+                  const pwd=prompt("🔒 Acceso al Editor Visual\nIngresá la contraseña de administrador:");
+                  if(!pwd){return;}
+                  // SHA-256 async
+                  crypto.subtle.digest("SHA-256",new TextEncoder().encode(pwd))
+                    .then(buf=>{
+                      const hash=Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+                      if(hash==="03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"){
+                        sessionStorage.setItem("gcba_editor_auth","1");
+                        setActiveTab(id);
+                      } else {
+                        alert("Contraseña incorrecta.");
+                      }
+                    });
+                } else {
+                  setActiveTab(id);
+                }
+              }}>{label}</button>
           ))}
         </div>
         <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
