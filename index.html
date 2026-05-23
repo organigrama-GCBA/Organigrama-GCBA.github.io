@@ -31,7 +31,10 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
 #ed-pane{position:fixed;inset:0;display:none;flex-direction:column;background:var(--ed-bg);z-index:50;}
 #ed-pane.visible{display:flex;}
 #ed-toolbar{height:44px;background:var(--ed-surface);border-bottom:1px solid var(--ed-border);
-  display:flex;align-items:center;padding:0 12px;gap:8px;flex-shrink:0;}
+  display:flex;align-items:center;padding:0 12px;gap:8px;flex-shrink:0;overflow:hidden;}
+#ed-align-bar{background:var(--ed-surface2);border-bottom:1px solid var(--ed-border);
+  display:none;align-items:center;padding:0 12px;gap:4px;flex-shrink:0;height:36px;overflow-x:auto;}
+#ed-align-bar.visible{display:flex;}
 #ed-toolbar select{background:var(--ed-surface2);border:1px solid var(--ed-border2);color:var(--ed-text);
   font-family:inherit;font-size:11.5px;padding:4px 8px;border-radius:6px;outline:none;}
 #ed-body{flex:1;display:flex;overflow:hidden;}
@@ -122,26 +125,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
     <span style="font-size:10px;font-weight:600;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.06em;">Área:</span>
     <select id="ed-area-sel" style="min-width:240px;flex:1;max-width:380px;"></select>
     <span style="font-size:10px;color:var(--ed-text3);margin-left:8px;">· shift+clic = sel. múltiple · arrastrar fondo = sel. área · clic der. en línea = quiebre</span>
-    <!-- Barra de alineación — visible solo con selección múltiple -->
-    <div id="ed-align-bar" style="display:none;align-items:center;gap:3px;margin-left:12px;padding-left:12px;border-left:1px solid var(--ed-border2);">
-      <span style="font-size:9px;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.05em;margin-right:2px;">Alinear</span>
-      <button class="ed-zb ed-aln" id="al-left"   title="Alinear borde izquierdo"  style="font-size:13px;">⬡<span style="font-size:8px;position:relative;top:-1px">◁</span></button>
-      <button class="ed-zb ed-aln" id="al-center" title="Centrar horizontalmente"  style="font-size:11px;">⇔</button>
-      <button class="ed-zb ed-aln" id="al-right"  title="Alinear borde derecho"   style="font-size:13px;"><span style="font-size:8px;position:relative;top:-1px">▷</span>⬡</button>
-      <div style="width:1px;height:16px;background:var(--ed-border2);margin:0 2px;"></div>
-      <button class="ed-zb ed-aln" id="al-top"    title="Alinear borde superior"  style="font-size:11px;">⬆</button>
-      <button class="ed-zb ed-aln" id="al-middle" title="Centrar verticalmente"   style="font-size:11px;">⇕</button>
-      <button class="ed-zb ed-aln" id="al-bottom" title="Alinear borde inferior"  style="font-size:11px;">⬇</button>
-      <div style="width:1px;height:16px;background:var(--ed-border2);margin:0 2px;"></div>
-      <button class="ed-zb ed-aln" id="al-dist-h" title="Distribuir espaciado horizontal igual" style="font-size:11px;">⇿</button>
-      <button class="ed-zb ed-aln" id="al-dist-v" title="Distribuir espaciado vertical igual"   style="font-size:11px;">↕</button>
-      <div style="width:1px;height:16px;background:var(--ed-border2);margin:0 2px;"></div>
-      <button class="ed-zb ed-aln" id="al-same-w" title="Mismo ancho"   style="font-size:10px;font-weight:600;">↔W</button>
-      <button class="ed-zb ed-aln" id="al-same-h" title="Misma altura"  style="font-size:10px;font-weight:600;">↕H</button>
-      <div style="width:1px;height:16px;background:var(--ed-border2);margin:0 2px;"></div>
-      <button class="ed-zb ed-aln" id="al-group-h" title="Agrupar en fila horizontal" style="font-size:10px;">▦H</button>
-      <button class="ed-zb ed-aln" id="al-group-v" title="Agrupar en columna vertical" style="font-size:10px;">▦V</button>
-    </div>
+
     <span style="font-size:10px;color:var(--ed-text3);margin-left:12px;">Nodo:</span>
     <span style="font-size:10px;color:var(--ed-text3);">Texto</span>
     <input id="ed-fs" type="number" min="6" max="20" step="0.5" value="9.5"
@@ -155,6 +139,33 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
       <button class="ed-zb" id="ed-btn-reset" title="Resetear layout automático" style="font-size:11px;">↺</button>
       <button class="ed-zb" id="ed-btn-back" style="width:auto;padding:0 12px;font-size:11.5px;border-color:var(--ed-accent);color:var(--ed-accent);">← Organigrama</button>
     </div>
+  </div>
+  <!-- Barra de alineación — segunda fila, aparece con selección múltiple -->
+  <div id="ed-align-bar" style="display:none;height:36px;background:var(--ed-surface2);border-bottom:1px solid var(--ed-border);
+    align-items:center;padding:0 12px;gap:4px;flex-shrink:0;">
+    <span style="font-size:9px;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.06em;margin-right:4px;white-space:nowrap;">
+      ✦ <span id="ed-sel-count">0</span> seleccionados —
+    </span>
+    <span style="font-size:9px;color:var(--ed-text3);margin-right:2px;">Alinear:</span>
+    <button class="ed-zb ed-aln" id="al-left"   title="Alinear borde izquierdo">⬤◁</button>
+    <button class="ed-zb ed-aln" id="al-center" title="Centrar horizontalmente">⇔</button>
+    <button class="ed-zb ed-aln" id="al-right"  title="Alinear borde derecho">▷⬤</button>
+    <div style="width:1px;height:18px;background:var(--ed-border2);margin:0 3px;"></div>
+    <button class="ed-zb ed-aln" id="al-top"    title="Alinear borde superior">⬤↑</button>
+    <button class="ed-zb ed-aln" id="al-middle" title="Centrar verticalmente">⇕</button>
+    <button class="ed-zb ed-aln" id="al-bottom" title="Alinear borde inferior">↓⬤</button>
+    <div style="width:1px;height:18px;background:var(--ed-border2);margin:0 3px;"></div>
+    <span style="font-size:9px;color:var(--ed-text3);margin-right:2px;">Distribuir:</span>
+    <button class="ed-zb ed-aln" id="al-dist-h" title="Espaciado horizontal igual">⇿H</button>
+    <button class="ed-zb ed-aln" id="al-dist-v" title="Espaciado vertical igual">↕V</button>
+    <div style="width:1px;height:18px;background:var(--ed-border2);margin:0 3px;"></div>
+    <span style="font-size:9px;color:var(--ed-text3);margin-right:2px;">Tamaño:</span>
+    <button class="ed-zb ed-aln" id="al-same-w" title="Mismo ancho que el primero">= W</button>
+    <button class="ed-zb ed-aln" id="al-same-h" title="Misma altura que el primero">= H</button>
+    <div style="width:1px;height:18px;background:var(--ed-border2);margin:0 3px;"></div>
+    <span style="font-size:9px;color:var(--ed-text3);margin-right:2px;">Agrupar:</span>
+    <button class="ed-zb ed-aln" id="al-group-h" title="Ordenar en fila horizontal">▭▭ →</button>
+    <button class="ed-zb ed-aln" id="al-group-v" title="Ordenar en columna vertical">↓ ▭</button>
   </div>
   <div id="ed-body">
     <div class="ed-sidebar">
@@ -925,7 +936,7 @@ const INITIAL={
 
 
 const STORAGE_KEY="gcba_org_v2";
-const APP_VERSION="20260523"; // Cambia con cada nueva versión del archivo
+const APP_VERSION="20260524"; // Cambia con cada nueva versión del archivo
 const VERSION_KEY="gcba_org_version";
 function loadData(){
   try{
@@ -1593,10 +1604,20 @@ function App(){
 
   // Exportar todo A3
   function dlAll(){
-    // Orden fijo según el PDF original (ORGANIGRAMA_GCBA_2026)
+    // Páginas principales — orden del PDF original
     const PDF_IDS=["JG","VJG","MJGGC","MHFGC","MJGC","MSEGC","MSGC","MEDGC","MDECGC","MCGC","MDHYHGC","MEPHUGC","MMIGC","SECGE","SECLYT","SECCO","SECAE","SECGVC","SECME"];
     const allNodes=flatList(data);
-    const areas=PDF_IDS.map(id=>allNodes.find(n=>n.id===id)).filter(Boolean);
+    const mainAreas=PDF_IDS.map(id=>allNodes.find(n=>n.id===id)).filter(Boolean);
+
+    // Organismos fuera de nivel con estructura propia (hijos > 0)
+    // Orden: primero los de JG, luego por ministerio/secretaría
+    const fnAreas=allNodes.filter(n=>
+      n.dashed &&
+      (n.children||[]).length>0 &&
+      !PDF_IDS.includes(n.id) // que no estén ya en la lista principal
+    );
+
+    const areas=[...mainAreas,...fnAreas];
     const PH=1123;
     const pages=areas.map((a,i)=>genSVGA3(a,i+1,areas.length));
     const combined=`<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="1587" height="${PH*pages.length}" viewBox="0 0 1587 ${PH*pages.length}">${pages.map((p,i)=>`<g transform="translate(0,${i*PH})">${p.replace(/<\/?svg[^>]*>/g,"")}</g>`).join("")}</svg>`;
@@ -2235,7 +2256,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       .attr("rx",3).style("display","none").style("pointer-events","none");
 
     svg.on("mousedown.lasso",function(e){
-      if(e.button!==0||e.target!==svgEl)return; // solo en fondo, botón izq
+      if(e.button!==0)return;
+      // Only trigger lasso on background — not on nodes/handles
+      const tgt=e.target;
+      const onNode=tgt.closest&&(tgt.closest(".c-node")||tgt.closest(".ed-resize-handle")||tgt.closest(".snap-guides"));
+      if(onNode)return;
       e.stopPropagation();
       // Desactivar zoom temporalmente para que el lasso tenga prioridad
       svg.on(".zoom",null);
@@ -2848,7 +2873,13 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
   function updateAlignBar(){
     const bar=document.getElementById("ed-align-bar");
     if(!bar)return;
-    bar.style.display=edSelectedIds.size>=2?"flex":"none";
+    if(edSelectedIds.size>=2){
+      bar.classList.add("visible");
+      const cnt=document.getElementById("ed-sel-count");
+      if(cnt)cnt.textContent=edSelectedIds.size;
+    } else {
+      bar.classList.remove("visible");
+    }
   }
 
 
