@@ -11,13 +11,19 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --azul:#38485C;--azul2:#007BC7;--azul3:#0095DA;
-  --gris-bg:#F3F6F9;--gris-borde:#DDE3EA;--gris-texto:#505E70;
-  --texto:#38485C;--texto2:#505E70;
+  /* SGCBA brand */
+  --sgcba-gris:#575756;
+  --sgcba-celeste:#4DC5E9;
+  --sgcba-amarillo:#FFD500;
+  --sgcba-magenta:#E4006E;
+  /* UI */
+  --azul:#575756;--azul2:#4DC5E9;--azul3:#4DC5E9;
+  --gris-bg:#F3F6F9;--gris-borde:#DDE3EA;--gris-texto:#575756;
+  --texto:#575756;--texto2:#505E70;
   /* editor */
   --ed-bg:#0f1117;--ed-surface:#1a1d27;--ed-surface2:#232636;
   --ed-border:#333650;--ed-border2:#444870;
-  --ed-accent:#007BC7;--ed-text:#e8eaf2;--ed-text2:#9da3c4;--ed-text3:#6b7199;
+  --ed-accent:#4DC5E9;--ed-text:#e8eaf2;--ed-text2:#9da3c4;--ed-text3:#6b7199;
 }
 body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);color:var(--texto);height:100vh;overflow:hidden}
 
@@ -92,7 +98,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
 
 /* ── REACT APP ── */
 .app-wrap{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
-.app-header{background:linear-gradient(135deg,#38485C,#007BC7);padding:0 20px;height:56px;
+.app-header{background:linear-gradient(135deg,#003C50,#575756);padding:0 20px;height:56px;
   display:flex;align-items:center;gap:16px;flex-shrink:0;}
 .app-tabs{display:flex;gap:2px;margin-left:12px;}
 .app-tab{padding:5px 14px;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;
@@ -113,7 +119,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
   <div id="ed-toolbar">
     <span style="font-size:10px;font-weight:600;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.06em;">Área:</span>
     <select id="ed-area-sel" style="min-width:240px;flex:1;max-width:380px;"></select>
-    <span style="font-size:10px;color:var(--ed-text3);margin-left:8px;">· clic en línea = seleccionar · clic derecho en línea = punto de quiebre · clic derecho en punto = eliminar</span>
+    <span style="font-size:10px;color:var(--ed-text3);margin-left:8px;">· shift+clic = selección múltiple · arrastrar fondo = seleccionar área · clic derecho en línea = punto de quiebre</span>
     <span style="font-size:10px;color:var(--ed-text3);margin-left:12px;">Nodo:</span>
     <span style="font-size:10px;color:var(--ed-text3);">Texto</span>
     <input id="ed-fs" type="number" min="6" max="20" step="0.5" value="9.5"
@@ -164,13 +170,13 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
 <!-- SPLASH SCREEN -->
 <div id="splash" style="
   position:fixed;inset:0;z-index:9999;
-  background:#38485C;
+  background:#003C50;
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;
   transition:opacity .6s ease, visibility .6s ease;
 ">
   <!-- Logo GCBA -->
   <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="64" height="64" rx="14" fill="#007BC7"/>
+    <rect width="64" height="64" rx="14" fill="#4DC5E9"/>
     <path d="M18 20h28M18 32h20M18 44h24" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
     <circle cx="48" cy="44" r="5" fill="#fff"/>
   </svg>
@@ -185,7 +191,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
   </div>
   <!-- Loader bar -->
   <div style="width:160px;height:3px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden;">
-    <div id="splash-bar" style="height:100%;width:0%;background:#007BC7;border-radius:2px;transition:width 2.8s cubic-bezier(.4,0,.2,1);"></div>
+    <div id="splash-bar" style="height:100%;width:0%;background:#4DC5E9;border-radius:2px;transition:width 2.8s cubic-bezier(.4,0,.2,1);"></div>
   </div>
 </div>
 
@@ -921,7 +927,7 @@ function Btn({children,onClick,variant="secondary",small=false,style={}}){
     borderRadius:8,transition:"all .15s",fontSize:small?11:12,
     padding:small?"4px 10px":"6px 14px",display:"inline-flex",alignItems:"center",gap:6,...style};
   const variants={
-    primary:{background:"#007BC7",borderColor:"#007BC7",color:"#fff"},
+    primary:{background:"#003C50",borderColor:"#4DC5E9",color:"#fff"},
     secondary:{background:"#fff",borderColor:"#CBD5E0",color:"#4A5568"},
     ghost:{background:"rgba(255,255,255,0.08)",borderColor:"rgba(255,255,255,0.25)",color:"#fff"},
     danger:{background:"#fff",borderColor:"#FC8181",color:"#C53030"}
@@ -1037,16 +1043,31 @@ function PadreSelector({allNodes,currentId,value,onChange,contextId}){
   </Field>;
 }
 
+function EmpresaPanelItem({emp}){
+  return(
+    <div style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",
+      cursor:"default",borderLeft:"3px solid #575756"}}>
+      <div style={{width:8,height:8,borderRadius:2,background:"#003C50",flexShrink:0}}/>
+      <div style={{flex:1,minWidth:0}}>
+        <span style={{fontSize:12,color:"#2D3748",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",display:"block"}}>{emp.nombre}</span>
+        {emp.titular&&<span style={{fontSize:10,color:"#9AABB8"}}>{emp.titular}</span>}
+      </div>
+      <span style={{fontSize:9,background:"#F3F6F9",color:"#718096",padding:"1px 5px",borderRadius:4,flexShrink:0}}>🏢</span>
+    </div>
+  );
+}
+
 function PanelItem({node,onSelect,selectedId,depth=0}){
+  if(node._isEmpresa) return <EmpresaPanelItem emp={node}/>;
   const isSelected=node.id===selectedId;
   const color=getColor(node);
   return<>
     <div onClick={()=>onSelect(node)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",
       paddingLeft:12+depth*14,cursor:"pointer",background:isSelected?"#EBF4FF":"transparent",
-      borderLeft:isSelected?"3px solid #007BC7":"3px solid transparent",transition:"all .1s"}}>
+      borderLeft:isSelected?"3px solid #4DC5E9":"3px solid transparent",transition:"all .1s"}}>
       <div style={{width:8,height:8,borderRadius:2,background:color,flexShrink:0,
         border:node.dashed?"2px dashed rgba(0,0,0,.25)":"none"}}/>
-      <span style={{fontSize:12,color:isSelected?"#007BC7":"#2D3748",fontWeight:isSelected?600:400,flex:1,
+      <span style={{fontSize:12,color:isSelected?"#003C50":"#2D3748",fontWeight:isSelected?600:400,flex:1,
         whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{node.nombre}</span>
       <TypeBadge tipo={node.tipo} tipoLabel={node.tipoLabel}/>
     </div>
@@ -1263,36 +1284,56 @@ function EmpresasPanel(){
     try{return JSON.parse(localStorage.getItem("gcba_empresas_extra")||"[]");}catch{return[];}
   });
   const[adding,setAdding]=React.useState(false);
+  const[editing,setEditing]=React.useState(null); // id being edited
   const[form,setForm]=React.useState({nombre:"",titular:""});
 
-  const saveExtras=list=>{
-    setExtras(list);
-    localStorage.setItem("gcba_empresas_extra",JSON.stringify(list));
-  };
+  const saveExtras=list=>{setExtras(list);localStorage.setItem("gcba_empresas_extra",JSON.stringify(list));};
   const addEmpresa=()=>{
     if(!form.nombre.trim())return;
     const e={id:"ex_"+Date.now(),nombre:form.nombre.trim(),titular:form.titular.trim(),area:""};
-    saveExtras([...extras,e]);
-    setForm({nombre:"",titular:""});setAdding(false);
+    saveExtras([...extras,e]);setForm({nombre:"",titular:""});setAdding(false);
   };
-  const removeExtra=id=>saveExtras(extras.filter(e=>e.id!==id));
+  const startEdit=e=>{setEditing(e.id);setForm({nombre:e.nombre,titular:e.titular||""});setAdding(false);};
+  const saveEdit=()=>{
+    if(!form.nombre.trim())return;
+    saveExtras(extras.map(e=>e.id===editing?{...e,nombre:form.nombre.trim(),titular:form.titular.trim()}:e));
+    setEditing(null);setForm({nombre:"",titular:""});
+  };
+  const removeExtra=id=>{saveExtras(extras.filter(e=>e.id!==id));if(editing===id)setEditing(null);};
 
   const allEmpresas=[...EMPRESAS_DEL_ESTADO,...extras];
   const grouped=React.useMemo(()=>{
     const g={};
-    allEmpresas.forEach(e=>{
-      const key=e.area||"Sin dependencia ministerial definida";
-      if(!g[key])g[key]=[];
-      g[key].push(e);
-    });
+    allEmpresas.forEach(e=>{const key=e.area||"Sin dependencia ministerial definida";if(!g[key])g[key]=[];g[key].push(e);});
     return Object.entries(g);
   },[extras]);
+
+  const EditForm=({onSave,onCancel,saveLabel="Guardar"})=>(
+    <div style={{marginTop:8,background:"#fff",border:"1px solid #E2E8F0",borderRadius:8,padding:"12px 14px",maxWidth:400}}>
+      <input value={form.nombre} onChange={e=>setForm(f=>({...f,nombre:e.target.value}))}
+        placeholder="Nombre del organismo *"
+        style={{width:"100%",border:"1px solid #CBD5E0",borderRadius:6,padding:"6px 9px",
+          fontSize:12,fontFamily:"inherit",marginBottom:6,boxSizing:"border-box"}}/>
+      <input value={form.titular} onChange={e=>setForm(f=>({...f,titular:e.target.value}))}
+        placeholder="Titular (opcional)"
+        style={{width:"100%",border:"1px solid #CBD5E0",borderRadius:6,padding:"6px 9px",
+          fontSize:12,fontFamily:"inherit",marginBottom:10,boxSizing:"border-box"}}/>
+      <div style={{display:"flex",gap:6}}>
+        <button onClick={onSave}
+          style={{padding:"5px 14px",borderRadius:6,border:"none",background:"#003C50",
+            color:"#fff",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>{saveLabel}</button>
+        <button onClick={onCancel}
+          style={{padding:"5px 12px",borderRadius:6,border:"1px solid #CBD5E0",background:"#fff",
+            fontSize:11,cursor:"pointer",fontFamily:"inherit",color:"#718096"}}>Cancelar</button>
+      </div>
+    </div>
+  );
 
   return(
     <div style={{borderTop:"2px solid #E2E8F0",background:"#F3F6F9",flexShrink:0}}>
       <div onClick={()=>setOpen(o=>!o)}
         style={{padding:"8px 20px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,userSelect:"none"}}>
-        <span style={{fontSize:10,fontWeight:700,color:"#38485C",textTransform:"uppercase",letterSpacing:".07em"}}>
+        <span style={{fontSize:10,fontWeight:700,color:"#003C50",textTransform:"uppercase",letterSpacing:".07em"}}>
           🏢 Empresas del Estado
         </span>
         <span style={{fontSize:10,color:"#9AABB8",fontWeight:400}}>({allEmpresas.length})</span>
@@ -1302,57 +1343,42 @@ function EmpresasPanel(){
         <div style={{padding:"0 20px 14px",overflowX:"auto"}}>
           {grouped.map(([area,empresas])=>(
             <div key={area} style={{marginBottom:12}}>
-              {area&&<div style={{fontSize:9,fontWeight:700,color:"#007BC7",textTransform:"uppercase",
+              {area&&<div style={{fontSize:9,fontWeight:700,color:"#4DC5E9",textTransform:"uppercase",
                 letterSpacing:".07em",marginBottom:6,paddingTop:4}}>{area}</div>}
               <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
                 {empresas.map(e=>(
-                  <div key={e.id} style={{background:"#fff",border:"1px solid #DDE3EA",
-                    borderLeft:"3px solid #38485C",borderRadius:6,padding:"7px 12px",minWidth:200,maxWidth:280,
-                    position:"relative"}}>
-                    <div style={{fontSize:11,fontWeight:600,color:"#38485C",lineHeight:1.3}}>{e.nombre}</div>
-                    {e.titular&&<div style={{fontSize:10,color:"#718096",marginTop:3}}>{e.titular}</div>}
-                    {e.id.startsWith("ex_")&&(
-                      <button onClick={()=>removeExtra(e.id)}
-                        style={{position:"absolute",top:4,right:6,background:"none",border:"none",
-                          cursor:"pointer",fontSize:13,color:"#CBD5E0",lineHeight:1,padding:2}}
-                        title="Eliminar">×</button>
-                    )}
+                  <div key={e.id}>
+                    {editing===e.id
+                      ? <div style={{minWidth:280}}><EditForm onSave={saveEdit} onCancel={()=>{setEditing(null);setForm({nombre:"",titular:""});}}/></div>
+                      : <div style={{background:"#fff",border:"1px solid #DDE3EA",borderLeft:"3px solid #575756",
+                          borderRadius:6,padding:"7px 12px",minWidth:200,maxWidth:280,position:"relative"}}>
+                          <div style={{fontSize:11,fontWeight:600,color:"#003C50",lineHeight:1.3}}>{e.nombre}</div>
+                          {e.titular&&<div style={{fontSize:10,color:"#718096",marginTop:3}}>{e.titular}</div>}
+                          {e.id.startsWith("ex_")&&(
+                            <div style={{display:"flex",gap:4,marginTop:6}}>
+                              <button onClick={()=>startEdit(e)}
+                                style={{fontSize:10,padding:"2px 7px",borderRadius:4,border:"1px solid #CBD5E0",
+                                  background:"#fff",cursor:"pointer",color:"#003C50",fontFamily:"inherit"}}>✏️ Editar</button>
+                              <button onClick={()=>removeExtra(e.id)}
+                                style={{fontSize:10,padding:"2px 7px",borderRadius:4,border:"1px solid #FECACA",
+                                  background:"#fff",cursor:"pointer",color:"#E53E3E",fontFamily:"inherit"}}>✕</button>
+                            </div>
+                          )}
+                        </div>
+                    }
                   </div>
                 ))}
               </div>
             </div>
           ))}
-          {/* Agregar nueva entrada sin dependencia */}
-          {!adding
-            ? <button onClick={()=>setAdding(true)}
-                style={{marginTop:8,padding:"5px 12px",fontSize:11,borderRadius:7,border:"1px dashed #CBD5E0",
-                  background:"transparent",cursor:"pointer",color:"#718096",fontFamily:"inherit"}}>
-                + Agregar empresa / fideicomiso
-              </button>
-            : <div style={{marginTop:10,background:"#fff",border:"1px solid #E2E8F0",borderRadius:8,padding:"12px 14px",maxWidth:400}}>
-                <div style={{fontSize:10,fontWeight:700,color:"#38485C",marginBottom:8,textTransform:"uppercase",letterSpacing:".05em"}}>Nueva entrada</div>
-                <input value={form.nombre} onChange={e=>setForm(f=>({...f,nombre:e.target.value}))}
-                  placeholder="Nombre del organismo *"
-                  style={{width:"100%",border:"1px solid #CBD5E0",borderRadius:6,padding:"6px 9px",
-                    fontSize:12,fontFamily:"inherit",marginBottom:6,boxSizing:"border-box"}}/>
-                <input value={form.titular} onChange={e=>setForm(f=>({...f,titular:e.target.value}))}
-                  placeholder="Titular (opcional)"
-                  style={{width:"100%",border:"1px solid #CBD5E0",borderRadius:6,padding:"6px 9px",
-                    fontSize:12,fontFamily:"inherit",marginBottom:10,boxSizing:"border-box"}}/>
-                <div style={{display:"flex",gap:6}}>
-                  <button onClick={addEmpresa}
-                    style={{padding:"5px 14px",borderRadius:6,border:"none",background:"#007BC7",
-                      color:"#fff",fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
-                    Agregar
-                  </button>
-                  <button onClick={()=>{setAdding(false);setForm({nombre:"",titular:""});}}
-                    style={{padding:"5px 12px",borderRadius:6,border:"1px solid #CBD5E0",background:"#fff",
-                      fontSize:11,cursor:"pointer",fontFamily:"inherit",color:"#718096"}}>
-                    Cancelar
-                  </button>
-                </div>
-              </div>
-          }
+          {!adding&&!editing&&(
+            <button onClick={()=>{setAdding(true);setForm({nombre:"",titular:""});}}
+              style={{marginTop:8,padding:"5px 12px",fontSize:11,borderRadius:7,border:"1px dashed #CBD5E0",
+                background:"transparent",cursor:"pointer",color:"#718096",fontFamily:"inherit"}}>
+              + Agregar empresa / fideicomiso
+            </button>
+          )}
+          {adding&&<EditForm onSave={addEmpresa} onCancel={()=>{setAdding(false);setForm({nombre:"",titular:""});}} saveLabel="Agregar"/>}
         </div>
       )}
     </div>
@@ -1423,7 +1449,14 @@ function App(){
   const filtered=useMemo(()=>{
     if(!search.trim())return null;
     const q=search.toLowerCase();
-    return allNodes.filter(n=>(n.nombre||"").toLowerCase().includes(q)||(n.titular||"").toLowerCase().includes(q));
+    const orgNodes=allNodes.filter(n=>(n.nombre||"").toLowerCase().includes(q)||(n.titular||"").toLowerCase().includes(q));
+    // También incluir empresas del estado (fijas + extras guardadas)
+    const extraEmpresas=JSON.parse(localStorage.getItem("gcba_empresas_extra")||"[]");
+    const todasEmpresas=[...EMPRESAS_DEL_ESTADO,...extraEmpresas];
+    const empMatches=todasEmpresas.filter(e=>
+      (e.nombre||"").toLowerCase().includes(q)||(e.titular||"").toLowerCase().includes(q)
+    ).map(e=>({...e,_isEmpresa:true}));
+    return [...orgNodes,...empMatches];
   },[allNodes,search]);
 
   const fechaApp=useMemo(()=>{
@@ -1492,50 +1525,39 @@ function App(){
     <div className="app-wrap">
       {/* Header */}
       <div className="app-header">
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <div style={{width:34,height:34,borderRadius:8,background:"#007BC7",display:"flex",alignItems:"center",justifyContent:"center"}}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" fill="#003D6E"/>
-              <polyline points="9 22 9 12 15 12 15 22" fill="#F5C400" stroke="#003D6E" strokeWidth="0.5"/>
-            </svg>
-          </div>
-          <div>
-            <div style={{fontSize:14,fontWeight:700,color:"#fff",lineHeight:1.2}}>Organigrama GCBA</div>
-            <div style={{fontSize:10,color:"rgba(255,255,255,.6)"}}>Ciudad Autónoma de Buenos Aires</div>
-          </div>
+        {/* Logo SGCBA — izquierda */}
+        <img src="data:image/png;base64,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" alt="SGCBA"
+          style={{height:38,flexShrink:0}}/>
+        {/* Título */}
+        <div style={{marginLeft:8}}>
+          <div style={{fontSize:14,fontWeight:700,color:"#fff",lineHeight:1.2}}>Organigrama de Gobierno</div>
+          <div style={{fontSize:10,color:"rgba(255,255,255,.65)"}}>Ciudad Autónoma de Buenos Aires</div>
         </div>
+        {/* Tabs */}
         <div className="app-tabs">
           {[["organigrama","📋 Organigrama"],["arbol","🌐 Árbol"],["editor","✏️ Editor visual"]].map(([id,label])=>(
             <button key={id} className={`app-tab${activeTab===id?" active":""}`}
               onClick={()=>{
                 if(id==="editor"){
-                  // Verificar autenticación
+                  const h=async()=>{
+                    const pwd=prompt("Contraseña del editor:");
+                    if(!pwd)return;
+                    const hash=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(pwd)))).map(b=>b.toString(16).padStart(2,"0")).join("");
+                    if(hash==="03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"){window._gcbaEditorAuth=true;setActiveTab(id);}
+                    else alert("Contraseña incorrecta");
+                  };
                   if(window._gcbaEditorAuth===true){setActiveTab(id);return;}
-                  const pwd=prompt("🔒 Acceso al Editor Visual\nIngresá la contraseña de administrador:");
-                  if(!pwd){return;}
-                  // SHA-256 async
-                  crypto.subtle.digest("SHA-256",new TextEncoder().encode(pwd))
-                    .then(buf=>{
-                      const hash=Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
-                      if(hash==="03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"){
-                        window._gcbaEditorAuth=true;
-                        setActiveTab(id);
-                      } else {
-                        alert("Contraseña incorrecta.");
-                      }
-                    });
-                } else {
-                  setActiveTab(id);
-                }
+                  h();
+                }else{setActiveTab(id);}
               }}>{label}</button>
           ))}
         </div>
+        {/* Botones derecha */}
         <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
           <Btn variant="ghost" onClick={dlAll} small>⬇ Descargar todo A3</Btn>
           <Btn variant="ghost" onClick={reset} small>↺ Restablecer</Btn>
         </div>
       </div>
-
       {/* Body */}
       <div className="app-body">
         {/* Vista completa */}
@@ -1558,7 +1580,13 @@ function App(){
           </div>
           <div style={{flex:1,overflow:"auto"}}>
             {filtered
-              ?filtered.map(n=><PanelItem key={n.id} node={n} onSelect={setSelected} selectedId={selected?.id} depth={0}/>)
+              ?(<>
+                {filtered.filter(n=>!n._isEmpresa).map(n=><PanelItem key={n.id} node={n} onSelect={setSelected} selectedId={selected?.id} depth={0}/>)}
+                {filtered.some(n=>n._isEmpresa)&&<>
+                  <div style={{padding:"6px 12px 4px",fontSize:9,fontWeight:700,color:"#9AABB8",textTransform:"uppercase",letterSpacing:".07em",borderTop:"1px solid #F0F4F8",marginTop:4}}>Empresas del Estado</div>
+                  {filtered.filter(n=>n._isEmpresa).map(n=><PanelItem key={n.id} node={n} onSelect={setSelected} selectedId={selected?.id} depth={0}/>)}
+                </>}
+              </>)
               :<PanelItem node={data} onSelect={setSelected} selectedId={selected?.id}/>
             }
           </div>
@@ -1598,7 +1626,7 @@ function App(){
                     {selected.titular
                       ? <div style={{display:"flex",alignItems:"center",gap:6}}>
                           <div style={{width:6,height:6,borderRadius:"50%",background:color,flexShrink:0}}/>
-                          <span style={{fontSize:12,color:"#38485C",fontWeight:500}}>{selected.titular}</span>
+                          <span style={{fontSize:12,color:"#003C50",fontWeight:500}}>{selected.titular}</span>
                         </div>
                       : <span style={{fontSize:11,color:"#A0AEC0",fontStyle:"italic"}}>Sin titular asignado</span>
                     }
@@ -1619,10 +1647,10 @@ function App(){
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
                     <div style={{display:"flex",alignItems:"center",gap:8}}>
                       <div style={{width:3,height:16,borderRadius:2,background:color}}/>
-                      <span style={{fontSize:11,fontWeight:700,color:"#38485C",textTransform:"uppercase",letterSpacing:".06em"}}>
+                      <span style={{fontSize:11,fontWeight:700,color:"#003C50",textTransform:"uppercase",letterSpacing:".06em"}}>
                         Dependencias
                       </span>
-                      <span style={{fontSize:10,background:"#EBF4FF",color:"#007BC7",fontWeight:700,padding:"1px 7px",borderRadius:20}}>
+                      <span style={{fontSize:10,background:"#E8F9FD",color:"#4DC5E9",fontWeight:700,padding:"1px 7px",borderRadius:20}}>
                         {(selected.children||[]).length}
                       </span>
                     </div>
@@ -1662,20 +1690,20 @@ function App(){
             <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:0,padding:"0 32px",overflow:"auto"}}>
               {/* Landing card */}
               <div style={{maxWidth:480,width:"100%",textAlign:"center"}}>
-                <div style={{width:64,height:64,borderRadius:16,background:"linear-gradient(135deg,#38485C,#007BC7)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px",boxShadow:"0 8px 24px rgba(0,123,199,.25)"}}>
+                <div style={{width:64,height:64,borderRadius:16,background:"linear-gradient(135deg,#003C50,#575756)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px",boxShadow:"0 8px 24px rgba(0,123,199,.25)"}}>
                   <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
                     <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" fill="#fff" opacity=".9"/>
-                    <polyline points="9 22 9 12 15 12 15 22" fill="#F5C400" stroke="#38485C" strokeWidth="0.5"/>
+                    <polyline points="9 22 9 12 15 12 15 22" fill="#F5C400" stroke="#003C50" strokeWidth="0.5"/>
                   </svg>
                 </div>
-                <div style={{fontSize:20,fontWeight:700,color:"#38485C",marginBottom:8,lineHeight:1.2}}>Organigrama de Gobierno</div>
+                <div style={{fontSize:20,fontWeight:700,color:"#003C50",marginBottom:8,lineHeight:1.2}}>Organigrama de Gobierno</div>
                 <div style={{fontSize:13,color:"#718096",lineHeight:1.6,marginBottom:28}}>Ciudad Autónoma de Buenos Aires · {new Date().getFullYear()}</div>
                 {/* Stats */}
                 <div style={{display:"flex",gap:12,justifyContent:"center",marginBottom:32}}>
                   {[["📋","Organismos",allNodes.length],["🏛️","Ministerios",allNodes.filter(n=>n.tipo==="MIN").length],["📂","Secretarías",allNodes.filter(n=>n.tipo==="SEC").length]].map(([icon,label,count])=>(
                     <div key={label} style={{background:"#fff",border:"1px solid #E2E8F0",borderRadius:10,padding:"10px 16px",flex:1,textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
                       <div style={{fontSize:18,marginBottom:2}}>{icon}</div>
-                      <div style={{fontSize:20,fontWeight:700,color:"#38485C",lineHeight:1}}>{count}</div>
+                      <div style={{fontSize:20,fontWeight:700,color:"#003C50",lineHeight:1}}>{count}</div>
                       <div style={{fontSize:10,color:"#9AABB8",marginTop:2,fontWeight:500}}>{label}</div>
                     </div>
                   ))}
@@ -1701,11 +1729,10 @@ function App(){
           {activeTab!=="arbol"&&activeTab!=="editor"&&(
             <EmpresasPanel/>
           )}
-          <div style={{background:"#F3F6F9",borderTop:"1px solid #E2E8F0",padding:"5px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <span style={{fontSize:10,color:"#A0AEC0"}}>GCBA · Ciudad Autónoma de Buenos Aires · {fechaApp}</span>
-            <div style={{display:"flex",gap:12,alignItems:"center"}}>
-              <span style={{fontSize:10,color:"#A0AEC0"}}>{allNodes.length} organismos</span>
-            </div>
+          <div style={{background:"#F3F6F9",borderTop:"1px solid #E2E8F0",padding:"6px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:10,color:"#A0AEC0"}}>SGCBA · Ciudad Autónoma de Buenos Aires · {fechaApp}</span>
+            <img src="data:image/png;base64,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" alt="Buenos Aires Ciudad" style={{height:22,opacity:.65}}/>
+            <span style={{fontSize:10,color:"#A0AEC0"}}>{allNodes.length} organismos</span>
           </div>
         </div>
       </>
@@ -1722,7 +1749,7 @@ function App(){
           <Field label="">
             <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13}}>
               <input type="checkbox" checked={editForm.dashed} onChange={e=>setEditForm(f=>({...f,dashed:e.target.checked}))}
-                style={{width:14,height:14,accentColor:"#007BC7"}}/>
+                style={{width:14,height:14,accentColor:"#4DC5E9"}}/>
               Dependencia funcional (línea punteada)
             </label>
           </Field>
@@ -1742,7 +1769,7 @@ function App(){
           <Field label="">
             <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13}}>
               <input type="checkbox" checked={addForm.dashed} onChange={e=>setAddForm(f=>({...f,dashed:e.target.checked}))}
-                style={{width:14,height:14,accentColor:"#007BC7"}}/>
+                style={{width:14,height:14,accentColor:"#4DC5E9"}}/>
               Dependencia funcional
             </label>
           </Field>
@@ -2101,6 +2128,66 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     edZoom=d3.zoom().scaleExtent([0.04,3]).on("zoom",e=>{edTransform=e.transform;g.attr("transform",e.transform);});
     svg.call(edZoom).call(edZoom.transform,edTransform);
     g.attr("transform",edTransform);
+
+    // ── Rectángulo de selección (lasso) ──
+    let lassoStart=null;
+    const lassoRect=svg.append("rect").attr("class","lasso-rect")
+      .attr("fill","rgba(0,123,199,0.08)").attr("stroke","#4DC5E9")
+      .attr("stroke-width",1).attr("stroke-dasharray","4,3")
+      .attr("rx",3).style("display","none").style("pointer-events","none");
+
+    svg.on("mousedown.lasso",function(e){
+      if(e.button!==0||e.target!==svgEl)return; // solo en fondo, botón izq
+      e.stopPropagation();
+      // Desactivar zoom temporalmente para que el lasso tenga prioridad
+      svg.on(".zoom",null);
+      const pt=svgEl.createSVGPoint();
+      pt.x=e.clientX;pt.y=e.clientY;
+      const gp=pt.matrixTransform(svgEl.getScreenCTM().inverse());
+      lassoStart={sx:gp.x,sy:gp.y,cx:e.clientX,cy:e.clientY};
+      lassoRect.style("display",null).attr("x",gp.x).attr("y",gp.y).attr("width",0).attr("height",0);
+    });
+    svg.on("mousemove.lasso",function(e){
+      if(!lassoStart)return;
+      const pt=svgEl.createSVGPoint();
+      pt.x=e.clientX;pt.y=e.clientY;
+      const gp=pt.matrixTransform(svgEl.getScreenCTM().inverse());
+      const x=Math.min(lassoStart.sx,gp.x),y=Math.min(lassoStart.sy,gp.y);
+      const w=Math.abs(gp.x-lassoStart.sx),h=Math.abs(gp.y-lassoStart.sy);
+      lassoRect.attr("x",x).attr("y",y).attr("width",w).attr("height",h);
+    });
+    svg.on("mouseup.lasso",function(e){
+      if(!lassoStart){return;}
+      lassoRect.style("display","none");
+      // Re-habilitar zoom
+      svg.call(edZoom);
+      // Si el arrastre fue muy pequeño, tratar como clic (deselect)
+      const dx=Math.abs(e.clientX-lassoStart.cx),dy=Math.abs(e.clientY-lassoStart.cy);
+      if(dx<5&&dy<5){lassoStart=null;return;}
+      // Seleccionar nodos dentro del rectángulo
+      const pt=svgEl.createSVGPoint();
+      pt.x=e.clientX;pt.y=e.clientY;
+      const gp=pt.matrixTransform(svgEl.getScreenCTM().inverse());
+      // Rectángulo en coordenadas SVG (antes del zoom/pan)
+      const rx1=(Math.min(lassoStart.sx,gp.x)-edTransform.x)/edTransform.k;
+      const ry1=(Math.min(lassoStart.sy,gp.y)-edTransform.y)/edTransform.k;
+      const rx2=(Math.max(lassoStart.sx,gp.x)-edTransform.x)/edTransform.k;
+      const ry2=(Math.max(lassoStart.sy,gp.y)-edTransform.y)/edTransform.k;
+      if(!e.shiftKey) edSelectedIds.clear();
+      nodes.forEach(n=>{
+        const p=edPositions[n.id];if(!p)return;
+        const nw=p.w||NW,nh=p.h||NH;
+        const nx1=p.x-nw/2,ny1=p.y,nx2=p.x+nw/2,ny2=p.y+nh;
+        // Intersección con el lasso
+        if(nx2>rx1&&nx1<rx2&&ny2>ry1&&ny1<ry2) edSelectedIds.add(n.id);
+      });
+      d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));
+      if(edSelectedIds.size>0){
+        document.getElementById("ed-actions").style.display="flex";
+        renderInspector(edSelectedIds.size===1?findN(edData,[...edSelectedIds][0]):null);
+      }
+      lassoStart=null;
+    });
 
     // Links
     const linkG=g.append("g");
