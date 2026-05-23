@@ -92,6 +92,8 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
 .c-link{fill:none;stroke:var(--ed-border2);stroke-width:1.1;}
 .c-link.dashed-link{stroke-dasharray:5,3;stroke:var(--ed-text3);}
 .ed-saved{font-size:11px;color:#22c55e;opacity:0;transition:opacity .3s;margin-right:4px;}
+.ed-aln{width:26px!important;height:26px!important;font-size:12px!important;padding:0!important;}
+.ed-aln:hover{background:var(--ed-accent)!important;color:#fff!important;border-color:var(--ed-accent)!important;}
 ::-webkit-scrollbar{width:4px;height:4px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--ed-border2);border-radius:4px;}
@@ -119,7 +121,27 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
   <div id="ed-toolbar">
     <span style="font-size:10px;font-weight:600;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.06em;">Área:</span>
     <select id="ed-area-sel" style="min-width:240px;flex:1;max-width:380px;"></select>
-    <span style="font-size:10px;color:var(--ed-text3);margin-left:8px;">· shift+clic = selección múltiple · arrastrar fondo = seleccionar área · clic derecho en línea = punto de quiebre</span>
+    <span style="font-size:10px;color:var(--ed-text3);margin-left:8px;">· shift+clic = sel. múltiple · arrastrar fondo = sel. área · clic der. en línea = quiebre</span>
+    <!-- Barra de alineación — visible solo con selección múltiple -->
+    <div id="ed-align-bar" style="display:none;align-items:center;gap:3px;margin-left:12px;padding-left:12px;border-left:1px solid var(--ed-border2);">
+      <span style="font-size:9px;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.05em;margin-right:2px;">Alinear</span>
+      <button class="ed-zb ed-aln" id="al-left"   title="Alinear borde izquierdo"  style="font-size:13px;">⬡<span style="font-size:8px;position:relative;top:-1px">◁</span></button>
+      <button class="ed-zb ed-aln" id="al-center" title="Centrar horizontalmente"  style="font-size:11px;">⇔</button>
+      <button class="ed-zb ed-aln" id="al-right"  title="Alinear borde derecho"   style="font-size:13px;"><span style="font-size:8px;position:relative;top:-1px">▷</span>⬡</button>
+      <div style="width:1px;height:16px;background:var(--ed-border2);margin:0 2px;"></div>
+      <button class="ed-zb ed-aln" id="al-top"    title="Alinear borde superior"  style="font-size:11px;">⬆</button>
+      <button class="ed-zb ed-aln" id="al-middle" title="Centrar verticalmente"   style="font-size:11px;">⇕</button>
+      <button class="ed-zb ed-aln" id="al-bottom" title="Alinear borde inferior"  style="font-size:11px;">⬇</button>
+      <div style="width:1px;height:16px;background:var(--ed-border2);margin:0 2px;"></div>
+      <button class="ed-zb ed-aln" id="al-dist-h" title="Distribuir espaciado horizontal igual" style="font-size:11px;">⇿</button>
+      <button class="ed-zb ed-aln" id="al-dist-v" title="Distribuir espaciado vertical igual"   style="font-size:11px;">↕</button>
+      <div style="width:1px;height:16px;background:var(--ed-border2);margin:0 2px;"></div>
+      <button class="ed-zb ed-aln" id="al-same-w" title="Mismo ancho"   style="font-size:10px;font-weight:600;">↔W</button>
+      <button class="ed-zb ed-aln" id="al-same-h" title="Misma altura"  style="font-size:10px;font-weight:600;">↕H</button>
+      <div style="width:1px;height:16px;background:var(--ed-border2);margin:0 2px;"></div>
+      <button class="ed-zb ed-aln" id="al-group-h" title="Agrupar en fila horizontal" style="font-size:10px;">▦H</button>
+      <button class="ed-zb ed-aln" id="al-group-v" title="Agrupar en columna vertical" style="font-size:10px;">▦V</button>
+    </div>
     <span style="font-size:10px;color:var(--ed-text3);margin-left:12px;">Nodo:</span>
     <span style="font-size:10px;color:var(--ed-text3);">Texto</span>
     <input id="ed-fs" type="number" min="6" max="20" step="0.5" value="9.5"
@@ -174,16 +196,13 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;
   transition:opacity .6s ease, visibility .6s ease;
 ">
-  <!-- Logo GCBA -->
-  <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="64" height="64" rx="14" fill="#4DC5E9"/>
-    <path d="M18 20h28M18 32h20M18 44h24" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
-    <circle cx="48" cy="44" r="5" fill="#fff"/>
-  </svg>
+  <!-- Mapa CABA -->
+  <img src="data:image/png;base64,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" alt="Ciudad Autónoma de Buenos Aires"
+    style="height:110px;opacity:.95;filter:drop-shadow(0 4px 16px rgba(0,0,0,.3));"/>
   <!-- Título -->
   <div style="text-align:center;">
     <div style="font-family:'Inter',-apple-system,sans-serif;font-size:22px;font-weight:700;color:#fff;letter-spacing:.02em;">
-      Organigrama GCBA
+      Organigrama de Gobierno
     </div>
     <div style="font-family:'Inter',-apple-system,sans-serif;font-size:13px;color:rgba(255,255,255,.6);margin-top:6px;letter-spacing:.04em;">
       Ciudad Autónoma de Buenos Aires
@@ -357,8 +376,18 @@ function genSVGA3(root,pn=1,tot=1){
       const rn={x:AW/2,y:0,data:root,depth:0};
       const mn=makeRow(useRow1,NH+VPAD);
       const sn=makeRow(useRow2,NH+VPAD+NH+VPAD);
-      nodes=[rn,...mn,...sn];
-      links=[...mn.map(t=>({s:rn,t})),...sn.map(t=>({s:rn,t}))];
+      // Nodos fuera de nivel (dashed) — fila al pie
+      const dashedDirect=directHier.filter(c=>c.dashed!==false&&(root.children||[]).some(ch=>ch.id===c.id&&ch.dashed));
+      // Re-check: get dashed children of root
+      const dashedChildren=(root.children||[]).filter(c=>c.dashed);
+      const lastRowY=NH+VPAD+(useRow2.length>0?NH+VPAD:0);
+      const dn=dashedChildren.length>0?(()=>{
+        const total=dashedChildren.length*(NW+HPAD)-HPAD;
+        let x=(AW-total)/2+NW/2;
+        return dashedChildren.map(c=>{const n={x,y:lastRowY,data:c,depth:1};x+=NW+HPAD;return n;});
+      })():[];
+      nodes=[rn,...mn,...sn,...dn];
+      links=[...mn.map(t=>({s:rn,t})),...sn.map(t=>({s:rn,t})),...dn.map(t=>({s:rn,t}))];
 
     } else {
       // D3 tree para áreas con jerarquía profunda (SS, DG, etc.)
@@ -399,6 +428,22 @@ function genSVGA3(root,pn=1,tot=1){
       const sc=Math.min(scX,scY)*0.96;
       nodes.forEach(n=>{n.x*=sc;n.y*=sc;});
       NW*=sc;NH*=sc;
+
+      // Agregar nodos dashed (fuera de nivel) debajo del árbol
+      const dashedChD=(root.children||[]).filter(c=>c.dashed);
+      if(dashedChD.length>0){
+        const maxY=d3.max(nodes,n=>n.y)+NH;
+        const dashedY=maxY+VGAP*1.5;
+        const dashedTotalW=dashedChD.length*(NW+HGAP)-HGAP;
+        let dx=(AW-dashedTotalW)/2+NW/2;
+        const rootNode=nodes.find(n=>n.data.id===root.id);
+        dashedChD.forEach(c=>{
+          const dn={x:dx,y:dashedY,data:c,depth:1};
+          nodes.push(dn);
+          if(rootNode)links.push({s:rootNode,t:dn});
+          dx+=NW+HGAP;
+        });
+      }
     }
   }
 
@@ -439,8 +484,6 @@ function genSVGA3(root,pn=1,tot=1){
     const fsTn=ED_FS>0?ED_FS*0.82:Math.max(6,Math.min(10.5,nw/15));
     nodesSVG+=svgBox(n.x-nw/2,n.y,n.data,nw,nh,!!n.data?.dashed,fsNn,fsTn);
   });
-
-  // (organismos fuera de nivel no se muestran en el A3 — tienen su propia página)
 
   const leg=[["#9B1C1C","Jefatura"],["#FEA82D","Ministerio"],["#FCD307","Secretaría"],
              ["#004F86","Subsecretaría"],["#268948","Dir. General"],["#E4E9ED","Org. desc."]];
@@ -1283,30 +1326,49 @@ function EmpresasPanel(){
   const[extras,setExtras]=React.useState(()=>{
     try{return JSON.parse(localStorage.getItem("gcba_empresas_extra")||"[]");}catch{return[];}
   });
+  // Overrides para empresas fijas (ediciones de nombre/titular)
+  const[overrides,setOverrides]=React.useState(()=>{
+    try{return JSON.parse(localStorage.getItem("gcba_empresas_overrides")||"{}");}catch{return{};}
+  });
   const[adding,setAdding]=React.useState(false);
-  const[editing,setEditing]=React.useState(null); // id being edited
+  const[editing,setEditing]=React.useState(null);
   const[form,setForm]=React.useState({nombre:"",titular:""});
 
   const saveExtras=list=>{setExtras(list);localStorage.setItem("gcba_empresas_extra",JSON.stringify(list));};
+  const saveOverrides=ovr=>{setOverrides(ovr);localStorage.setItem("gcba_empresas_overrides",JSON.stringify(ovr));};
+
+  // Empresa con overrides aplicados
+  const resolved=e=>({...e,...(overrides[e.id]||{})});
+
   const addEmpresa=()=>{
     if(!form.nombre.trim())return;
     const e={id:"ex_"+Date.now(),nombre:form.nombre.trim(),titular:form.titular.trim(),area:""};
     saveExtras([...extras,e]);setForm({nombre:"",titular:""});setAdding(false);
   };
-  const startEdit=e=>{setEditing(e.id);setForm({nombre:e.nombre,titular:e.titular||""});setAdding(false);};
+  const startEdit=e=>{
+    const r=resolved(e);
+    setEditing(e.id);setForm({nombre:r.nombre,titular:r.titular||""});setAdding(false);
+  };
   const saveEdit=()=>{
     if(!form.nombre.trim())return;
-    saveExtras(extras.map(e=>e.id===editing?{...e,nombre:form.nombre.trim(),titular:form.titular.trim()}:e));
+    if(editing.startsWith("ex_")){
+      // Extra: edit in extras array
+      saveExtras(extras.map(e=>e.id===editing?{...e,nombre:form.nombre.trim(),titular:form.titular.trim()}:e));
+    } else {
+      // Fija: guardar override
+      saveOverrides({...overrides,[editing]:{nombre:form.nombre.trim(),titular:form.titular.trim()}});
+    }
     setEditing(null);setForm({nombre:"",titular:""});
   };
   const removeExtra=id=>{saveExtras(extras.filter(e=>e.id!==id));if(editing===id)setEditing(null);};
+  const resetOverride=id=>{const o={...overrides};delete o[id];saveOverrides(o);};
 
-  const allEmpresas=[...EMPRESAS_DEL_ESTADO,...extras];
+  const allEmpresas=[...EMPRESAS_DEL_ESTADO,...extras].map(resolved);
   const grouped=React.useMemo(()=>{
     const g={};
     allEmpresas.forEach(e=>{const key=e.area||"Sin dependencia ministerial definida";if(!g[key])g[key]=[];g[key].push(e);});
     return Object.entries(g);
-  },[extras]);
+  },[extras,overrides]);
 
   const EditForm=({onSave,onCancel,saveLabel="Guardar"})=>(
     <div style={{marginTop:8,background:"#fff",border:"1px solid #E2E8F0",borderRadius:8,padding:"12px 14px",maxWidth:400}}>
@@ -1350,20 +1412,26 @@ function EmpresasPanel(){
                   <div key={e.id}>
                     {editing===e.id
                       ? <div style={{minWidth:280}}><EditForm onSave={saveEdit} onCancel={()=>{setEditing(null);setForm({nombre:"",titular:""});}}/></div>
-                      : <div style={{background:"#fff",border:"1px solid #DDE3EA",borderLeft:"3px solid #575756",
-                          borderRadius:6,padding:"7px 12px",minWidth:200,maxWidth:280,position:"relative"}}>
+                      : <div style={{background:"#fff",border:"1px solid #DDE3EA",borderLeft:"3px solid #003C50",
+                          borderRadius:6,padding:"7px 12px",minWidth:200,maxWidth:280}}>
                           <div style={{fontSize:11,fontWeight:600,color:"#003C50",lineHeight:1.3}}>{e.nombre}</div>
-                          {e.titular&&<div style={{fontSize:10,color:"#718096",marginTop:3}}>{e.titular}</div>}
-                          {e.id.startsWith("ex_")&&(
-                            <div style={{display:"flex",gap:4,marginTop:6}}>
-                              <button onClick={()=>startEdit(e)}
-                                style={{fontSize:10,padding:"2px 7px",borderRadius:4,border:"1px solid #CBD5E0",
-                                  background:"#fff",cursor:"pointer",color:"#003C50",fontFamily:"inherit"}}>✏️ Editar</button>
-                              <button onClick={()=>removeExtra(e.id)}
-                                style={{fontSize:10,padding:"2px 7px",borderRadius:4,border:"1px solid #FECACA",
-                                  background:"#fff",cursor:"pointer",color:"#E53E3E",fontFamily:"inherit"}}>✕</button>
-                            </div>
-                          )}
+                          {e.titular
+                            ? <div style={{fontSize:10,color:"#718096",marginTop:3}}>{e.titular}</div>
+                            : <div style={{fontSize:10,color:"#CBD5E0",marginTop:3,fontStyle:"italic"}}>Sin titular</div>
+                          }
+                          <div style={{display:"flex",gap:4,marginTop:6}}>
+                            <button onClick={()=>startEdit(e)}
+                              style={{fontSize:10,padding:"2px 7px",borderRadius:4,border:"1px solid #CBD5E0",
+                                background:"#fff",cursor:"pointer",color:"#003C50",fontFamily:"inherit"}}>✏️ Editar</button>
+                            {e.id.startsWith("ex_")
+                              ? <button onClick={()=>removeExtra(e.id)}
+                                  style={{fontSize:10,padding:"2px 7px",borderRadius:4,border:"1px solid #FECACA",
+                                    background:"#fff",cursor:"pointer",color:"#E53E3E",fontFamily:"inherit"}}>✕ Eliminar</button>
+                              : overrides[e.id]&&<button onClick={()=>resetOverride(e.id)}
+                                  style={{fontSize:10,padding:"2px 7px",borderRadius:4,border:"1px solid #E2E8F0",
+                                    background:"#fff",cursor:"pointer",color:"#9AABB8",fontFamily:"inherit"}}>↺ Restablecer</button>
+                            }
+                          </div>
                         </div>
                     }
                   </div>
@@ -1401,6 +1469,22 @@ const EMPRESAS_DEL_ESTADO=[
   {id:"emp_fac",   nombre:"FACOEP S.E.",                                        titular:"",                            area:""},
   {id:"emp_cbs",   nombre:"Corporación Buenos Aires Sur S.E.",                  titular:"Karina Andrea Burijson",      area:""},
 ];
+
+// ── Helper de autenticación para acciones de edición ──────────────
+const EDITOR_HASH="03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4";
+async function checkAuth(){
+  if(window._gcbaEditorAuth===true)return true;
+  const pwd=prompt("Contraseña de edición:");
+  if(!pwd)return false;
+  const hash=Array.from(new Uint8Array(
+    await crypto.subtle.digest("SHA-256",new TextEncoder().encode(pwd))
+  )).map(b=>b.toString(16).padStart(2,"0")).join("");
+  if(hash===EDITOR_HASH){window._gcbaEditorAuth=true;return true;}
+  alert("Contraseña incorrecta");return false;
+}
+function withAuth(fn){
+  return async(...args)=>{if(await checkAuth())fn(...args);};
+}
 
 function App(){
   const[data,setData]=useState(()=>loadData());
@@ -1555,7 +1639,7 @@ function App(){
         {/* Botones derecha */}
         <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
           <Btn variant="ghost" onClick={dlAll} small>⬇ Descargar todo A3</Btn>
-          <Btn variant="ghost" onClick={reset} small>↺ Restablecer</Btn>
+          <Btn variant="ghost" onClick={withAuth(reset)} small>↺ Restablecer</Btn>
         </div>
       </div>
       {/* Body */}
@@ -1591,7 +1675,7 @@ function App(){
             }
           </div>
           <div style={{padding:"10px 12px",borderTop:"1px solid #E2E8F0",background:"#F3F6F9"}}>
-            <Btn variant="primary" onClick={()=>{setAddForm({nombre:"",titular:"",tipo:"DG",tipoLabel:"",dashed:false,parentId:selected?.id||"JG"});setModal("add");}} style={{width:"100%",justifyContent:"center"}}>
+            <Btn variant="primary" onClick={withAuth(()=>{setAddForm({nombre:"",titular:"",tipo:"DG",tipoLabel:"",dashed:false,parentId:selected?.id||"JG"});setModal("add");})} style={{width:"100%",justifyContent:"center"}}>
               + Nueva unidad
             </Btn>
           </div>
@@ -1632,10 +1716,10 @@ function App(){
                     }
                   </div>
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                    <Btn variant="secondary" small onClick={()=>openEdit(selected)}>✏️ Editar</Btn>
+                    <Btn variant="secondary" small onClick={withAuth(()=>openEdit(selected))}>✏️ Editar</Btn>
                     {selected.id!=="JG"&&<>
-                      <Btn variant="secondary" small onClick={openMove}>↕ Mover</Btn>
-                      <Btn variant="danger" small onClick={del}>✕ Eliminar</Btn>
+                      <Btn variant="secondary" small onClick={withAuth(openMove)}>↕ Mover</Btn>
+                      <Btn variant="danger" small onClick={withAuth(del)}>✕ Eliminar</Btn>
                     </>}
                     <Btn variant="secondary" small onClick={()=>{dlSVG(genSVGA3(selected,1,1),`organigrama-${selected.id}-A3.svg`);}}>🖨 A3</Btn>
                   </div>
@@ -1691,10 +1775,7 @@ function App(){
               {/* Landing card */}
               <div style={{maxWidth:480,width:"100%",textAlign:"center"}}>
                 <div style={{width:64,height:64,borderRadius:16,background:"linear-gradient(135deg,#003C50,#575756)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px",boxShadow:"0 8px 24px rgba(0,123,199,.25)"}}>
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" fill="#fff" opacity=".9"/>
-                    <polyline points="9 22 9 12 15 12 15 22" fill="#F5C400" stroke="#003C50" strokeWidth="0.5"/>
-                  </svg>
+                  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABMAAAAWCAYAAAAinad/AAADgElEQVR42qWUS2icVRTH/+fe+z0ymcyjmYytJbbxWShZpJSCRYlBpCooCGbQnYI0iAsl6sI2OA4uFKrUhVCShYoL0W8qVqEiig4trSalasEmQrQOmmjR1iaTmcl8r3uPi9gYNLHV/rb33B/nnnvOIayCAPDsbOVpH+apjOUcMvXg/T3X3/5hkSuqRAMx1oAAAMzEAA78dCzzu4V7G8Z/OLKpP/R9OIk2SEON7KJ86JnN/e/uPjlqjW0fitZKAoPlsiAinkFr1O9y3vCV6Q8aTYZh+PVmFJJOzgn/hQMzX9wwtn0oKnJRrJ4ZM4GIK9Wq+wFPVWNHdHEYMYjUxSA2hoVS1Oa4YVsz2lu69s6Xiqc9e2ordJkKelnmsScLGDQv/nj05t9s/1gQhkx/ZrwSZjZQQiSUg5uidO8j1+w4vXQAAhggYjGJLgIR19l/UCQcArNZ9QlEApExAWt8ay4c3Df7+Vul2SMjIDCIGMxEzEzlH75MTchz34eKcxzFDCJa68fYMEvHIsdxIWwFe85/O0Ptj413z9YEEfE3ovaoyCZyJorjfxMBAAkiHcVmsVGPG3NzUdRhPyCj8LoyFTSNnR3vmY7mv/JJpxFrXEq2sohkKXI0/ZwU9ju5OLlPVYP5l3VSZXghNCRI4HIhIo40WoSNVj47fPaXmlItE98VN2P+T6IVLU/gOKg34QqQMAAvT8L/gBlSBJoSZG0RkmAxGFdCSEbWTXCHAAlxBS4jbUu7RlWvQuoWIW0leI1GXQUN4GKsNsRhKt+p1kXy+eHNO48LK+ATbke7YMN67cIADIZKOJIsJRgMmXBkunOd6/66OLoluf5gkStK7UB+10Tz/GFkO3YGcwsxCaH+UWNBbEEIu2lOxuCrybI3yICP5rWYfGJj/+NEFDPzUoO+V/06M2Fd+DRM0LagVo+J/hIyc9yeTat0zQyPbBrYf/j8dGqWmt1DnX2T/PdBH/Q8eV9P33xvI73LafEpO5VUzCYGEdiwdtMdypoPDu3dNLD/fs+Td+duXNi9JKJipaJAAIh4edMOep4sFwr6zVPH81O51mdBG20Na41ItbuWG+LMPe62vk9yrzYBoITnuAhQicisvrYBDLIny1TQr1cn1k/bjY8XbdNraQQbWu5tT/bcOu6xJwsrFuEl8diTAPDadye6R84dmdlz5qNXAKBYqajLuf8HJ7isynkZgJ8AAAAASUVORK5CYII=" style={{height:44,opacity:.95}}/>
                 </div>
                 <div style={{fontSize:20,fontWeight:700,color:"#003C50",marginBottom:8,lineHeight:1.2}}>Organigrama de Gobierno</div>
                 <div style={{fontSize:13,color:"#718096",lineHeight:1.6,marginBottom:28}}>Ciudad Autónoma de Buenos Aires · {new Date().getFullYear()}</div>
@@ -1806,6 +1887,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
   // ── Constantes ──────────────────────────────────────────
   const POS_KEY="gcba_org_positions_v1";
+  const SNAP_DIST=8;   // píxeles en coordenadas del canvas para activar snap
+  const GUIDE_COLOR="#4DC5E9";
   const WP_KEY="gcba_org_waypoints_v1";
   const HPAD=18,VPAD=58; // edNW and edNH are dynamic per area
 
@@ -2131,6 +2214,21 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
     // ── Rectángulo de selección (lasso) ──
     let lassoStart=null;
+    // ── Capa de guías de alineación (snap guides) ──
+    const guideG=svg.append("g").attr("class","snap-guides").style("pointer-events","none");
+
+    function clearGuides(){guideG.selectAll("*").remove();}
+    function drawGuide(x1,y1,x2,y2){
+      guideG.append("line")
+        .attr("x1",x1).attr("y1",y1).attr("x2",x2).attr("y2",y2)
+        .attr("stroke",GUIDE_COLOR).attr("stroke-width",1)
+        .attr("stroke-dasharray","4,3").attr("opacity",0.85);
+    }
+    // Convierte coordenadas del grupo (canvas) a coordenadas SVG para las guías
+    function toSVG(cx,cy){
+      return{x:cx*edTransform.k+edTransform.x, y:cy*edTransform.k+edTransform.y};
+    }
+
     const lassoRect=svg.append("rect").attr("class","lasso-rect")
       .attr("fill","rgba(0,123,199,0.08)").attr("stroke","#4DC5E9")
       .attr("stroke-width",1).attr("stroke-dasharray","4,3")
@@ -2186,6 +2284,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
         document.getElementById("ed-actions").style.display="flex";
         renderInspector(edSelectedIds.size===1?findN(edData,[...edSelectedIds][0]):null);
       }
+      updateAlignBar();
       lassoStart=null;
     });
 
@@ -2282,6 +2381,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     }
 
     drawLinks();drawWPs();
+    registerDrawFns(drawLinks,drawWPs);
 
     // Nodos
     const nodeG=g.append("g");
@@ -2299,6 +2399,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
           d3.selectAll(".c-node").classed("sel",n=>edSelectedIds.has(n.id));
           renderInspector(findN(edData,d.id));
           document.getElementById("ed-actions").style.display="flex";
+          updateAlignBar();
         }else{selectSingle(d.id);}
       });
 
@@ -2307,12 +2408,87 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       )
       .on("drag",function(e,d){
         const dx=e.dx/edTransform.k,dy=e.dy/edTransform.k;
-        edSelectedIds.forEach(id=>{if(edPositions[id]){edPositions[id].x+=dx;edPositions[id].y+=dy;}});
+        // Move all selected nodes by raw delta first
+        edSelectedIds.forEach(id=>{
+          if(edPositions[id]){edPositions[id].x+=dx;edPositions[id].y+=dy;}
+        });
+
+        // ── Snap to other nodes ──────────────────────────────────────────
+        // Collect candidate snap targets (non-selected nodes)
+        const targets=nodes.filter(n=>!edSelectedIds.has(n.id)&&edPositions[n.id]);
+        const snapDist=SNAP_DIST/edTransform.k;
+        clearGuides();
+
+        if(targets.length>0){
+          // Get bounding box of the dragged group
+          const selNodes=[...edSelectedIds].map(id=>edPositions[id]).filter(Boolean);
+          const gMinX=Math.min(...selNodes.map(p=>p.x-(p.w||NW)/2));
+          const gMaxX=Math.max(...selNodes.map(p=>p.x+(p.w||NW)/2));
+          const gCtrX=(gMinX+gMaxX)/2;
+          const gMinY=Math.min(...selNodes.map(p=>p.y));
+          const gMaxY=Math.max(...selNodes.map(p=>p.y+(p.h||NH)));
+          const gCtrY=(gMinY+gMaxY)/2;
+
+          let snapX=null,snapY=null,guideXval=null,guideYval=null;
+
+          targets.forEach(n=>{
+            const p=edPositions[n.id];
+            const nw=p.w||NW,nh=p.h||NH;
+            const tLeft=p.x-nw/2, tRight=p.x+nw/2, tCtrX=p.x;
+            const tTop=p.y, tBottom=p.y+nh, tCtrY=p.y+nh/2;
+
+            // X snaps: left-left, left-right, center-center, right-left, right-right
+            const xPairs=[
+              [gMinX,tLeft],[gMinX,tRight],[gMinX,tCtrX],
+              [gCtrX,tLeft],[gCtrX,tRight],[gCtrX,tCtrX],
+              [gMaxX,tLeft],[gMaxX,tRight],[gMaxX,tCtrX],
+            ];
+            xPairs.forEach(([src,tgt])=>{
+              const d=Math.abs(src-tgt);
+              if(d<snapDist&&(snapX===null||d<Math.abs(snapX.d))){
+                snapX={delta:tgt-src,d,guideX:tgt};
+              }
+            });
+            // Y snaps: top-top, top-bottom, center-center, bottom-top, bottom-bottom
+            const yPairs=[
+              [gMinY,tTop],[gMinY,tBottom],[gMinY,tCtrY],
+              [gCtrY,tTop],[gCtrY,tBottom],[gCtrY,tCtrY],
+              [gMaxY,tTop],[gMaxY,tBottom],[gMaxY,tCtrY],
+            ];
+            yPairs.forEach(([src,tgt])=>{
+              const d=Math.abs(src-tgt);
+              if(d<snapDist&&(snapY===null||d<Math.abs(snapY.d))){
+                snapY={delta:tgt-src,d,guideY:tgt};
+              }
+            });
+          });
+
+          // Apply snaps
+          if(snapX){
+            edSelectedIds.forEach(id=>{if(edPositions[id])edPositions[id].x+=snapX.delta;});
+            guideXval=snapX.guideX;
+          }
+          if(snapY){
+            edSelectedIds.forEach(id=>{if(edPositions[id])edPositions[id].y+=snapY.delta;});
+            guideYval=snapY.guideY;
+          }
+
+          // Draw guide lines in SVG coords
+          if(guideXval!==null){
+            const sv=toSVG(guideXval,0);
+            drawGuide(sv.x,0,sv.x,svg.attr("height"));
+          }
+          if(guideYval!==null){
+            const sv=toSVG(0,guideYval);
+            drawGuide(0,sv.y,svg.attr("width"),sv.y);
+          }
+        }
+
         d3.selectAll(".c-node").filter(n=>edSelectedIds.has(n.id))
           .attr("transform",n=>{const p=edPositions[n.id]||{x:0,y:0};return`translate(${p.x-(p.w||NW)/2},${p.y})`;});
         drawLinks();drawWPs();
       })
-      .on("end",()=>{savePosForArea();recalcNodeSize();renderCanvas();showSaved();})
+      .on("end",()=>{clearGuides();savePosForArea();recalcNodeSize();renderCanvas();showSaved();})
     );
 
     ng.append("rect")
@@ -2447,6 +2623,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     const node=id?findN(edData,id):null;
     renderInspector(node);
     if(typeof renderResizeHandles==="function")renderResizeHandles();
+    updateAlignBar();
     if(id){const el=document.querySelector(`.ed-ni[data-id="${id}"]`);if(el)el.scrollIntoView({block:"nearest"});}
   }
 
@@ -2557,6 +2734,124 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     el._t=setTimeout(()=>el.style.opacity="0",2000);
   }
 
+
+  // ── Funciones de alineación y distribución ─────────────────────────────
+  function getSelNodes(){
+    return [...edSelectedIds].map(id=>({id,pos:edPositions[id]})).filter(n=>n.pos);
+  }
+
+  function applyAlignment(fn){
+    const sel=getSelNodes();
+    if(sel.length<2)return;
+    fn(sel);
+    redrawAll();
+    savePosForArea();showSaved();
+  }
+
+  function redrawAll(){
+    d3.selectAll(".c-node").attr("transform",d=>{
+      const p=edPositions[d.id]||{x:0,y:0};
+      return`translate(${p.x-(p.w||NW)/2},${p.y})`;
+    });
+    if(typeof drawLinks==="function")drawLinks();
+    if(typeof drawWPs==="function")drawWPs();
+  }
+
+  // Referencia a drawLinks/drawWPs (se sobreescribe cada vez que se renderiza el canvas)
+  let drawLinks=()=>{},drawWPs=()=>{};
+  function registerDrawFns(dl,dw){drawLinks=dl;drawWPs=dw;}
+
+  function alignLeft(sel){
+    const minX=Math.min(...sel.map(n=>n.pos.x-(n.pos.w||NW)/2));
+    sel.forEach(n=>{edPositions[n.id].x=minX+(n.pos.w||NW)/2;});
+  }
+  function alignCenter(sel){
+    const minX=Math.min(...sel.map(n=>n.pos.x-(n.pos.w||NW)/2));
+    const maxX=Math.max(...sel.map(n=>n.pos.x+(n.pos.w||NW)/2));
+    const cx=(minX+maxX)/2;
+    sel.forEach(n=>{edPositions[n.id].x=cx;});
+  }
+  function alignRight(sel){
+    const maxX=Math.max(...sel.map(n=>n.pos.x+(n.pos.w||NW)/2));
+    sel.forEach(n=>{edPositions[n.id].x=maxX-(n.pos.w||NW)/2;});
+  }
+  function alignTop(sel){
+    const minY=Math.min(...sel.map(n=>n.pos.y));
+    sel.forEach(n=>{edPositions[n.id].y=minY;});
+  }
+  function alignMiddle(sel){
+    const minY=Math.min(...sel.map(n=>n.pos.y));
+    const maxY=Math.max(...sel.map(n=>n.pos.y+(n.pos.h||NH)));
+    const cy=(minY+maxY)/2;
+    sel.forEach(n=>{edPositions[n.id].y=cy-(n.pos.h||NH)/2;});
+  }
+  function alignBottom(sel){
+    const maxY=Math.max(...sel.map(n=>n.pos.y+(n.pos.h||NH)));
+    sel.forEach(n=>{edPositions[n.id].y=maxY-(n.pos.h||NH);});
+  }
+  function distributeH(sel){
+    if(sel.length<3)return;
+    const sorted=[...sel].sort((a,b)=>a.pos.x-b.pos.x);
+    const minX=sorted[0].pos.x-(sorted[0].pos.w||NW)/2;
+    const maxX=sorted[sorted.length-1].pos.x+(sorted[sorted.length-1].pos.w||NW)/2;
+    const totalW=sorted.reduce((s,n)=>s+(n.pos.w||NW),0);
+    const gap=(maxX-minX-totalW)/(sorted.length-1);
+    let x=minX;
+    sorted.forEach(n=>{edPositions[n.id].x=x+(n.pos.w||NW)/2;x+=(n.pos.w||NW)+gap;});
+  }
+  function distributeV(sel){
+    if(sel.length<3)return;
+    const sorted=[...sel].sort((a,b)=>a.pos.y-b.pos.y);
+    const minY=sorted[0].pos.y;
+    const maxY=sorted[sorted.length-1].pos.y+(sorted[sorted.length-1].pos.h||NH);
+    const totalH=sorted.reduce((s,n)=>s+(n.pos.h||NH),0);
+    const gap=(maxY-minY-totalH)/(sorted.length-1);
+    let y=minY;
+    sorted.forEach(n=>{edPositions[n.id].y=y;y+=(n.pos.h||NH)+gap;});
+  }
+  function sameWidth(sel){
+    // Use width of first selected node as reference
+    const ref=sel[0].pos.w||NW;
+    sel.forEach(n=>{if(edPositions[n.id])edPositions[n.id].w=ref;});
+  }
+  function sameHeight(sel){
+    const ref=sel[0].pos.h||NH;
+    sel.forEach(n=>{if(edPositions[n.id])edPositions[n.id].h=ref;});
+  }
+  function groupHorizontal(sel){
+    // Arrange selected nodes in a row, evenly spaced, preserving their Y average
+    const avgY=sel.reduce((s,n)=>s+n.pos.y,0)/sel.length;
+    const nodeW=sel[0].pos.w||NW;
+    const gap=20;
+    const totalW=sel.length*nodeW+(sel.length-1)*gap;
+    let x=sel[0].pos.x-totalW/2+nodeW/2;
+    const sorted=[...sel].sort((a,b)=>a.pos.x-b.pos.x);
+    sorted.forEach(n=>{
+      edPositions[n.id].x=x;
+      edPositions[n.id].y=Math.round(avgY);
+      x+=nodeW+gap;
+    });
+  }
+  function groupVertical(sel){
+    const avgX=sel.reduce((s,n)=>s+n.pos.x,0)/sel.length;
+    const nodeH=sel[0].pos.h||NH;
+    const gap=20;
+    const sorted=[...sel].sort((a,b)=>a.pos.y-b.pos.y);
+    let y=sorted[0].pos.y;
+    sorted.forEach(n=>{
+      edPositions[n.id].x=Math.round(avgX);
+      edPositions[n.id].y=y;
+      y+=nodeH+gap;
+    });
+  }
+
+  function updateAlignBar(){
+    const bar=document.getElementById("ed-align-bar");
+    if(!bar)return;
+    bar.style.display=edSelectedIds.size>=2?"flex":"none";
+  }
+
+
   function resetLayout(){
     if(!edViewId)return;
     if(!confirm("¿Restablecer el layout automático para esta área?"))return;
@@ -2566,6 +2861,19 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
   // ── Wire buttons ─────────────────────────────────────────
   function wire(id,fn){const el=document.getElementById(id);if(el)el.onclick=fn;}
+  // Alignment buttons
+  wire("al-left",   ()=>applyAlignment(alignLeft));
+  wire("al-center", ()=>applyAlignment(alignCenter));
+  wire("al-right",  ()=>applyAlignment(alignRight));
+  wire("al-top",    ()=>applyAlignment(alignTop));
+  wire("al-middle", ()=>applyAlignment(alignMiddle));
+  wire("al-bottom", ()=>applyAlignment(alignBottom));
+  wire("al-dist-h", ()=>applyAlignment(distributeH));
+  wire("al-dist-v", ()=>applyAlignment(distributeV));
+  wire("al-same-w", ()=>applyAlignment(sameWidth));
+  wire("al-same-h", ()=>applyAlignment(sameHeight));
+  wire("al-group-h",()=>applyAlignment(groupHorizontal));
+  wire("al-group-v",()=>applyAlignment(groupVertical));
   wire("ed-zi",()=>{if(edZoom)d3.select("#ed-svg").call(edZoom.scaleBy,1.3);});
   wire("ed-zo",()=>{if(edZoom)d3.select("#ed-svg").call(edZoom.scaleBy,0.77);});
   wire("ed-zr",()=>{edTransform=d3.zoomIdentity;edFitted=false;renderCanvas();});
