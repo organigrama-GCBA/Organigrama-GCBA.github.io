@@ -834,8 +834,17 @@ function Field({label,value,onChange,type="text",children}){
   </div>;
 }
 
+const CUSTOM_TIPOS_KEY="gcba_org_custom_tipos_v1";
+function loadCustomTipos(){try{return JSON.parse(localStorage.getItem(CUSTOM_TIPOS_KEY)||"[]");}catch{return[];}}
+function saveCustomTipo(label){
+  if(!label||!label.trim())return;
+  const list=loadCustomTipos();
+  if(!list.includes(label.trim())){list.unshift(label.trim());localStorage.setItem(CUSTOM_TIPOS_KEY,JSON.stringify(list.slice(0,20)));}
+}
+
 function TipoSelector({tipo,tipoLabel,onChange}){
   const isC=tipo?.startsWith("CUSTOM:");
+  const savedTipos=React.useMemo(()=>loadCustomTipos(),[]);
   return<>
     <Field label="Tipo">
       <select value={isC?"__custom__":tipo} onChange={e=>onChange(e.target.value==="__custom__"?"CUSTOM:":e.target.value,tipoLabel)}
@@ -844,17 +853,65 @@ function TipoSelector({tipo,tipoLabel,onChange}){
         <option value="__custom__">✏️ Personalizado…</option>
       </select>
     </Field>
-    {isC&&<Field label="Nombre del tipo"><input value={tipoLabel||""} onChange={e=>onChange(tipo,e.target.value)}
-      style={{width:"100%",border:"1px solid #CBD5E0",borderRadius:7,padding:"7px 10px",fontSize:13,fontFamily:"inherit",outline:"none"}}/></Field>}
+    {isC&&<>
+      <Field label="Nombre del tipo">
+        <input value={tipoLabel||""} onChange={e=>onChange(tipo,e.target.value)}
+          onBlur={e=>saveCustomTipo(e.target.value)}
+          placeholder="Ej: Unidad de Coordinación"
+          style={{width:"100%",border:"1px solid #CBD5E0",borderRadius:7,padding:"7px 10px",fontSize:13,fontFamily:"inherit",outline:"none"}}/>
+      </Field>
+      {savedTipos.length>0&&<Field label="Tipos usados anteriormente">
+        <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+          {savedTipos.map(t=>(
+            <button key={t} onClick={()=>onChange("CUSTOM:"+t,t)}
+              style={{fontSize:11,padding:"3px 9px",borderRadius:12,border:"1px solid #CBD5E0",
+                background:tipoLabel===t?"#005EA6":"#fff",color:tipoLabel===t?"#fff":"#4A5568",
+                cursor:"pointer",fontFamily:"inherit"}}>
+              {t}
+            </button>
+          ))}
+        </div>
+      </Field>}
+    </>}
   </>;
 }
 
-function PadreSelector({allNodes,currentId,value,onChange}){
+function PadreSelector({allNodes,currentId,value,onChange,contextId}){
+  const[q,setQ]=React.useState("");
+  const filtered=React.useMemo(()=>{
+    const base=allNodes.filter(n=>n.id!==currentId);
+    if(!q.trim())return base;
+    const lq=q.toLowerCase();
+    return base.filter(n=>(n.nombre||"").toLowerCase().includes(lq)||(n.titular||"").toLowerCase().includes(lq)||getLabel(n).toLowerCase().includes(lq));
+  },[allNodes,currentId,q]);
   return<Field label="Depende de">
-    <select value={value} onChange={e=>onChange(e.target.value)}
-      style={{width:"100%",border:"1px solid #CBD5E0",borderRadius:7,padding:"7px 10px",fontSize:13,fontFamily:"inherit",outline:"none"}}>
-      {allNodes.filter(n=>n.id!==currentId).map(n=><option key={n.id} value={n.id}>[{getLabel(n)}] {n.nombre}</option>)}
-    </select>
+    <input value={q} onChange={e=>setQ(e.target.value)}
+      placeholder="🔍 Buscar en el organigrama…"
+      style={{width:"100%",border:"1px solid #CBD5E0",borderRadius:7,padding:"6px 10px",
+        fontSize:12,fontFamily:"inherit",outline:"none",marginBottom:6}}/>
+    <div style={{maxHeight:200,overflowY:"auto",border:"1px solid #CBD5E0",borderRadius:7,background:"#fff"}}>
+      {filtered.length===0
+        ?<div style={{padding:"10px",fontSize:12,color:"#A0AEC0",textAlign:"center"}}>Sin resultados</div>
+        :filtered.map(n=>{
+          const isContext=contextId&&n.id===contextId;
+          const isSelected=n.id===value;
+          return<div key={n.id} onClick={()=>onChange(n.id)}
+            style={{padding:"7px 10px",cursor:"pointer",fontSize:12,
+              background:isSelected?"#EBF4FF":isContext?"#FFFBEB":"#fff",
+              fontWeight:isContext?"700":"400",
+              borderBottom:"1px solid #F0F0F0",
+              display:"flex",alignItems:"center",gap:6,
+              transition:"background .1s"}}
+            onMouseEnter={e=>{if(!isSelected)e.currentTarget.style.background=isContext?"#FFF3CD":"#F7FAFC";}}
+            onMouseLeave={e=>{e.currentTarget.style.background=isSelected?"#EBF4FF":isContext?"#FFFBEB":"#fff";}}>
+            <span style={{width:8,height:8,borderRadius:2,background:getColor(n),flexShrink:0,display:"inline-block"}}/>
+            <span style={{color:"#718096",fontSize:11,flexShrink:0}}>[{getLabel(n)}]</span>
+            <span style={{flex:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{n.nombre}</span>
+            {isContext&&<span style={{fontSize:9,color:"#D69E2E",fontWeight:600,flexShrink:0}}>★ actual</span>}
+          </div>;
+        })
+      }
+    </div>
   </Field>;
 }
 
@@ -980,8 +1037,8 @@ function OrgChart({data,search}){
         </button>
       </div>
       {/* Canvas */}
-      <div style={{flex:1,overflow:"auto",padding:"24px 32px",background:"#F2F5F9"}}>
-        <NodeBox node={data}/>
+      <div style={{flex:1,overflow:"auto",padding:"24px 32px",background:"#F2F5F9",minWidth:0}}>
+        <div style={{display:"inline-block",minWidth:"100%"}}><NodeBox node={data}/></div>
       </div>
     </div>
   );
@@ -1048,6 +1105,7 @@ function App(){
   }
   function saveEdit(){
     const{nombre,titular,tipo,tipoLabel,dashed}=editForm;
+    if(tipo.startsWith("CUSTOM:")&&tipoLabel)saveCustomTipo(tipoLabel);
     setData(d=>{const nd=updateNode(d,selected.id,n=>({...n,nombre,titular,tipo,tipoLabel:tipoLabel||undefined,dashed}));saveData(nd);return nd;});
     setSelected(s=>({...s,nombre,titular,tipo,tipoLabel,dashed}));
     setModal(null);
@@ -1055,6 +1113,7 @@ function App(){
   function saveAdd(){
     const{nombre,titular,tipo,tipoLabel,dashed,parentId}=addForm;
     if(!nombre.trim()||!parentId)return;
+    if(tipo.startsWith("CUSTOM:")&&tipoLabel)saveCustomTipo(tipoLabel);
     const child={id:"n_"+Date.now(),nombre,titular,tipo,tipoLabel:tipoLabel||undefined,dashed,children:[]};
     setData(d=>{const nd=addChild(d,parentId,child);saveData(nd);return nd;});
     setModal(null);
@@ -1239,7 +1298,7 @@ function App(){
           <Field label="Titular" value={addForm.titular} onChange={v=>setAddForm(f=>({...f,titular:v}))}/>
           <TipoSelector tipo={addForm.tipo} tipoLabel={addForm.tipoLabel}
             onChange={(t,tl)=>setAddForm(f=>({...f,tipo:t,tipoLabel:tl}))}/>
-          <PadreSelector allNodes={allNodes} currentId={null} value={addForm.parentId} onChange={v=>setAddForm(f=>({...f,parentId:v}))}/>
+          <PadreSelector allNodes={allNodes} currentId={null} value={addForm.parentId} onChange={v=>setAddForm(f=>({...f,parentId:v}))} contextId={selected?.id}/>
           <Field label="">
             <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13}}>
               <input type="checkbox" checked={addForm.dashed} onChange={e=>setAddForm(f=>({...f,dashed:e.target.checked}))}
@@ -1255,7 +1314,7 @@ function App(){
       )}
       {modal==="move"&&selected&&(
         <Modal title={`Mover: ${selected.nombre}`} onClose={()=>setModal(null)}>
-          <PadreSelector allNodes={allNodes} currentId={selected.id} value={editForm.newParentId||""} onChange={v=>setEditForm(f=>({...f,newParentId:v}))}/>
+          <PadreSelector allNodes={allNodes} currentId={selected.id} value={editForm.newParentId||""} onChange={v=>setEditForm(f=>({...f,newParentId:v}))} contextId={selected.id}/>
           <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:4}}>
             <Btn onClick={()=>setModal(null)}>Cancelar</Btn>
             <Btn variant="primary" onClick={saveMove}>Mover</Btn>
@@ -1637,7 +1696,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
             .style("cursor","grab");
           c.call(d3.drag()
             .on("drag",function(e){
-              wp.x+=e.dx/edTransform.k;wp.y+=e.dy/edTransform.k;
+              wp.x+=e.dx/edTransform.k*0.55;wp.y+=e.dy/edTransform.k*0.55;
               d3.select(this).attr("cx",wp.x).attr("cy",wp.y);
               drawLinks();
             })
