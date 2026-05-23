@@ -191,6 +191,8 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
 
 <script>
 (function(){
+  // Limpiar auth del editor al cargar
+  sessionStorage.removeItem("gcba_editor_auth");
   // Arrancar la barra al cargar
   requestAnimationFrame(function(){
     var bar = document.getElementById('splash-bar');
@@ -1036,6 +1038,35 @@ function PanelItem({node,onSelect,selectedId,depth=0}){
   </>;
 }
 
+function DragCanvas({children}){
+  const canvasRef=React.useRef(null);
+  const drag=React.useRef({active:false,startX:0,startY:0,scrollX:0,scrollY:0});
+  const onDown=e=>{
+    if(e.button!==0)return;
+    const el=canvasRef.current;
+    drag.current={active:true,startX:e.clientX,startY:e.clientY,scrollX:el.scrollLeft,scrollY:el.scrollTop};
+    el.style.cursor="grabbing";el.style.userSelect="none";
+  };
+  const onMove=e=>{
+    const d=drag.current;if(!d.active)return;
+    const el=canvasRef.current;
+    el.scrollLeft=d.scrollX-(e.clientX-d.startX);
+    el.scrollTop=d.scrollY-(e.clientY-d.startY);
+  };
+  const onUp=()=>{
+    drag.current.active=false;
+    const el=canvasRef.current;
+    if(el){el.style.cursor="grab";el.style.userSelect="";}
+  };
+  return(
+    <div ref={canvasRef}
+      onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
+      style={{flex:1,overflow:"auto",padding:"24px 32px",background:"#F3F6F9",minWidth:0,cursor:"grab"}}>
+      <div style={{display:"inline-block",minWidth:"100%"}}>{children}</div>
+    </div>
+  );
+}
+
 // ── Vista completa — árbol visual con nodos conectados ─────────
 function OrgChart({data,search,selectedId}){
   const[expanded,setExpanded]=React.useState(()=>{
@@ -1093,7 +1124,6 @@ function OrgChart({data,search,selectedId}){
     const hasKids=kids.length>0;
     const isExp=expanded.has(node.id);
     const dim=matchIds&&!matchIds.has(node.id);
-    const abbr=node.nombre.split(" ").filter(w=>w.length>2).map(w=>w[0]).join("").slice(0,4).toUpperCase();
     const LIGHT_BG=["#FCD307","#E4E9ED","#FEA82D"];
     const isLightBg=LIGHT_BG.some(c=>color.toUpperCase()===c.toUpperCase());
     const txtMain=isLightBg?"#1A202C":"#fff";
@@ -1106,7 +1136,6 @@ function OrgChart({data,search,selectedId}){
         <div style={{background:color,borderRadius:10,padding:"10px 12px",minWidth:130,maxWidth:160,
           textAlign:"center",boxShadow:"0 2px 8px rgba(0,0,0,.18)",position:"relative",
           border:dashedBorder}}>
-          <div style={{fontSize:9,fontWeight:700,color:txtAbbr,letterSpacing:".06em",marginBottom:3}}>{abbr}</div>
           <div style={{fontSize:11.5,fontWeight:700,color:txtMain,lineHeight:1.3,marginBottom:node.titular?4:0}}>
             {node.nombre.length>45?node.nombre.slice(0,43)+"…":node.nombre}
           </div>
@@ -1191,36 +1220,7 @@ function OrgChart({data,search,selectedId}){
         </button>
       </div>
       {/* Canvas — drag to scroll */}
-      {(()=>{
-        const canvasRef=React.useRef(null);
-        const drag=React.useRef({active:false,startX:0,startY:0,scrollX:0,scrollY:0});
-        const onDown=e=>{
-          if(e.button!==0)return;
-          const el=canvasRef.current;
-          drag.current={active:true,startX:e.clientX,startY:e.clientY,scrollX:el.scrollLeft,scrollY:el.scrollTop};
-          el.style.cursor="grabbing";
-          el.style.userSelect="none";
-        };
-        const onMove=e=>{
-          const d=drag.current;
-          if(!d.active)return;
-          const el=canvasRef.current;
-          el.scrollLeft=d.scrollX-(e.clientX-d.startX);
-          el.scrollTop=d.scrollY-(e.clientY-d.startY);
-        };
-        const onUp=()=>{
-          drag.current.active=false;
-          const el=canvasRef.current;
-          if(el){el.style.cursor="grab";el.style.userSelect="";}
-        };
-        return(
-          <div ref={canvasRef}
-            onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
-            style={{flex:1,overflow:"auto",padding:"24px 32px",background:"#F3F6F9",minWidth:0,cursor:"grab"}}>
-            <div style={{display:"inline-block",minWidth:"100%"}}><NodeBox node={data}/></div>
-          </div>
-        );
-      })()}
+      <DragCanvas><NodeBox node={data}/></DragCanvas>
     </div>
   );
 }
@@ -1383,7 +1383,7 @@ function App(){
     localStorage.removeItem("gcba_org_v2");
     localStorage.removeItem("gcba_org_positions_v1");
     localStorage.removeItem("gcba_org_waypoints_v1");
-    setData(INITIAL);setSelected(null);
+    window._gcbaEditorAuth=false;setData(INITIAL);setSelected(null);
   }
 
   // Exportar todo A3
@@ -1422,7 +1422,7 @@ function App(){
               onClick={()=>{
                 if(id==="editor"){
                   // Verificar autenticación
-                  if(sessionStorage.getItem("gcba_editor_auth")==="1"){setActiveTab(id);return;}
+                  if(window._gcbaEditorAuth===true){setActiveTab(id);return;}
                   const pwd=prompt("🔒 Acceso al Editor Visual\nIngresá la contraseña de administrador:");
                   if(!pwd){return;}
                   // SHA-256 async
@@ -1430,7 +1430,7 @@ function App(){
                     .then(buf=>{
                       const hash=Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
                       if(hash==="03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"){
-                        sessionStorage.setItem("gcba_editor_auth","1");
+                        window._gcbaEditorAuth=true;
                         setActiveTab(id);
                       } else {
                         alert("Contraseña incorrecta.");
@@ -2024,6 +2024,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
     ng.each(function(d){
       const g2=d3.select(this);
+      const LIGHT_BGS=["#FCD307","#E4E9ED","#FEA82D"];
+      const nodeColor=getColor(d);
+      const isLightNode=LIGHT_BGS.some(c=>nodeColor.toUpperCase()===c.toUpperCase());
+      const nodeTxtMain=isLightNode?"#1A202C":"#fff";
+      const nodeTxtSub=isLightNode?"rgba(30,32,40,0.7)":"rgba(255,255,255,0.75)";
       const nw=edPositions[d.id]?.w||NW;
       const nh=edPositions[d.id]?.h||NH;
       // Tamaño de fuente: del editor o calculado del ancho del nodo
@@ -2051,17 +2056,17 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       const alhN=lhN*shrink,alhT=lhT*shrink,agap=gap*shrink;
       let ty=nh/2-(lines.length*alhN+agap+(hasTit?alhT:0))/2+alhN*0.85;
       lines.forEach((l,i)=>{
-        g2.append("text").attr("x",NW/2).attr("y",ty+i*alhN)
+        g2.append("text").attr("x",nw/2).attr("y",ty+i*alhN)
           .attr("text-anchor","middle").attr("font-size",afsMain.toFixed(1))
-          .attr("font-weight",600).attr("fill","#fff").attr("font-family","Inter,sans-serif").text(l);
+          .attr("font-weight",600).attr("fill",nodeTxtMain).attr("font-family","Inter,sans-serif").text(l);
       });
       if(hasTit){
         ty+=lines.length*alhN+agap;
         const chT=Math.floor(nw/(afsTit*0.52));
         const short=d.titular.length>chT?d.titular.slice(0,chT-1)+"…":d.titular;
-        g2.append("text").attr("x",NW/2).attr("y",ty)
+        g2.append("text").attr("x",nw/2).attr("y",ty)
           .attr("text-anchor","middle").attr("font-size",afsTit.toFixed(1))
-          .attr("fill","rgba(255,255,255,0.75)").attr("font-family","Inter,sans-serif").text(short);
+          .attr("fill",nodeTxtSub).attr("font-family","Inter,sans-serif").text(short);
       }
     });
 
@@ -2108,7 +2113,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
             let ty=nhL/2-(lns.length*alh+ag+(hasTit2?alht:0))/2+alh*0.85;
             const g3=d3.select(this);
             lns.forEach((l,i)=>g3.append("text").attr("x",nwL/2).attr("y",ty+i*alh).attr("text-anchor","middle").attr("font-size",af.toFixed(1)).attr("font-weight",600).attr("fill","#fff").attr("font-family","Inter,sans-serif").text(l));
-            if(hasTit2){ty+=lns.length*alh+ag;const chT=Math.floor(nwL/(aft*0.52));const sh=d.titular.length>chT?d.titular.slice(0,chT-1)+"…":d.titular;g3.append("text").attr("x",nwL/2).attr("y",ty).attr("text-anchor","middle").attr("font-size",aft.toFixed(1)).attr("fill","rgba(255,255,255,0.75)").attr("font-family","Inter,sans-serif").text(sh);}
+            if(hasTit2){ty+=lns.length*alh+ag;const chT=Math.floor(nwL/(aft*0.52));const sh=d.titular.length>chT?d.titular.slice(0,chT-1)+"…":d.titular;g3.append("text").attr("x",nwL/2).attr("y",ty).attr("text-anchor","middle").attr("font-size",aft.toFixed(1)).attr("fill",nodeTxtSub).attr("font-family","Inter,sans-serif").text(sh);}
           });
           // Move resize handle
           d3.select(this).attr("x",pos.x+pos.w/2-10).attr("y",pos.y+pos.h-10);
