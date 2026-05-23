@@ -60,7 +60,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
   border:1px solid var(--ed-border);color:var(--ed-text2);font-size:14px;
   cursor:pointer;display:flex;align-items:center;justify-content:center;}
 .ed-zb:hover{border-color:var(--ed-accent);color:var(--ed-accent);}
-.ed-inspector{width:262px;flex-shrink:0;background:var(--ed-surface);
+.ed-inspector{width:300px;flex-shrink:0;background:var(--ed-surface);
   border-left:1px solid var(--ed-border);display:flex;flex-direction:column;overflow:hidden;}
 .ed-ins-hd{padding:9px 12px;border-bottom:1px solid var(--ed-border);
   font-size:10px;font-weight:600;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.06em;
@@ -2342,15 +2342,44 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     // Margen guides (líneas punteadas tenues)
     g.append("rect").attr("x",MAR).attr("y",HH+4).attr("width",AW).attr("height",AH-8)
       .attr("fill","none").attr("stroke","rgba(0,0,255,0.08)").attr("stroke-dasharray","4,4");
-    edZoom=d3.zoom().scaleExtent([0.04,3]).on("zoom",e=>{edTransform=e.transform;g.attr("transform",e.transform);});
-    svg.call(edZoom).call(edZoom.transform,edTransform);
+    edZoom=d3.zoom().scaleExtent([0.04,3]).on("zoom",e=>{
+      edTransform=e.transform;g.attr("transform",e.transform);
+    });
+    // Solo zoom con rueda — NO pan con clic izquierdo
+    svg.call(edZoom)
+      .on("mousedown.zoom",null)   // deshabilitar pan con arrastre
+      .on("touchstart.zoom",null)
+      .on("touchmove.zoom",null)
+      .on("touchend.zoom",null);
+    svg.call(edZoom.transform,edTransform);
     g.attr("transform",edTransform);
 
-    // ── Rectángulo de selección (lasso) ──
-    let lassoStart=null;
-    // ── Capa de guías de alineación (snap guides) ──
-    const guideG=svg.append("g").attr("class","snap-guides").style("pointer-events","none");
+    // ── Pan con clic derecho o clic medio ──────────────────────────
+    let panStart=null;
+    svgEl.addEventListener("mousedown",function(e){
+      if(e.button!==1&&e.button!==2)return; // solo botón medio o derecho
+      e.preventDefault();
+      const tgt=e.target;
+      panStart={cx:e.clientX,cy:e.clientY,tx:edTransform.x,ty:edTransform.y};
+    },{passive:false});
+    svgEl.addEventListener("mousemove",function(e){
+      if(!panStart)return;
+      const dx=e.clientX-panStart.cx, dy=e.clientY-panStart.cy;
+      const t=d3.zoomIdentity.translate(panStart.tx+dx,panStart.ty+dy).scale(edTransform.k);
+      edTransform=t;
+      svg.call(edZoom.transform,t);
+    });
+    svgEl.addEventListener("mouseup",function(e){
+      if(e.button===1||e.button===2)panStart=null;
+    });
+    svgEl.addEventListener("contextmenu",function(e){
+      // Evitar menú contextual al usar clic derecho para pan
+      // Solo si estábamos panneando (panStart ya se limpió en mouseup)
+      // Dejamos el contextmenu habilitado para los waypoints de líneas
+    });
 
+    // ── Capa de guías de alineación (snap guides) ──────────────────
+    const guideG=svg.append("g").attr("class","snap-guides").style("pointer-events","none");
     function clearGuides(){guideG.selectAll("*").remove();}
     function drawGuide(x1,y1,x2,y2){
       guideG.append("line")
@@ -2358,32 +2387,32 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
         .attr("stroke",GUIDE_COLOR).attr("stroke-width",1)
         .attr("stroke-dasharray","4,3").attr("opacity",0.85);
     }
-    // Convierte coordenadas del grupo (canvas) a coordenadas SVG para las guías
     function toSVG(cx,cy){
-      return{x:cx*edTransform.k+edTransform.x, y:cy*edTransform.k+edTransform.y};
+      return{x:cx*edTransform.k+edTransform.x,y:cy*edTransform.k+edTransform.y};
     }
 
-    const lassoRect=svg.append("rect").attr("class","lasso-rect")
-      .attr("fill","rgba(0,123,199,0.08)").attr("stroke","#4DC5E9")
-      .attr("stroke-width",1).attr("stroke-dasharray","4,3")
+    // ── Rectángulo de selección (lasso) — clic izquierdo en fondo ──
+    let lassoStart=null;
+    const lassoRect=svg.append("rect")
+      .attr("fill","rgba(77,197,233,0.1)").attr("stroke","#4DC5E9")
+      .attr("stroke-width",1.5).attr("stroke-dasharray","5,3")
       .attr("rx",3).style("display","none").style("pointer-events","none");
 
-    svg.on("mousedown.lasso",function(e){
+    svgEl.addEventListener("mousedown",function(e){
       if(e.button!==0)return;
-      // Only trigger lasso on background — not on nodes/handles
       const tgt=e.target;
-      const onNode=tgt.closest&&(tgt.closest(".c-node")||tgt.closest(".ed-resize-handle")||tgt.closest(".snap-guides"));
-      if(onNode)return;
+      // No activar si es sobre un nodo, handle o control
+      if(tgt.closest&&(tgt.closest(".c-node")||tgt.closest(".ed-resize-handle")||
+         tgt.closest(".lhit")||tgt.closest(".wp-dot")))return;
       e.stopPropagation();
-      // Desactivar zoom temporalmente para que el lasso tenga prioridad
-      svg.on(".zoom",null);
       const pt=svgEl.createSVGPoint();
       pt.x=e.clientX;pt.y=e.clientY;
       const gp=pt.matrixTransform(svgEl.getScreenCTM().inverse());
       lassoStart={sx:gp.x,sy:gp.y,cx:e.clientX,cy:e.clientY};
       lassoRect.style("display",null).attr("x",gp.x).attr("y",gp.y).attr("width",0).attr("height",0);
-    });
-    svg.on("mousemove.lasso",function(e){
+    },{passive:false});
+
+    svgEl.addEventListener("mousemove",function(e){
       if(!lassoStart)return;
       const pt=svgEl.createSVGPoint();
       pt.x=e.clientX;pt.y=e.clientY;
@@ -2392,30 +2421,35 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       const w=Math.abs(gp.x-lassoStart.sx),h=Math.abs(gp.y-lassoStart.sy);
       lassoRect.attr("x",x).attr("y",y).attr("width",w).attr("height",h);
     });
-    svg.on("mouseup.lasso",function(e){
-      if(!lassoStart){return;}
+
+    svgEl.addEventListener("mouseup",function(e){
+      if(e.button!==0||!lassoStart)return;
       lassoRect.style("display","none");
-      // Re-habilitar zoom
-      svg.call(edZoom);
-      // Si el arrastre fue muy pequeño, tratar como clic (deselect)
       const dx=Math.abs(e.clientX-lassoStart.cx),dy=Math.abs(e.clientY-lassoStart.cy);
-      if(dx<5&&dy<5){lassoStart=null;return;}
+      if(dx<5&&dy<5){
+        // Clic simple en fondo — deseleccionar todo
+        edSelectedIds.clear();
+        d3.selectAll(".c-node").classed("sel",false);
+        renderInspector(null);
+        document.getElementById("ed-actions").style.display="none";
+        updateAlignBar();
+        lassoStart=null;
+        return;
+      }
       // Seleccionar nodos dentro del rectángulo
       const pt=svgEl.createSVGPoint();
       pt.x=e.clientX;pt.y=e.clientY;
       const gp=pt.matrixTransform(svgEl.getScreenCTM().inverse());
-      // Rectángulo en coordenadas SVG (antes del zoom/pan)
       const rx1=(Math.min(lassoStart.sx,gp.x)-edTransform.x)/edTransform.k;
       const ry1=(Math.min(lassoStart.sy,gp.y)-edTransform.y)/edTransform.k;
       const rx2=(Math.max(lassoStart.sx,gp.x)-edTransform.x)/edTransform.k;
       const ry2=(Math.max(lassoStart.sy,gp.y)-edTransform.y)/edTransform.k;
-      if(!e.shiftKey) edSelectedIds.clear();
+      if(!e.shiftKey)edSelectedIds.clear();
       nodes.forEach(n=>{
         const p=edPositions[n.id];if(!p)return;
         const nw=p.w||NW,nh=p.h||NH;
         const nx1=p.x-nw/2,ny1=p.y,nx2=p.x+nw/2,ny2=p.y+nh;
-        // Intersección con el lasso
-        if(nx2>rx1&&nx1<rx2&&ny2>ry1&&ny1<ry2) edSelectedIds.add(n.id);
+        if(nx2>rx1&&nx1<rx2&&ny2>ry1&&ny1<ry2)edSelectedIds.add(n.id);
       });
       d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));
       if(edSelectedIds.size>0){
@@ -3141,6 +3175,12 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       populateAreaSel();renderSidebar();renderCanvas();
     }
   });
+
+  // Exponer al scope global para onclick del HTML
+  window.switchTab=switchTab;
+  window.nudge=nudge;
+  window.selectAllNodes=selectAllNodes;
+  window.clearSelection=clearSelection;
 
 })();
 </script>
