@@ -11,13 +11,13 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --azul:#003D6E;--azul2:#005EA6;--azul3:#0070C0;
-  --gris-bg:#F2F5F9;--gris-borde:#E2E8F0;--gris-texto:#718096;
-  --texto:#1A202C;--texto2:#4A5568;
+  --azul:#38485C;--azul2:#007BC7;--azul3:#0095DA;
+  --gris-bg:#F3F6F9;--gris-borde:#DDE3EA;--gris-texto:#505E70;
+  --texto:#38485C;--texto2:#505E70;
   /* editor */
   --ed-bg:#0f1117;--ed-surface:#1a1d27;--ed-surface2:#232636;
   --ed-border:#333650;--ed-border2:#444870;
-  --ed-accent:#4f7ef8;--ed-text:#e8eaf2;--ed-text2:#9da3c4;--ed-text3:#6b7199;
+  --ed-accent:#007BC7;--ed-text:#e8eaf2;--ed-text2:#9da3c4;--ed-text3:#6b7199;
 }
 body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);color:var(--texto);height:100vh;overflow:hidden}
 
@@ -92,13 +92,13 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
 
 /* ── REACT APP ── */
 .app-wrap{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
-.app-header{background:linear-gradient(135deg,#003D6E,#005EA6);padding:0 20px;height:56px;
+.app-header{background:linear-gradient(135deg,#38485C,#007BC7);padding:0 20px;height:56px;
   display:flex;align-items:center;gap:16px;flex-shrink:0;}
 .app-tabs{display:flex;gap:2px;margin-left:12px;}
 .app-tab{padding:5px 14px;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;
   font-family:inherit;border:1px solid transparent;transition:all .15s;
   color:rgba(255,255,255,.65);background:transparent;}
-.app-tab.active{background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.3);}
+.app-tab.active{background:rgba(255,255,255,.18);color:#fff;border-color:rgba(255,255,255,.4);}
 .app-tab:hover:not(.active){color:#fff;background:rgba(255,255,255,.08);}
 .app-body{flex:1;display:flex;overflow:hidden;}
 .sidebar{width:300px;flex-shrink:0;background:#fff;border-right:1px solid var(--gris-borde);
@@ -161,14 +161,60 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
 <!-- REACT APP -->
 <div id="root" style="height:100vh;"></div>
 
+<!-- SPLASH SCREEN -->
+<div id="splash" style="
+  position:fixed;inset:0;z-index:9999;
+  background:#38485C;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;
+  transition:opacity .6s ease, visibility .6s ease;
+">
+  <!-- Logo GCBA -->
+  <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="64" height="64" rx="14" fill="#007BC7"/>
+    <path d="M18 20h28M18 32h20M18 44h24" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="48" cy="44" r="5" fill="#fff"/>
+  </svg>
+  <!-- Título -->
+  <div style="text-align:center;">
+    <div style="font-family:'Inter',-apple-system,sans-serif;font-size:22px;font-weight:700;color:#fff;letter-spacing:.02em;">
+      Organigrama GCBA
+    </div>
+    <div style="font-family:'Inter',-apple-system,sans-serif;font-size:13px;color:rgba(255,255,255,.6);margin-top:6px;letter-spacing:.04em;">
+      Ciudad Autónoma de Buenos Aires
+    </div>
+  </div>
+  <!-- Loader bar -->
+  <div style="width:160px;height:3px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden;">
+    <div id="splash-bar" style="height:100%;width:0%;background:#007BC7;border-radius:2px;transition:width 2.8s cubic-bezier(.4,0,.2,1);"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // Arrancar la barra al cargar
+  requestAnimationFrame(function(){
+    var bar = document.getElementById('splash-bar');
+    if(bar) bar.style.width = '100%';
+  });
+  // Ocultar el splash después de 3s
+  setTimeout(function(){
+    var splash = document.getElementById('splash');
+    if(splash){
+      splash.style.opacity = '0';
+      splash.style.visibility = 'hidden';
+    }
+  }, 3000);
+})();
+</script>
+
 <script>
 // ── SVG A3 helpers — plain JS (no Babel) ──
 // Disponibles sincrónicamente para el editor D3
 
 // ── Colores (duplicado para uso en genSVGA3 fuera de Babel) ──
 const COLORS_SVG={
-  JG:{bg:"#9B1C1C"},VJG:{bg:"#9B1C1C"},MIN:{bg:"#92400E"},SEC:{bg:"#78350F"},
-  SS:{bg:"#1E3A5F"},DG:{bg:"#14532D"},GG:{bg:"#065F46"},GO:{bg:"#064E3B"},ORG:{bg:"#374151"}
+  JG:{bg:"#9B1C1C"},VJG:{bg:"#9B1C1C"},MIN:{bg:"#FEA82D"},SEC:{bg:"#FCD307"},
+  SS:{bg:"#004F86"},DG:{bg:"#268948"},GG:{bg:"#268948"},GO:{bg:"#268948"},ORG:{bg:"#E4E9ED"}
 };
 function getColorSVG(n){if(n?.tipo?.startsWith("CUSTOM:"))return"#5B21B6";return(COLORS_SVG[n?.tipo]||COLORS_SVG.ORG).bg;}
 
@@ -210,10 +256,15 @@ function svgBox(x,y,node,W,H,dashed,fsN,fsT){
   }
   let yt=y+(H-actualBlock)/2+actualLhN*0.85;
   const da=dashed?`stroke="rgba(255,255,255,0.5)" stroke-width="1.5" stroke-dasharray="5,3"`:"";
+  // Color de texto según luminosidad del fondo
+  const lightBg=["#FCD307","#E4E9ED","#FEA82D"];
+  const isLight=lightBg.some(c=>fill.toUpperCase()===c.toUpperCase());
+  const txtMain=isLight?"#1A202C":"#fff";
+  const txtSub=isLight?"rgba(30,32,40,0.75)":"rgba(255,255,255,0.85)";
   let s=`<rect x="${fv(x)}" y="${fv(y)}" width="${fv(W)}" height="${fv(H)}" rx="${fv(Math.max(4,H*0.1))}" fill="${fill}" ${da}/>`;
-  nl.forEach(l=>{s+=`<text x="${fv(x+W/2)}" y="${fv(yt)}" text-anchor="middle" font-size="${fv(actualFsN)}" font-weight="600" fill="#fff" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=actualLhN;});
+  nl.forEach(l=>{s+=`<text x="${fv(x+W/2)}" y="${fv(yt)}" text-anchor="middle" font-size="${fv(actualFsN)}" font-weight="600" fill="${txtMain}" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=actualLhN;});
   yt+=actualGap;
-  tl.forEach(l=>{s+=`<text x="${fv(x+W/2)}" y="${fv(yt)}" text-anchor="middle" font-size="${fv(actualFsT)}" fill="rgba(255,255,255,0.85)" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=actualLhT;});
+  tl.forEach(l=>{s+=`<text x="${fv(x+W/2)}" y="${fv(yt)}" text-anchor="middle" font-size="${fv(actualFsT)}" fill="${txtSub}" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=actualLhT;});
   return s;
 }
 
@@ -383,8 +434,8 @@ function genSVGA3(root,pn=1,tot=1){
 
   // (organismos fuera de nivel no se muestran en el A3 — tienen su propia página)
 
-  const leg=[["#9B1C1C","Jefatura"],["#92400E","Ministerio"],["#78350F","Secretaría"],
-             ["#1E3A5F","Subsecretaría"],["#14532D","Dir. General"],["#374151","Org. desc."]];
+  const leg=[["#9B1C1C","Jefatura"],["#FEA82D","Ministerio"],["#FCD307","Secretaría"],
+             ["#004F86","Subsecretaría"],["#268948","Dir. General"],["#E4E9ED","Org. desc."]];
   const lw=118,lx=(PW-leg.length*lw)/2,ly=PH-FH+11;
   const legSVG=leg.map((it,i)=>
     `<rect x="${fv(lx+i*lw)}" y="${fv(ly)}" width="9" height="9" rx="2" fill="${it[0]}"/>` +
@@ -428,7 +479,7 @@ const INITIAL={
   {id:"VJG",nombre:"Vicejefatura de Gobierno",titular:"Clara Muzzio",tipo:"VJG",children:[
     {id:"SSAMB",nombre:"SS. Ambiente",titular:"Natalia Persini",tipo:"SS",children:[
       {id:"DGPOLEA",nombre:"DG. Política y Estrategia Ambiental",titular:"Carolina Theler",tipo:"DG",children:[]},
-      {id:"DGACRA",nombre:"DG. Áreas de Conservación y Restauración Ambiental",titular:"Ignacio Suarez De La Rosa",tipo:"DG",children:[]},
+      {id:"DGACRA",nombre:"DG. Áreas de Conservación y Restauración Ambiental",titular:"Ignacio Martín Suarez De La Rosa",tipo:"DG",children:[]},
       {id:"DGDSEC",nombre:"DG. Desarrollo Sostenible y Economía Circular",titular:"Analia Flores",tipo:"DG",children:[]},
       {id:"DGGAN",nombre:"DG. Gestión Animal",titular:"Carolina Laura De Sande",tipo:"DG",children:[]},
     ]},
@@ -455,17 +506,20 @@ const INITIAL={
       {id:"DGEVA",nombre:"DG. Evaluación Ambiental",titular:"Josefina María Pena Podrez",tipo:"DG",children:[]},
       {id:"DGCONTA",nombre:"DG. Control Ambiental",titular:"Boris Nicolás Buffa",tipo:"DG",children:[]},
     ]},
-  ]},
+  ,
+  {id:"fn_COMPARLAPLE",nombre:"COMISIÓN PARA LA PLENA PARTICIPACIÓN E INCLUSIÓN DE LAS PERSONAS CON DISCAPACIDAD",titular:"Sofía Angela Torroba",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_UPEECOINTDE",nombre:"UPE ECOPARQUE INTERACTIVO DE LA CABA",titular:"Ramiro Pablo Reyno Grondona",tipo:"ORG",dashed:true,children:[]}
+]},
   {id:"MJGGC",nombre:"Jefatura de Gabinete de Ministros",titular:"Gabriel César Sánchez Zinny",tipo:"MIN",children:[
     {id:"SECGDU",nombre:"Sec. Gestión y Desarrollo Urbano",titular:"Agustina Olivero Majdalani",tipo:"SEC",children:[
       {id:"SSCTAL",nombre:"SS. Coordinación Técnica, Administrativa y Legal",titular:"María Luján Domenech",tipo:"SS",children:[
-        {id:"DGASJU",nombre:"DG. Asuntos Jurídicos",titular:"Nicolás Roberto Wissinger",tipo:"DG",children:[]},
-        {id:"DGTAS",nombre:"DG. Técnica y Administrativa",titular:"Hernan Pablo Cullari",tipo:"DG",children:[]},
+        {id:"DGASJU",nombre:"DG. Asuntos Jurídicos",titular:"María Alejandra Gurgo",tipo:"DG",children:[]},
+        {id:"DGTAS",nombre:"DG. Técnica y Administrativa",titular:"Indalecio Ricardo López Diaz",tipo:"DG",children:[]},
         {id:"DGCMG",nombre:"DG. Coordinación y Monitoreo de Gestión",titular:"María Sol Cocuzza",tipo:"DG",children:[]},
       ]},
       {id:"SSIDDS",nombre:"SS. Integración y Desarrollo Sostenible del Sur",titular:"Marcelo Roberto Di Mario",tipo:"SS",children:[
         {id:"DGDSDS",nombre:"DG. Desarrollo Sostenible del Sur",titular:"Noelia Soledad Ceñal",tipo:"DG",children:[]},
-        {id:"DGIUR",nombre:"DG. Interpretación Urbanística",titular:"María Victoria Gaytan",tipo:"DG",children:[]},
+        {id:"DGIUR",nombre:"DG. Interpretación Urbanística",titular:"Cristina Aurora Giraud",tipo:"DG",children:[]},
         {id:"DGROC",nombre:"DG. Registro de Obras y Catastro",titular:"Antonella Ana Amicucci",tipo:"DG",children:[]},
       ]},
     ]},
@@ -498,7 +552,11 @@ const INITIAL={
     ]},
     {id:"IDECBA",nombre:"Instituto de Estadística y Censos",titular:"José María Donati",tipo:"ORG",dashed:true,children:[]},
     {id:"EHU",nombre:"Ente de Higiene Urbana",titular:"Marcela Angioi",tipo:"ORG",dashed:true,children:[]},
-  ]},
+  ,
+  {id:"fn_CONASEDELPLA",nombre:"CONSEJO ASESOR DEL PLAN URBANO AMBIENTAL",titular:"Rodriguez Sanchez, Gustavo Guillermo",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_AGESISDEINF",nombre:"AGENCIA SISTEMAS DE INFORMACIÓN",titular:"Pablo Andrés Saccani",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_INSDEESTY",nombre:"INSTITUTO DE ESTADISTICA Y CENSOS DE LA CIUDAD DE BUENOS AIRES",titular:"José María Donati",tipo:"ORG",dashed:true,children:[]}
+]},
   {id:"MHFGC",nombre:"Ministerio de Hacienda y Finanzas",titular:"Gustavo Arengo Piragine",tipo:"MIN",children:[
     {id:"SSFIN",nombre:"SS. Finanzas",titular:"Eloy Aguirre Rébora",tipo:"SS",children:[
       {id:"DGRFIS",nombre:"DG. Relaciones Fiscales",titular:"Juan Martin Barratines",tipo:"DG",children:[]},
@@ -509,7 +567,7 @@ const INITIAL={
       {id:"DGCYC",nombre:"DG. Compras y Contrataciones",titular:"Maria De Los Ángeles Ferreyra",tipo:"DG",children:[]},
       {id:"DGGFA",nombre:"DG. Gestión de la Flota Automotor",titular:"Juan Francisco Rico",tipo:"DG",children:[]},
     ]},
-    {id:"SSGRH",nombre:"SS. Gestión de Recursos Humanos",titular:"Sebastián Fernandez",tipo:"SS",children:[
+    {id:"SSGRH",nombre:"SS. Gestión de Recursos Humanos",titular:"Sebastián Emanuel Fernandez",tipo:"SS",children:[
       {id:"DGALH",nombre:"DG. Administración y Liquidación de Haberes",titular:"Barbara Viviana Ramírez Navarro",tipo:"DG",children:[]},
       {id:"DGRLLAP",nombre:"DG. Relaciones Laborales y Asuntos Previsionales",titular:"Rafael Ohrnialian",tipo:"DG",children:[]},
       {id:"DGPLYCO",nombre:"DG. Planificación y Control Operativo",titular:"Leandro Ezequiel Bianchi",tipo:"DG",children:[]},
@@ -517,11 +575,11 @@ const INITIAL={
     {id:"SSHA",nombre:"SS. Hacienda",titular:"Lorena Giselle Flores",tipo:"SS",children:[
       {id:"DGTES",nombre:"DG. Tesorería",titular:"Horacio Salvador Stavale",tipo:"DG",children:[]},
       {id:"DGCONT",nombre:"DG. Contaduría",titular:"Lucia Griselda Gabelli",tipo:"DG",children:[]},
-      {id:"DGOGPP",nombre:"DG. Oficina de Gestión Pública y Presupuesto",titular:"Antonella Mitidieri",tipo:"DG",children:[]},
+      {id:"DGOGPP",nombre:"DG. Oficina de Gestión Pública y Presupuesto",titular:"Antonella Carla Mitidieri",tipo:"DG",children:[]},
     ]},
     {id:"AGIP",nombre:"Adm. Gubernamental de Ingresos Públicos",titular:"Germán Krivocapich",tipo:"ORG",dashed:true,children:[
       {id:"DGANFA",nombre:"DG. Análisis Fiscal",titular:"Juan Ignacio Nigrelli",tipo:"DG",children:[]},
-      {id:"DGLTAAGIP",nombre:"DG. Legal y Técnica",titular:"Silvina Lima",tipo:"DG",children:[]},
+      {id:"DGLTAAGIP",nombre:"DG. Legal y Técnica",titular:"Sabrina Wolff",tipo:"DG",children:[]},
     ]},
     {id:"LOTBA",nombre:"Lotería de la Ciudad",titular:"Jesús Mariano Acevedo",tipo:"ORG",dashed:true,children:[]},
     {id:"OSBA",nombre:"Obra Social de la Ciudad",titular:"Alejandro Amor",tipo:"ORG",dashed:true,children:[]},
@@ -541,7 +599,7 @@ const INITIAL={
     {id:"SSAJUD",nombre:"SS. Asuntos Judiciales",titular:"Fernando Calvo",tipo:"SS",children:[
       {id:"DGAV",nombre:"DG. Asistencia a la Víctima",titular:"Felicitas María De Lasa",tipo:"DG",children:[]},
       {id:"DGDHU",nombre:"DG. Derechos Humanos",titular:"Natacha Yael Steinberg",tipo:"DG",children:[]},
-      {id:"DGAJU",nombre:"DG. Acceso a la Justicia",titular:"Janine Weideman",tipo:"DG",children:[]},
+      {id:"DGAJU",nombre:"DG. Acceso a la Justicia",titular:"Janine Weidemann",tipo:"DG",children:[]},
     ]},
     {id:"AGC",nombre:"Agencia Gubernamental de Control",titular:"José Manuel Ramos",tipo:"ORG",dashed:true,children:[
       {id:"DGFYCO",nombre:"DG. Fiscalización y Control de Obras",titular:"María Belén Taccone",tipo:"DG",children:[]},
@@ -549,7 +607,15 @@ const INITIAL={
       {id:"DGHYSA",nombre:"DG. Higiene y Seguridad Alimentaria",titular:"Bruno Leoni Olivera",tipo:"DG",children:[]},
       {id:"DGHP",nombre:"DG. Habilitaciones y Permisos",titular:"Carla Vanesa Borgognoni",tipo:"DG",children:[]},
     ]},
-  ]},
+  ,
+  {id:"fn_COODEENLELE",nombre:"COORDINACIÓN DE ENLANCE ELECTORAL",titular:"",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_AUTCUEMATRIA",nombre:"AUTORIDAD CUENCA MATANZA – RIACHUELO",titular:"Sergio Gabriel Iacovino",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_INSDEGESELE",nombre:"INSTITUTO DE GESTIÓN ELECTORAL DE LA CIUDAD AUTÓNOMA DE BUENOS AIRES",titular:"Adrián Hugo González",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_ORGDELREGPBL",nombre:"ORGANISMO DEL REGISTRO PÚBLICO DE COMERCIO Y CONTRALOR DE PERSONAS JURÍDICAS",titular:"",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_UNIADMDECON",nombre:"UNIDAD ADMINISTRATIVA DE CONTROL DE FALTAS",titular:"",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_CONDEGESDEL",nombre:"CONSEJO DE GESTIÓN DEL PARQUE DE LA MEMORIA Y DEL MONUMENTO A LAS VÍCTIMAS DEL TERRORISMO DE ESTADO",titular:"",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_CONASEENPOL",nombre:"CONSEJO ASESOR EN POLÍTICAS PÚBLICAS DE MEMORIA",titular:"",tipo:"ORG",dashed:true,children:[]}
+]},
   {id:"MSEGC",nombre:"Ministerio de Seguridad",titular:"Horacio Alberto Giménez",tipo:"MIN",children:[
     {id:"SSSSCOP",nombre:"SS. Seguridad Comunal y Orden Público",titular:"Tomás Lodeiro",tipo:"SS",children:[
       {id:"DGSPCB",nombre:"DG. Seguridad Privada y Custodia de Bienes",titular:"Ignacio Antonio Cocca",tipo:"DG",children:[]},
@@ -561,7 +627,7 @@ const INITIAL={
       {id:"DGGAYE",nombre:"DG. Guardia de Auxilio y Emergencias",titular:"Walter Daniel Gómez Diz",tipo:"DG",children:[]},
       {id:"DGDCIV",nombre:"DG. Defensa Civil",titular:"Alberto Ángel Carita",tipo:"DG",children:[]},
     ]},
-    {id:"SSGA",nombre:"SS. Gestión Administrativa",titular:"Claudio Alberto Panichetti",tipo:"SS",children:[
+    {id:"SSGA",nombre:"SS. Gestión Administrativa",titular:"Ignacio José Curti",tipo:"SS",children:[
       {id:"DGAYCON",nombre:"DG. Adquisiciones y Contrataciones",titular:"Daniel Fernando Barbuto",tipo:"DG",children:[]},
       {id:"DGINFRA",nombre:"DG. Infraestructura",titular:"Jacqueline Ana Forschner",tipo:"DG",children:[]},
     ]},
@@ -569,14 +635,21 @@ const INITIAL={
       {id:"DGARHC",nombre:"DG. Administración de Recursos Humanos",titular:"Emanuel Maximiliano Gil",tipo:"DG",children:[]},
       {id:"DGGDCH",nombre:"DG. Gestión del Capital Humano",titular:"Andrés Nicolás Monsalvo",tipo:"DG",children:[]},
     ]},
-  ]},
+  ,
+  {id:"fn_OFIDETRAY",nombre:"OFICINA DE TRANSPARENCIA Y CONTROL EXTERNO DE LA POLICIA DE LA CIUDAD",titular:"Ignacio Adrián Sisro",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_DEFDELPERDE",nombre:"DEFENSORÍA DEL PERSONAL DE LA POLICÍA DE LA CIUDAD",titular:"Pablo Gonzalo Pinamonti",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_INSSUPDESEG",nombre:"INSTITUTO SUPERIOR DE SEGURIDAD PÚBLICA",titular:"",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_JEFDEPOLDE",nombre:"JEFATURA DE POLICÍA DE LA CIUDAD",titular:"Diego Ariel Casaló",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_JEFDELCUEDE",nombre:"JEFATURA DEL CUERPO DE BOMBEROS DE LA CIUDAD",titular:"Roberto Ángel Parente",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_COMDESEGEN",nombre:"COMITÉ DE SEGURIDAD EN EL FÚTBOL DE LA CIUDAD AUTÓNOMA DE BUENOS AIRES",titular:"Leandro Jorge Manzano",tipo:"ORG",dashed:true,children:[]}
+]},
   {id:"MSGC",nombre:"Ministerio de Salud",titular:"Fernan González Bernaldo De Quiros",tipo:"MIN",children:[
     {id:"SSAH",nombre:"SS. Atención Hospitalaria",titular:"Laura Beatriz Cordero",tipo:"SS",children:[
       {id:"DGESAME",nombre:"DG. SAME",titular:"Alberto Crescenti",tipo:"DG",children:[]},
-      {id:"DGSAM",nombre:"DG. Salud Mental",titular:"Horacio Pedro Rodriguez O'Connor",tipo:"DG",children:[]},
+      {id:"DGSAM",nombre:"DG. Salud Mental",titular:"Horacio Pedro Rodriguez O´connor",tipo:"DG",children:[]},
       {id:"DGHOSP",nombre:"DG. Hospitales",titular:"Sergio Ricardo Auger",tipo:"DG",children:[]},
     ]},
-    {id:"SSAPAC",nombre:"SS. Atención Primaria, Ambulatoria y Comunitaria",titular:"Gabriel Battistella",tipo:"SS",children:[
+    {id:"SSAPAC",nombre:"SS. Atención Primaria, Ambulatoria y Comunitaria",titular:"Gabriel Armando Battistella",tipo:"SS",children:[
       {id:"DGATP",nombre:"DG. Atención Primaria",titular:"Diego Jorge Vacchino",tipo:"DG",children:[]},
       {id:"DGSCOM",nombre:"DG. Salud Comunitaria",titular:"Florencia Ayelén Quiroga",tipo:"DG",children:[]},
     ]},
@@ -584,14 +657,18 @@ const INITIAL={
       {id:"DGAYDRH",nombre:"DG. Administración y Desarrollo de Recursos Humanos",titular:"Cecilia María Klappenbach",tipo:"DG",children:[]},
       {id:"DGADCYP",nombre:"DG. Administrativa, Contable y Presupuesto",titular:"Emilse Carmen Filippo",tipo:"DG",children:[]},
     ]},
-    {id:"SSPSGER",nombre:"SS. Planificación Sanitaria y Gestión en Red",titular:"Daniel Ferrante",tipo:"SS",children:[
+    {id:"SSPSGER",nombre:"SS. Planificación Sanitaria y Gestión en Red",titular:"Daniel Carlos Ferrante",tipo:"SS",children:[
       {id:"DGSISAN",nombre:"DG. Sistema de Información Sanitaria",titular:"Leandro Noer Alassia",tipo:"DG",children:[]},
       {id:"DGCRFS",nombre:"DG. Coordinación de Redes y Financiamiento en Salud",titular:"Laura Silvina Waynsztok",tipo:"DG",children:[]},
     ]},
     {id:"EAIT",nombre:"Instituto de Trasplante de la CABA",titular:"Carlos Fernando Cichero",tipo:"ORG",dashed:true,children:[]},
-  ]},
+  ,
+  {id:"fn_UNIDEPROESP",nombre:"UNIDAD DE PROYECTOS ESPECIALES FORTALECIMIENTO INSTITUCIONAL PARA EL ABORDAJE DE ADICCIONES",titular:"",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_UNIDEPROESP_2",nombre:"UNIDAD DE PROYECTOS ESPECIALES TRANSFORMACIÓN DIGITAL EN SALUD Y REGISTRO DE HISTORIA CLÍNICA ELECTRÓNICA",titular:"Francisco José Recondo",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_ENTAUTINSDE",nombre:"Ente Autárquico Instituto de Trasplante",titular:"Carlos Fernando Cichero",tipo:"ORG",dashed:true,children:[]}
+]},
   {id:"MEDGC",nombre:"Ministerio de Educación",titular:"María de las Mercedes Miguel",tipo:"MIN",children:[
-    {id:"SSPIE",nombre:"SS. Planeamiento e Innovación Educativa",titular:"Oscar Ghillione",tipo:"SS",children:[
+    {id:"SSPIE",nombre:"SS. Planeamiento e Innovación Educativa",titular:"Oscar Guillermo Ghillione",tipo:"SS",children:[
       {id:"DGAJUR",nombre:"DG. Asuntos Jurídicos",titular:"María Alejandra Gurgo",tipo:"DG",children:[]},
       {id:"DGEGP",nombre:"DG. Educación de Gestión Privada",titular:"Nora Ruth Lima",tipo:"DG",children:[]},
     ]},
@@ -600,13 +677,16 @@ const INITIAL={
       {id:"DGESM",nombre:"DG. Escuela de Maestros",titular:"Viviana Edith Dalla Zorza",tipo:"DG",children:[]},
       {id:"DGSFD",nombre:"DG. Sistema de Formación Docente",titular:"Graciela Uequin",tipo:"DG",children:[]},
     ]},
-    {id:"SSGAD",nombre:"SS. Gestión Administrativa",titular:"Ignacio Curti",tipo:"SS",children:[
-      {id:"DGEGE",nombre:"DG. Educación de Gestión Estatal",titular:"Nancy Elizabeth Rosana Sorfo",tipo:"DG",children:[]},
+    {id:"SSGAD",nombre:"SS. Gestión Administrativa",titular:"Ignacio José Curti",tipo:"SS",children:[
+      {id:"DGEGE",nombre:"DG. Educación de Gestión Estatal",titular:"Nancy Elizabeth Roxana Sorfo",tipo:"DG",children:[]},
       {id:"DGINFE",nombre:"DG. Mejora y Cuidado de Edificios Escolares",titular:"Ariel Alberto Juárez",tipo:"DG",children:[]},
-      {id:"DGSGE",nombre:"DG. Sistemas de Gestión Escolar",titular:"María Gimena Corcull",tipo:"DG",children:[]},
+      {id:"DGSGE",nombre:"DG. Sistemas de Gestión Escolar",titular:"Tomás Foricher",tipo:"DG",children:[]},
     ]},
     {id:"UNICABA",nombre:"Universidad de la Ciudad",titular:"Gabriela Alia Beatriz Azar",tipo:"ORG",dashed:true,children:[]},
-  ]},
+  ,
+  {id:"fn_UNIDEEVAINT",nombre:"UNIDAD DE EVALUACIÓN INTEGRAL DE LA CALIDAD Y EQUIDAD EDUCATIVA",titular:"Samanta Bonelli",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_UNI",nombre:"UNICABA",titular:"",tipo:"ORG",dashed:true,children:[]}
+]},
   {id:"MDECGC",nombre:"Ministerio de Desarrollo Económico",titular:"Hernán Santiago Lombardi",tipo:"MIN",children:[
     {id:"SSIN",nombre:"SS. Inversiones",titular:"Augusto Ardiles Díaz",tipo:"SS",children:[
       {id:"DGIP",nombre:"DG. Innovación Productiva",titular:"Juan Manuel Blardone Perosa",tipo:"DG",children:[]},
@@ -620,13 +700,17 @@ const INITIAL={
     ]},
     {id:"ENTUR",nombre:"Ente de Turismo",titular:"Valentín Díaz Gilligan",tipo:"ORG",dashed:true,children:[
       {id:"DGDTU",nombre:"DG. Desarrollo Turístico",titular:"María Eugenia Wehbe",tipo:"DG",children:[]},
-      {id:"DGPTU",nombre:"DG. Promoción Turística",titular:"Lila Araceli Baciagalupo",tipo:"DG",children:[]},
+      {id:"DGPTU",nombre:"DG. Promoción Turística",titular:"Lila Araceli Bacigalupo",tipo:"DG",children:[]},
     ]},
-  ]},
+  ,
+  {id:"fn_CONECOYSOC",nombre:"CONSEJO ECONÓMICO Y SOCIAL DE LA CIUDAD DE BUENOS AIRES",titular:"Manuel Salvador Socías",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_ENTPBLNOEST",nombre:"ENTE PÚBLICO NO ESTATAL PARQUE DE LA INNOVACIÓN",titular:"",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_ENTDETUR",nombre:"Ente de Turismo",titular:"Valentín Diaz Gilligan",tipo:"ORG",dashed:true,children:[]}
+]},
   {id:"MCGC",nombre:"Ministerio de Cultura",titular:"Gabriela Bárbara Ricardes",tipo:"MIN",children:[
-    {id:"SSPCU",nombre:"SS. Políticas Culturales",titular:"Robert Vicent Cortina",tipo:"SS",children:[
+    {id:"SSPCU",nombre:"SS. Políticas Culturales",titular:"Robert Vincent Cortina",tipo:"SS",children:[
       {id:"CTBA",nombre:"DG. Complejo Teatral Ciudad de Buenos Aires",titular:"Alberto Atilio Ligaluppi",tipo:"DG",children:[]},
-      {id:"DGMAMBA",nombre:"Museo de Arte Moderno de Buenos Aires",titular:"Victoria Eugenia Noorthoom",tipo:"DG",children:[]},
+      {id:"DGMAMBA",nombre:"Museo de Arte Moderno de Buenos Aires",titular:"Victoria Eugenia Noorthoorn",tipo:"DG",children:[]},
       {id:"DGCCUL",nombre:"DG. Cooperación Cultural",titular:"María Victoria Alcaraz",tipo:"DG",children:[]},
     ]},
     {id:"SSGCULT",nombre:"SS. Gestión Cultural",titular:"Alejandra Gabriela Cuevas",tipo:"SS",children:[
@@ -639,13 +723,15 @@ const INITIAL={
       {id:"DGPMYCH",nombre:"DG. Patrimonio, Museos y Casco Histórico",titular:"Pedro Ramón Aparicio",tipo:"DG",children:[]},
     ]},
     {id:"EATC",nombre:"Ente Autárquico Teatro Colón",titular:"Gerardo Luis Grieco Martínez",tipo:"ORG",dashed:true,children:[]},
-  ]},
+  ,
+  {id:"fn_ENTAUTTEACOL",nombre:"Ente Autárquico Teatro Colón",titular:"Gerardo Luis Grieco Martínez",tipo:"ORG",dashed:true,children:[]}
+]},
   {id:"MDHYHGC",nombre:"Ministerio de Desarrollo Humano y Hábitat",titular:"Gabriel Sebastián Mraida",tipo:"MIN",children:[
-    {id:"SSATO",nombre:"SS. Abordaje Territorial y Obras",titular:"Guillermo Barberis",tipo:"SS",children:[
+    {id:"SSATO",nombre:"SS. Abordaje Territorial y Obras",titular:"Guillermo Federico Barberis",tipo:"SS",children:[
       {id:"DGINSO",nombre:"DG. Infraestructura Social",titular:"Fernando Emilio Contreras",tipo:"DG",children:[]},
       {id:"DGATBPCM",nombre:"DG. Abordaje Territorial Barrio Padre Carlos Mugica",titular:"Jerónimo Alvarez Morales",tipo:"DG",children:[]},
     ]},
-    {id:"SSFC",nombre:"SS. Familia y Comunidad",titular:"Mauricio Giraudo",tipo:"SS",children:[
+    {id:"SSFC",nombre:"SS. Familia y Comunidad",titular:"Mauricio Ramón Jesús Giraudo",tipo:"SS",children:[
       {id:"DGPOLA",nombre:"DG. Políticas Alimentarias",titular:"Rodolfo Facundo Ramírez",tipo:"DG",children:[]},
       {id:"DGPINA",nombre:"DG. Primera Infancia, Niñez y Adolescencia",titular:"María De Los Ángeles Fava",tipo:"DG",children:[]},
       {id:"DGPFV",nombre:"DG. Protección Familiar contra la Violencia",titular:"Carla Del Valle Artunduaga González",tipo:"DG",children:[]},
@@ -659,7 +745,10 @@ const INITIAL={
       {id:"DGPCPM",nombre:"DG. Políticas Comunitarias para Personas Mayores",titular:"Luis Ignacio Cabrera",tipo:"DG",children:[]},
     ]},
     {id:"IVC",nombre:"Instituto de Vivienda de la Ciudad",titular:"Leonardo Coppola",tipo:"ORG",dashed:true,children:[]},
-  ]},
+  ,
+  {id:"fn_INSDELAVIV",nombre:"INSTITUTO DE LA VIVIENDA DE LA CIUDAD",titular:"Leonardo Lucas Coppola",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_UNIEJEPARLA",nombre:"UNIDAD EJECUTORA PARA LA RENOVACIÓN URBANA DE LA TRAZA DE LA EX-AU3",titular:"Leandro Selim Saaied",tipo:"ORG",dashed:true,children:[]}
+]},
   {id:"MEPHUGC",nombre:"Ministerio de Espacio Público e Higiene Urbana",titular:"Ignacio Miguel Baistrocchi",tipo:"MIN",children:[
     {id:"SECMU",nombre:"Sec. de Mantenimiento Urbano",titular:"Juan Ignacio Salari",tipo:"SEC",children:[
       {id:"SSPURB",nombre:"SS. Paisaje Urbano",titular:"Juan Pablo Vacas",tipo:"SS",children:[
@@ -673,7 +762,10 @@ const INITIAL={
       ]},
     ]},
     {id:"EMUI",nombre:"Ente de Mantenimiento Urbano Integral",titular:"Juan Pablo Mario Delpino",tipo:"ORG",dashed:true,children:[]},
-  ]},
+  ,
+  {id:"fn_ENTDEHIGURB",nombre:"Ente de Higiene Urbana",titular:"Marcela Claudia Angioi",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_ENTDEMANURB",nombre:"Ente de Mantenimiento Urbano Integral",titular:"Juan Pablo Mario Delpino",tipo:"ORG",dashed:true,children:[]}
+]},
   {id:"MMIGC",nombre:"Ministerio de Movilidad e Infraestructura",titular:"Pablo José Bereciartua",tipo:"MIN",children:[
     {id:"SECTR",nombre:"Sec. de Tránsito",titular:"Darío Antíñolo",tipo:"SEC",children:[
       {id:"SSPUR",nombre:"SS. de Planeamiento Urbano",titular:"Josefina Ducos",tipo:"SS",children:[
@@ -702,7 +794,7 @@ const INITIAL={
       {id:"DGCBI",nombre:"DG. Cooperación Bilateral",titular:"Matias Nahuel Muñoz",tipo:"DG",children:[]},
     ]},
     {id:"SSRINS",nombre:"SS. Relaciones Institucionales",titular:"Mariano Lomolino",tipo:"SS",children:[
-      {id:"DGREIN",nombre:"DG. Relaciones Institucionales",titular:"",tipo:"DG",children:[]},
+      {id:"DGREIN",nombre:"DG. Relaciones Institucionales",titular:"Mariano Lomolino",tipo:"DG",children:[]},
       {id:"DGCU",nombre:"DG. Cultos",titular:"María Del Pilar Bosca Chillida",tipo:"DG",children:[]},
     ]},
   ]},
@@ -713,7 +805,10 @@ const INITIAL={
     ]},
     {id:"OGDAI",nombre:"Órgano Garante Acceso a Información Ley N° 104",titular:"Santiago Alberdi",tipo:"ORG",dashed:true,children:[]},
     {id:"OFIP",nombre:"Oficina de Integridad Pública",titular:"Ignacio Joaquín Moro",tipo:"ORG",dashed:true,children:[]},
-  ]},
+  ,
+  {id:"fn_RGAGARDELDER",nombre:"ÓRGANO GARANTE DEL DERECHO DE ACCESO A LA INFORMACIÓN",titular:"Santiago Alberdi",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_OFIDEINTPBL",nombre:"Oficina de Integridad Pública",titular:"",tipo:"ORG",dashed:true,children:[]}
+]},
   {id:"SECCO",nombre:"Secretaría de Comunicación",titular:"Jorge Oscar Sturzenegger",tipo:"SEC",children:[
     {id:"SSECCP",nombre:"SS. Estrategia de la Comunicación",titular:"María Belén Perrella",tipo:"SS",children:[
       {id:"DGCONTE",nombre:"DG. Contenidos",titular:"Iván Nicolás Holik",tipo:"DG",children:[]},
@@ -723,7 +818,9 @@ const INITIAL={
       {id:"DGPLES",nombre:"DG. Planificación Estratégica",titular:"Juan Speroni Hernández",tipo:"DG",children:[]},
       {id:"DGACD",nombre:"DG. Activos Digitales",titular:"María Belén Orgeri",tipo:"DG",children:[]},
     ]},
-  ]},
+  ,
+  {id:"fn_SEADECABDE",nombre:"SEÑAL DE CABLE DE LA CIUDAD",titular:"Eduardo Alberto Cura",tipo:"ORG",dashed:true,children:[]}
+]},
   {id:"SECAE",nombre:"Secretaría de Asuntos Estratégicos",titular:"Guillermo Andrés Romero",tipo:"SEC",children:[
     {id:"DGPRES",nombre:"DG. Proyectos Estratégicos",titular:"Lucila María Lopez Martí",tipo:"DG",children:[]},
   ]},
@@ -737,7 +834,11 @@ const INITIAL={
       {id:"DGPCC",nombre:"DG. Participación Ciudadana y Cercanía",titular:"Mariela Solange Noya",tipo:"DG",children:[]},
     ]},
     {id:"ERSP",nombre:"Ente Regulador de Servicios Públicos",titular:"María Eugenia Michielotto",tipo:"ORG",dashed:true,children:[]},
-  ]},
+  ,
+  {id:"fn_COM",nombre:"COMUNAS",titular:"",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_CONDECOOINT",nombre:"CONSEJO DE COORDINACIÓN INTERCOMUNAL",titular:"",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_ENTREGDELOS",nombre:"ENTE REGULADOR DE LOS SERVICIOS PÚBLICOS",titular:"",tipo:"ORG",dashed:true,children:[]}
+]},
   {id:"SECME",nombre:"Secretaría de Medios",titular:"Gustavo Gago",tipo:"SEC",children:[
     {id:"SSCS",nombre:"SS. de Comunicación Social",titular:"Máximo Merchensky",tipo:"SS",children:[
       {id:"DGCACE",nombre:"DG. Coordinación de Acciones de Comunicación y Enlace",titular:"Alida Tatiana Latella",tipo:"DG",children:[]},
@@ -754,18 +855,37 @@ const INITIAL={
     {id:"DGIAR",nombre:"DG. Inteligencia Artificial",titular:"Marilina Borneo",tipo:"DG",children:[]},
     {id:"DGDIC",nombre:"DG. Dictámenes",titular:"Hector Lyall Douglas",tipo:"DG",children:[]},
   ]},
-  {id:"SGCBA",nombre:"Sindicatura General de la Ciudad de Buenos Aires",titular:"Mónica Beatriz Freda",tipo:"ORG",dashed:true,children:[]},
+  {id:"SGCBA",nombre:"Sindicatura General de la Ciudad de Buenos Aires",titular:"Mónica Beatriz Freda",tipo:"ORG",dashed:true,children:[
+    {id:"SGCBA_GGTAL",nombre:"GG. Técnica, Administrativa y Legal",titular:"Carlos Pablo Maza",tipo:"GG",children:[{id:"SGCBA_GOGS",nombre:"GO. Oficina de Gestión Sectorial",titular:"María Laura Troncelliti",tipo:"GO",children:[]},{id:"SGCBA_GOLE",nombre:"GO. Legal",titular:"Noemí Beatriz Cesari",tipo:"GO",children:[]}]},
+    {id:"SGCBA_GORI",nombre:"GO. Relaciones Institucionales",titular:"Lucía Belén Rivero",tipo:"GO",children:[]},
+    {id:"SGCBA_GGI",nombre:"GG. Auditoría Jurisdicción I",titular:"Emilse Moira Teyo",tipo:"GG",children:[{id:"SGCBA_GOTID",nombre:"GO. Auditoría Tecnologías de la Información y Análisis de Datos",titular:"Hugo Martín Conti Gomez",tipo:"GO",children:[]},{id:"SGCBA_GOSJA",nombre:"GO. Supervisión Jurisdicción A",titular:"Micaela Karina Telecher",tipo:"GO",children:[]},{id:"SGCBA_GOSJB",nombre:"GO. Supervisión Jurisdicción B",titular:"Pablo Esteban Coronado",tipo:"GO",children:[]}]},
+    {id:"SGCBA_GGII",nombre:"GG. Auditoría Jurisdicción II",titular:"Sara Beatriz Nicolini",tipo:"GG",children:[{id:"SGCBA_GOSJC",nombre:"GO. Supervisión Jurisdicción C",titular:"Andrea Liliana Puey",tipo:"GO",children:[]},{id:"SGCBA_GOSJD",nombre:"GO. Supervisión Jurisdicción D",titular:"Natalia Verónica López",tipo:"GO",children:[]},{id:"SGCBA_GOSJE",nombre:"GO. Supervisión Jurisdicción E",titular:"María Susana Gargevcich",tipo:"GO",children:[]},{id:"SGCBA_GOFE",nombre:"GO. Fiscalización de Empresas, Sociedades y Otras Entidades",titular:"Carola Landonio",tipo:"GO",children:[]}]},
+    {id:"SGCBA_GGCOM",nombre:"GG. Auditoría de Comunas",titular:"Juan Carlos Valero",tipo:"GG",children:[]}
+  ]},
   {id:"CPEST",nombre:"Consejo de Planeamiento Estratégico",titular:"Antonio Aimar Fratamico",tipo:"ORG",dashed:true,children:[]},
   {id:"CDNNYA",nombre:"Consejo Derechos Niñas, Niños y Adolescentes",titular:"Victoria Morales Gorleri",tipo:"ORG",dashed:true,children:[
     {id:"DGSAP",nombre:"DG. Servicios de Atención Permanente",titular:"Micaela Saban Orsini",tipo:"DG",children:[]},
     {id:"DGPPAU",nombre:"DG. Políticas, Programas y Atención en la Urgencia",titular:"María Julia Moyano",tipo:"DG",children:[]},
-    {id:"DGRPJ",nombre:"DG. Responsabilidad Penal Juvenil",titular:"Nicolás Roberto Echarri",tipo:"DG",children:[]},
+    {id:"DGRPJ",nombre:"DG. Responsabilidad Penal Juvenil",titular:"Roberto Nicolás Echarri",tipo:"DG",children:[]},
   ]},
   {id:"URFVI",nombre:"Unidad Relaciones Federales y Vinculación Interjurisdiccional",titular:"Cesar Ángel Torres",tipo:"ORG",dashed:true,children:[
     {id:"DGGEE",nombre:"DG. Gestión y Evaluación Estratégica",titular:"Maximiliano José Domingo Costantinis",tipo:"DG",children:[]},
     {id:"DGAPMU",nombre:"DG. Acuerdos con Provincias y Municipios",titular:"Pablo Daniel Lecadito",tipo:"DG",children:[]},
     {id:"DGRFE",nombre:"DG. Representaciones Federales",titular:"Carolina Barone",tipo:"DG",children:[]},
   ]},
+,
+  {id:"fn_CONDELOSDER",nombre:"CONSEJO DE LOS DERECHOS DE NIÑAS, NIÑOS Y ADOLESCENTES",titular:"Victoria Morales Gorleri",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_UNIDERELFED",nombre:"UNIDAD DE RELACIONES FEDERALES Y VINCULACIÓN INTERJURISDICCIONAL",titular:"Virginia Laura Fredes",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_UNIDEASUPOL",nombre:"UNIDAD DE ASUNTOS POLÍTICOS",titular:"Carlos Gustavo Walter",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_PROGENDELA",nombre:"Procuración General de la Ciudad de Buenos Aires",titular:"Fernando Martín Ocampo",tipo:"ORG",dashed:true,children:[]},
+  {id:"fn_CONDEPLAEST",nombre:"Consejo de Planeamiento Estratégico",titular:"Hernán Leandro Reyes",tipo:"ORG",dashed:true,children:[]}
+,
+  {id:"emp_04",nombre:"Corporación Mercado Central de Buenos Aires",titular:"",tipo:"ORG",dashed:true,children:[]},
+  {id:"emp_05",nombre:"Corporación Antiguo Puerto Madero S.A.",titular:"",tipo:"ORG",dashed:true,children:[]},
+  {id:"emp_06",nombre:"CEAMSE",titular:"",tipo:"ORG",dashed:true,children:[]},
+  {id:"emp_07",nombre:"FACOEP S.E.",titular:"",tipo:"ORG",dashed:true,children:[]},
+  {id:"emp_08",nombre:"Corporación Buenos Aires Sur S.E.",titular:"Karina Andrea Burijson",tipo:"ORG",dashed:true,children:[]},
+  {id:"emp_09",nombre:"AUSA - Autopistas Urbanas S.A.",titular:"",tipo:"ORG",dashed:true,children:[]}
 ]};
 
 
@@ -784,10 +904,10 @@ function moveNode(t,nodeId,newPid){const n=findNode(t,nodeId);if(!n)return t;ret
 // ── Colores ──────────────────────────────────────────────
 const COLORS={
   JG:{bg:"#9B1C1C",label:"Jefatura"},VJG:{bg:"#9B1C1C",label:"Vicejefatura"},
-  MIN:{bg:"#92400E",label:"Ministerio"},SEC:{bg:"#78350F",label:"Secretaría"},
-  SS:{bg:"#1E3A5F",label:"Subsecretaría"},DG:{bg:"#14532D",label:"Dir. General"},
-  GG:{bg:"#065F46",label:"Gerencia General"},GO:{bg:"#064E3B",label:"Gerencia Operativa"},
-  ORG:{bg:"#374151",label:"Organismo desc."}
+  MIN:{bg:"#FEA82D",label:"Ministerio"},SEC:{bg:"#FCD307",label:"Secretaría"},
+  SS:{bg:"#004F86",label:"Subsecretaría"},DG:{bg:"#268948",label:"Dir. General"},
+  GG:{bg:"#268948",label:"Gerencia General"},GO:{bg:"#268948",label:"Gerencia Operativa"},
+  ORG:{bg:"#E4E9ED",label:"Organismo desc."}
 };
 function getColor(n){if(n?.tipo?.startsWith("CUSTOM:"))return"#5B21B6";return(COLORS[n?.tipo]||COLORS.ORG).bg;}
 function getLabel(n){if(n?.tipo?.startsWith("CUSTOM:"))return n.tipoLabel||n.tipo.replace("CUSTOM:","");return(COLORS[n?.tipo]||COLORS.ORG).label;}
@@ -799,7 +919,7 @@ function Btn({children,onClick,variant="secondary",small=false,style={}}){
     borderRadius:8,transition:"all .15s",fontSize:small?11:12,
     padding:small?"4px 10px":"6px 14px",display:"inline-flex",alignItems:"center",gap:6,...style};
   const variants={
-    primary:{background:"#005EA6",borderColor:"#005EA6",color:"#fff"},
+    primary:{background:"#007BC7",borderColor:"#007BC7",color:"#fff"},
     secondary:{background:"#fff",borderColor:"#CBD5E0",color:"#4A5568"},
     ghost:{background:"rgba(255,255,255,0.08)",borderColor:"rgba(255,255,255,0.25)",color:"#fff"},
     danger:{background:"#fff",borderColor:"#FC8181",color:"#C53030"}
@@ -817,7 +937,7 @@ function TypeBadge({tipo,tipoLabel}){
 function Modal({title,children,onClose,wide=false}){
   return<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(3px)"}} onClick={onClose}>
     <div style={{background:"#fff",borderRadius:14,width:wide?600:400,maxHeight:"85vh",overflow:"auto",boxShadow:"0 20px 60px rgba(0,0,0,.3)"}} onClick={e=>e.stopPropagation()}>
-      <div style={{background:"#F7FAFC",padding:"14px 18px",borderBottom:"1px solid #E2E8F0",display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:"14px 14px 0 0"}}>
+      <div style={{background:"#F3F6F9",padding:"14px 18px",borderBottom:"1px solid #E2E8F0",display:"flex",justifyContent:"space-between",alignItems:"center",borderRadius:"14px 14px 0 0"}}>
         <span style={{fontWeight:600,fontSize:14}}>{title}</span>
         <button onClick={onClose} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:"#718096"}}>✕</button>
       </div>
@@ -921,10 +1041,10 @@ function PanelItem({node,onSelect,selectedId,depth=0}){
   return<>
     <div onClick={()=>onSelect(node)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",
       paddingLeft:12+depth*14,cursor:"pointer",background:isSelected?"#EBF4FF":"transparent",
-      borderLeft:isSelected?"3px solid #005EA6":"3px solid transparent",transition:"all .1s"}}>
+      borderLeft:isSelected?"3px solid #007BC7":"3px solid transparent",transition:"all .1s"}}>
       <div style={{width:8,height:8,borderRadius:2,background:color,flexShrink:0,
         border:node.dashed?"2px dashed rgba(0,0,0,.25)":"none"}}/>
-      <span style={{fontSize:12,color:isSelected?"#005EA6":"#2D3748",fontWeight:isSelected?600:400,flex:1,
+      <span style={{fontSize:12,color:isSelected?"#007BC7":"#2D3748",fontWeight:isSelected?600:400,flex:1,
         whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{node.nombre}</span>
       <TypeBadge tipo={node.tipo} tipoLabel={node.tipoLabel}/>
     </div>
@@ -1021,7 +1141,7 @@ function OrgChart({data,search}){
   return(
     <div style={{display:"flex",flexDirection:"column",height:"100%",overflow:"hidden"}}>
       {/* Toolbar */}
-      <div style={{padding:"8px 14px",borderBottom:"1px solid #E2E8F0",background:"#F7FAFC",
+      <div style={{padding:"8px 14px",borderBottom:"1px solid #E2E8F0",background:"#F3F6F9",
         display:"flex",gap:8,alignItems:"center",flexShrink:0,flexWrap:"wrap"}}>
         {Object.entries(COLORS).map(([k,v])=>(
           <span key={k} style={{background:v.bg,color:"#fff",fontSize:10,fontWeight:600,
@@ -1036,10 +1156,37 @@ function OrgChart({data,search}){
           Colapsar
         </button>
       </div>
-      {/* Canvas */}
-      <div style={{flex:1,overflow:"auto",padding:"24px 32px",background:"#F2F5F9",minWidth:0}}>
-        <div style={{display:"inline-block",minWidth:"100%"}}><NodeBox node={data}/></div>
-      </div>
+      {/* Canvas — drag to scroll */}
+      {(()=>{
+        const canvasRef=React.useRef(null);
+        const drag=React.useRef({active:false,startX:0,startY:0,scrollX:0,scrollY:0});
+        const onDown=e=>{
+          if(e.button!==0)return;
+          const el=canvasRef.current;
+          drag.current={active:true,startX:e.clientX,startY:e.clientY,scrollX:el.scrollLeft,scrollY:el.scrollTop};
+          el.style.cursor="grabbing";
+          el.style.userSelect="none";
+        };
+        const onMove=e=>{
+          const d=drag.current;
+          if(!d.active)return;
+          const el=canvasRef.current;
+          el.scrollLeft=d.scrollX-(e.clientX-d.startX);
+          el.scrollTop=d.scrollY-(e.clientY-d.startY);
+        };
+        const onUp=()=>{
+          drag.current.active=false;
+          const el=canvasRef.current;
+          if(el){el.style.cursor="grab";el.style.userSelect="";}
+        };
+        return(
+          <div ref={canvasRef}
+            onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}
+            style={{flex:1,overflow:"auto",padding:"24px 32px",background:"#F3F6F9",minWidth:0,cursor:"grab"}}>
+            <div style={{display:"inline-block",minWidth:"100%"}}><NodeBox node={data}/></div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -1163,7 +1310,7 @@ function App(){
       {/* Header */}
       <div className="app-header">
         <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <div style={{width:34,height:34,borderRadius:8,background:"#F5C400",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div style={{width:34,height:34,borderRadius:8,background:"#007BC7",display:"flex",alignItems:"center",justifyContent:"center"}}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" fill="#003D6E"/>
               <polyline points="9 22 9 12 15 12 15 22" fill="#F5C400" stroke="#003D6E" strokeWidth="0.5"/>
@@ -1175,7 +1322,7 @@ function App(){
           </div>
         </div>
         <div className="app-tabs">
-          {[["organigrama","📋 Organigrama"],["arbol","🌐 Vista completa"],["editor","✏️ Editor visual"]].map(([id,label])=>(
+          {[["organigrama","📋 Organigrama"],["arbol","🌐 Árbol"],["editor","✏️ Editor visual"]].map(([id,label])=>(
             <button key={id} className={`app-tab${activeTab===id?" active":""}`}
               onClick={()=>{
                 if(id==="editor"){
@@ -1217,7 +1364,7 @@ function App(){
         {/* Sidebar — solo en pestaña organigrama */}
         {activeTab!=="arbol"&&<>
         <div className="sidebar">
-          <div style={{padding:"10px 12px",borderBottom:"1px solid #E2E8F0",background:"#F7FAFC"}}>
+          <div style={{padding:"10px 12px",borderBottom:"1px solid #E2E8F0",background:"#F3F6F9"}}>
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Buscar organismo o titular…"
               style={{width:"100%",border:"1px solid #CBD5E0",borderRadius:8,padding:"7px 10px",fontSize:12,fontFamily:"inherit",outline:"none"}}/>
           </div>
@@ -1227,7 +1374,7 @@ function App(){
               :<PanelItem node={data} onSelect={setSelected} selectedId={selected?.id}/>
             }
           </div>
-          <div style={{padding:"10px 12px",borderTop:"1px solid #E2E8F0",background:"#F7FAFC"}}>
+          <div style={{padding:"10px 12px",borderTop:"1px solid #E2E8F0",background:"#F3F6F9"}}>
             <Btn variant="primary" onClick={()=>{setAddForm({nombre:"",titular:"",tipo:"DG",tipoLabel:"",dashed:false,parentId:selected?.id||"JG"});setModal("add");}} style={{width:"100%",justifyContent:"center"}}>
               + Nueva unidad
             </Btn>
@@ -1280,7 +1427,8 @@ function App(){
           ):(
             <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:8,color:"#A0AEC0"}}>
               <div style={{fontSize:40,opacity:.3}}>⬡</div>
-              <div style={{fontSize:13}}>Seleccioná un organismo del panel</div>
+              <div style={{fontSize:13,color:"#505E70"}}>Seleccioná un organismo del panel</div>
+              <div style={{fontSize:11,color:"#9AABB8",marginTop:4}}>Los administradores pueden editar desde ✏️ Editor visual</div>
             </div>
           )}
           <div style={{background:"#fff",borderTop:"1px solid #E2E8F0",padding:"6px 20px",display:"flex",justifyContent:"space-between"}}>
@@ -1302,7 +1450,7 @@ function App(){
           <Field label="">
             <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13}}>
               <input type="checkbox" checked={editForm.dashed} onChange={e=>setEditForm(f=>({...f,dashed:e.target.checked}))}
-                style={{width:14,height:14,accentColor:"#005EA6"}}/>
+                style={{width:14,height:14,accentColor:"#007BC7"}}/>
               Dependencia funcional (línea punteada)
             </label>
           </Field>
@@ -1322,7 +1470,7 @@ function App(){
           <Field label="">
             <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13}}>
               <input type="checkbox" checked={addForm.dashed} onChange={e=>setAddForm(f=>({...f,dashed:e.target.checked}))}
-                style={{width:14,height:14,accentColor:"#005EA6"}}/>
+                style={{width:14,height:14,accentColor:"#007BC7"}}/>
               Dependencia funcional
             </label>
           </Field>
@@ -1441,8 +1589,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
   // ── Árbol helpers ────────────────────────────────────────
   function getColor(n){if(n?.tipo?.startsWith("CUSTOM:"))return"#5B21B6";
-    const m={JG:"#9B1C1C",VJG:"#9B1C1C",MIN:"#92400E",SEC:"#78350F",SS:"#1E3A5F",
-              DG:"#14532D",GG:"#065F46",GO:"#064E3B",ORG:"#374151"};
+    const m={JG:"#9B1C1C",VJG:"#9B1C1C",MIN:"#FEA82D",SEC:"#FCD307",SS:"#004F86",
+              DG:"#268948",GG:"#268948",GO:"#268948",ORG:"#E4E9ED"};
     return m[n?.tipo]||"#374151";}
   function getLabel(n){
     if(n?.tipo?.startsWith("CUSTOM:"))return n.tipoLabel||n.tipo.replace("CUSTOM:","");
