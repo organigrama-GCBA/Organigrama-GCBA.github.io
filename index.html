@@ -263,6 +263,33 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
           </div>
         </div>
 
+        <!-- Redimensionar todos -->
+        <div style="margin-bottom:12px;">
+          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;
+            letter-spacing:.07em;margin-bottom:6px;">Redimensionar seleccionados</div>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px;margin-bottom:4px;">
+            <button class="ed-tool-btn" onclick="resizeAll('w',10)"  title="Más ancho">↔ + Ancho</button>
+            <button class="ed-tool-btn" onclick="resizeAll('w',-10)" title="Menos ancho">↔ − Ancho</button>
+            <button class="ed-tool-btn" onclick="resizeAll('h',6)"   title="Más alto">↕ + Alto</button>
+            <button class="ed-tool-btn" onclick="resizeAll('h',-6)"  title="Menos alto">↕ − Alto</button>
+          </div>
+          <div style="font-size:8px;color:var(--ed-text3);margin-bottom:6px;">Tamaño exacto (aplica a todos):</div>
+          <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
+            <span style="font-size:9px;color:var(--ed-text3);width:32px;">Ancho</span>
+            <input id="resize-w-input" type="number" min="60" max="400" placeholder="px"
+              style="flex:1;border:1px solid var(--ed-border2);border-radius:4px;padding:4px 6px;
+                font-size:11px;font-family:inherit;background:var(--ed-surface2);color:var(--ed-text1);"
+              onchange="resizeAllExact('w',+this.value)"/>
+          </div>
+          <div style="display:flex;gap:4px;align-items:center;">
+            <span style="font-size:9px;color:var(--ed-text3);width:32px;">Alto</span>
+            <input id="resize-h-input" type="number" min="30" max="200" placeholder="px"
+              style="flex:1;border:1px solid var(--ed-border2);border-radius:4px;padding:4px 6px;
+                font-size:11px;font-family:inherit;background:var(--ed-surface2);color:var(--ed-text1);"
+              onchange="resizeAllExact('h',+this.value)"/>
+          </div>
+        </div>
+
         <!-- Agrupar -->
         <div style="margin-bottom:12px;">
           <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;
@@ -3008,6 +3035,41 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     });
   }
 
+  // ── Redimensionar todos los nodos seleccionados ─────────────────
+  function resizeAll(dim,delta){
+    if(!edSelectedIds.size)return;
+    edSelectedIds.forEach(id=>{
+      const p=edPositions[id];if(!p)return;
+      if(dim==="w") p.w=Math.max(60,Math.min(400,(p.w||NW)+delta));
+      if(dim==="h") p.h=Math.max(30,Math.min(200,(p.h||NH)+delta));
+    });
+    renderCanvas();savePosForArea();showSaved();
+    // Restore selection after renderCanvas
+    setTimeout(()=>{
+      const ids=[...edSelectedIds];
+      edSelectedIds.clear();
+      ids.forEach(id=>edSelectedIds.add(id));
+      d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));
+      updateAlignBar();updateToolsSelInfo();
+    },50);
+  }
+  function resizeAllExact(dim,val){
+    if(!val||val<10)return;
+    edSelectedIds.forEach(id=>{
+      const p=edPositions[id];if(!p)return;
+      if(dim==="w") p.w=Math.max(60,Math.min(400,val));
+      if(dim==="h") p.h=Math.max(30,Math.min(200,val));
+    });
+    renderCanvas();savePosForArea();showSaved();
+    setTimeout(()=>{
+      const ids=[...edSelectedIds];
+      edSelectedIds.clear();
+      ids.forEach(id=>edSelectedIds.add(id));
+      d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));
+      updateAlignBar();updateToolsSelInfo();
+    },50);
+  }
+
   // ── Nudge: mover nodos seleccionados sin teclado ──────────────────
   function nudge(dx,dy){
     if(!edSelectedIds.size)return;
@@ -3166,6 +3228,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
   window.selectAllNodes=selectAllNodes;
   window.clearSelection=clearSelection;
   window.selectFrom=selectFrom;
+  window.resizeAll=resizeAll;
+  window.resizeAllExact=resizeAllExact;
 
 })();
 </script>
