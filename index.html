@@ -987,6 +987,37 @@ window.__findNode = findNode;
       .on("end",()=>{savePosForArea();showSaved();})
     );
 
+    // ── Resize handle: esquina inferior derecha ─────────────
+    const RHANDLE=10;
+    ng.append("rect")
+      .attr("class","resize-handle")
+      .attr("width",RHANDLE).attr("height",RHANDLE).attr("rx",2)
+      .attr("fill","#336ACC").attr("opacity",0.8)
+      .attr("x",d=>(edPositions[d.id]?.w||NW)-RHANDLE/2)
+      .attr("y",d=>(edPositions[d.id]?.h||NH)-RHANDLE/2)
+      .attr("cursor","se-resize")
+      .style("pointer-events","all")
+      .call(d3.drag()
+        .on("start",function(e2){
+          e2.sourceEvent.stopPropagation();
+          e2.sourceEvent.preventDefault();
+        })
+        .on("drag",function(e2,d){
+          e2.sourceEvent.stopPropagation();
+          const p=edPositions[d.id];if(!p)return;
+          p.w=Math.max(80,Math.min(400,(p.w||NW)+e2.dx/edTransform.k));
+          p.h=Math.max(28,Math.min(150,(p.h||NH)+e2.dy/edTransform.k));
+          const self=d3.select(this);
+          const parent=d3.select(this.parentNode);
+          parent.attr("transform",`translate(${p.x-p.w/2},${p.y})`);
+          parent.select("rect:not(.resize-handle)")
+            .attr("width",p.w).attr("height",p.h);
+          self.attr("x",p.w-RHANDLE/2).attr("y",p.h-RHANDLE/2);
+          drawLinks();drawWPs();
+        })
+        .on("end",()=>{savePosForArea();showSaved();})
+      );
+
     ng.append("rect").attr("width",NW).attr("height",NH).attr("rx",7)
       .attr("fill",d=>getColor(d))
       .attr("stroke",d=>d.dashed?"rgba(255,255,255,0.4)":"none")
