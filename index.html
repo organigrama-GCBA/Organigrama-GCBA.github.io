@@ -963,7 +963,7 @@ window.__dlSVG    = dlSVG;
     const nodeG=g.append("g");
     const ng=nodeG.selectAll("g.c-node").data(nodes,d=>d.id).enter()
       .append("g").attr("class",d=>"c-node"+(edSelectedIds.has(d.id)?" sel":""))
-      .attr("transform",d=>{const p=edPositions[d.id]||{x:0,y:0};return`translate(${p.x-NW/2},${p.y})`;})
+      .attr("transform",d=>{const p=edPositions[d.id]||{x:0,y:0};return`translate(${p.x-(p.w||NW)/2},${p.y})`;})
       .style("cursor","pointer")
       .on("click",(e,d)=>{
         e.stopPropagation();
@@ -985,7 +985,7 @@ window.__dlSVG    = dlSVG;
         const dx=e.dx/edTransform.k,dy=e.dy/edTransform.k;
         edSelectedIds.forEach(id=>{if(edPositions[id]){edPositions[id].x+=dx;edPositions[id].y+=dy;}});
         d3.selectAll(".c-node").filter(n=>edSelectedIds.has(n.id))
-          .attr("transform",n=>{const p=edPositions[n.id]||{x:0,y:0};return`translate(${p.x-NW/2},${p.y})`;});
+          .attr("transform",n=>{const p=edPositions[n.id]||{x:0,y:0};return`translate(${p.x-(p.w||NW)/2},${p.y})`;});
         drawLinks();drawWPs();
       })
       .on("end",()=>{savePosForArea();showSaved();})
