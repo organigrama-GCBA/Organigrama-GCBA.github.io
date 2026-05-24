@@ -1023,44 +1023,48 @@ window.__dlSVG    = dlSVG;
       .attr("y",d=>(edPositions[d.id]?.h||NH)-RHANDLE/2)
       .attr("cursor","se-resize")
       .style("pointer-events","all")
-      .call(d3.drag()
-        .on("start",function(e2){
-          e2.sourceEvent.stopPropagation();
-          e2.sourceEvent.preventDefault();
-        })
-        .on("drag",function(e2,d){
-          e2.sourceEvent.stopPropagation();
+      .on("mousedown",function(e2,d){
+          e2.stopPropagation();
+          e2.preventDefault();
           const p=edPositions[d.id];if(!p)return;
-          p.w=Math.max(80,Math.min(400,(p.w||NW)+e2.dx/edTransform.k));
-          p.h=Math.max(28,Math.min(150,(p.h||NH)+e2.dy/edTransform.k));
-          // Update in-place without destroying the node
+          const startX=e2.clientX,startY=e2.clientY;
+          const startW=p.w||NW,startH=p.h||NH;
+          const handleEl=this;
           const par=d3.select(this.parentNode);
-          // Resize background rect
-          par.select("rect:not(.resize-handle)").attr("width",p.w).attr("height",p.h);
-          // Move resize handle to new corner
-          d3.select(this).attr("x",p.w-RHANDLE/2).attr("y",p.h-RHANDLE/2);
-          // Recalculate and reposition text
-          const _fs=Math.max(7,Math.min(13,p.w/11));
-          const _lh=_fs+2.5;
-          const words=(d.nombre||"").split(" ");
-          let l1="",l2="";
-          for(const w of words){if((l1+" "+w).trim().length<=20)l1=(l1+" "+w).trim();else l2=(l2+" "+w).trim();}
-          const hasTit=d.titular&&d.titular.trim();
-          const lines=l2?[l1,l2]:[l1];
-          const blockH=(lines.length+(hasTit?1:0))*_lh;
-          const sy=(p.h-blockH)/2+_fs;
-          par.selectAll("text").each(function(_,i){
-            const t=d3.select(this);
-            t.attr("x",p.w/2).attr("font-size",i<lines.length?_fs:Math.max(6,_fs-1.5));
-            if(i<lines.length) t.attr("y",sy+i*_lh);
-            else t.attr("y",sy+lines.length*_lh+1.5);
-          });
-          // Update node position (keep centered on x)
-          par.attr("transform",`translate(${p.x-p.w/2},${p.y})`);
-          drawLinks();drawWPs();
-        })
-        .on("end",()=>{savePosForArea();showSaved();})
-      );
+
+          function onMove(ev){
+            ev.stopPropagation();
+            const dx=(ev.clientX-startX)/edTransform.k;
+            const dy=(ev.clientY-startY)/edTransform.k;
+            p.w=Math.max(80,Math.min(400,startW+dx));
+            p.h=Math.max(28,Math.min(150,startH+dy));
+            par.select("rect:not(.resize-handle)").attr("width",p.w).attr("height",p.h);
+            d3.select(handleEl).attr("x",p.w-RHANDLE/2).attr("y",p.h-RHANDLE/2);
+            const _fs=Math.max(7,Math.min(13,p.w/11));
+            const _lh=_fs+2.5;
+            const words=(d.nombre||"").split(" ");
+            let l1="",l2="";
+            for(const w of words){if((l1+" "+w).trim().length<=20)l1=(l1+" "+w).trim();else l2=(l2+" "+w).trim();}
+            const hasTit=d.titular&&d.titular.trim();
+            const lines=l2?[l1,l2]:[l1];
+            const blockH=(lines.length+(hasTit?1:0))*_lh;
+            const sy=(p.h-blockH)/2+_fs;
+            par.selectAll("text").each(function(_i){
+              const t=d3.select(this);
+              t.attr("x",p.w/2).attr("font-size",_i<lines.length?_fs:Math.max(6,_fs-1.5));
+              t.attr("y",_i<lines.length?sy+_i*_lh:sy+lines.length*_lh+1.5);
+            });
+            par.attr("transform",`translate(${p.x-p.w/2},${p.y})`);
+            drawLinks();drawWPs();
+          }
+          function onUp(){
+            window.removeEventListener("mousemove",onMove);
+            window.removeEventListener("mouseup",onUp);
+            savePosForArea();showSaved();
+          }
+          window.addEventListener("mousemove",onMove);
+          window.addEventListener("mouseup",onUp);
+      });
 
     svg.on("click",()=>{edSelectedIds.clear();d3.selectAll(".c-node").classed("sel",false);renderInspector(null);document.getElementById("ed-actions").style.display="none";});
 
