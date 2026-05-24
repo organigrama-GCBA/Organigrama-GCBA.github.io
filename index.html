@@ -1045,13 +1045,14 @@ window.__dlSVG    = dlSVG;
             p.h=Math.max(28,Math.min(300,startH+dy));
             par.select("rect:not(.resize-handle)").attr("width",p.w).attr("height",p.h);
             d3.select(handleEl).attr("x",p.w-RHANDLE/2).attr("y",p.h-RHANDLE/2);
-            const _fs=Math.max(8,Math.min(24,Math.min(p.w/8, p.h/(lines.length+(hasTit?1:0)+1)*0.7)));
-            const _lh=_fs+2.5;
+            // Calculate lines FIRST, then font size
             const words=(d.nombre||"").split(" ");
             let l1="",l2="";
             for(const w of words){if((l1+" "+w).trim().length<=20)l1=(l1+" "+w).trim();else l2=(l2+" "+w).trim();}
             const hasTit=d.titular&&d.titular.trim();
             const lines=l2?[l1,l2]:[l1];
+            const _fs=Math.max(8,Math.min(28,Math.min(p.w/7, p.h/(lines.length+(hasTit?1:0)+0.5)*0.65)));
+            const _lh=_fs+3;
             const blockH=(lines.length+(hasTit?1:0))*_lh;
             const sy=(p.h-blockH)/2+_fs;
             par.selectAll("text").remove();
