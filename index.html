@@ -425,8 +425,21 @@ function genSVGA3(root,pn=1,tot=1){
   });
   nodes.forEach(n=>{
     const nw=n.w||NW,nh=n.h||NH;
-    const fsNn=ED_FS>0?ED_FS:Math.max(7,Math.min(60,nw/5));
-    const fsTn=ED_FS>0?ED_FS*0.82:Math.max(6,Math.min(50,nw/7));
+    // Calcular fuente considerando ancho Y alto del nodo
+    let fsNn,fsTn;
+    if(ED_FS>0){fsNn=ED_FS;fsTn=ED_FS*0.82;}
+    else{
+      // Estimación inicial por ancho
+      const fsW=Math.min(60,nw/5);
+      // Estimar líneas con esa fuente
+      const estChars=Math.max(8,Math.floor(nw/(fsW*0.52)));
+      const estLines=wrapTxt(n.data.nombre||"",estChars).length+(n.data.titular?1:0);
+      // Calcular fuente por alto disponible
+      const fsH=Math.min(60,nh/(estLines+0.8)*0.72);
+      // Usar el menor de los dos
+      fsNn=Math.max(7,Math.min(fsW,fsH));
+      fsTn=Math.max(6,fsNn*0.82);
+    }
     nodesSVG+=svgBox(n.x-nw/2,n.y,n.data,nw,nh,!!n.data?.dashed,fsNn,fsTn);
   });
 
