@@ -483,6 +483,25 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
 </style>
 </head>
 <body>
+<script>
+// Detectar si se abre desde file:// y mostrar advertencia de Chrome
+if(window.location.protocol === 'file:') {
+  // Check if it's actually causing issues by testing if we can access localStorage
+  try {
+    localStorage.setItem('_test', '1');
+    localStorage.removeItem('_test');
+    // localStorage works — Chrome file:// is fine for this
+  } catch(e) {
+    // If localStorage fails, show the warning
+    document.addEventListener('DOMContentLoaded', function() {
+      var msg = document.createElement('div');
+      msg.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#101E37;color:#fff;padding:12px 20px;font-family:Open Sans,sans-serif;font-size:13px;display:flex;gap:16px;align-items:center;';
+      msg.innerHTML = '<strong>⚠️ Para usar localmente:</strong> Abrí Chrome con <code style="background:rgba(255,255,255,.15);padding:2px 6px;border-radius:3px;">--allow-file-access-from-files</code> o usá Firefox. <button onclick="this.parentNode.remove()" style="margin-left:auto;background:rgba(255,255,255,.2);border:none;color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;">✕</button>';
+      document.body.prepend(msg);
+    });
+  }
+}
+</script>
 
 <!-- EDITOR VISUAL D3 (oculto hasta que se active) -->
 <div id="ed-pane">
@@ -1041,6 +1060,1214 @@ function dlSVG(svgStr,fname){
 
 </script>
 
+
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     EDITOR D3 — scope plain JS, sin dependencias de Babel
+     Lee/escribe en localStorage con la misma clave que React
+     ═══════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  "use strict";
+
+  // ── Constantes ──────────────────────────────────────────
+  const POS_KEY="gcba_org_positions_v1";
+  const SNAP_DIST=18;  // píxeles en coordenadas del canvas para activar snap
+  const GUIDE_COLOR="#336ACC";
+  const WP_KEY="gcba_org_waypoints_v1";
+  const HPAD=18,VPAD=58; // edNW and edNH are dynamic per area
+
+  // ── Estado ──────────────────────────────────────────────
+  let edData=null;
+  let edViewId=null;          // id del área seleccionada
+  let edSelectedIds=new Set();
+  let edPositions={};         // {nodeId: {x,y}} para el área actual
+  let edWaypoints={};         // {"sid-tid": [{x,y},...]}
+  let edZoom=null;
+  let edTransform=d3.zoomIdentity;
+  let edFitted=false;
+  let edNW=158;
+  let edNH=50;
+  let edFS=9.5;  // font size override (0 = auto)
+  let renderResizeHandles=()=>{};  // set inside renderCanvas
+  let edHistory=[];          // stack de estados anteriores {positions, waypoints}
+  let edSearch="";           // búsqueda en sidebar
+
+  // ── LocalStorage helpers ─────────────────────────────────
+  function readLS(key){try{return JSON.parse(localStorage.getItem(key)||"{}");}catch{return{};}}
+  function writeLS(key,val){try{localStorage.setItem(key,JSON.stringify(val));}catch{}}
+  function savePosForArea(){writeLS(POS_KEY,{...readLS(POS_KEY),[edViewId]:edPositions});}
+
+  function pushHistory(){
+    edHistory.push({
+      positions:JSON.parse(JSON.stringify(edPositions)),
+      waypoints:JSON.parse(JSON.stringify(edWaypoints))
+    });
+    if(edHistory.length>30)edHistory.shift(); // máximo 30 pasos
+  }
+
+  function undoLast(){
+    if(!edHistory.length)return;
+    const prev=edHistory.pop();
+    edPositions=prev.positions;
+    edWaypoints=prev.waypoints;
+    savePosForArea();saveWPForArea();
+    renderCanvas();showSaved();
+  }
+
+  // Recalcular NW/NH óptimo para que los nodos llenen el A3 con las posiciones actuales
+  function recalcNodeSize(){
+    const positions=Object.values(edPositions);
+    if(positions.length<2)return;
+    const PW=1587,PH=1123,MAR=40,HH=68,FH=34;
+    const AW=PW-MAR*2,AH=PH-HH-FH-MAR;
+    // Bounding box de las posiciones actuales (en coordenadas del editor)
+    const xs=positions.map(p=>p.x),ys=positions.map(p=>p.y);
+    const spanW=Math.max(...xs)-Math.min(...xs)+edNW;
+    const spanH=Math.max(...ys)-Math.min(...ys)+edNH;
+    if(spanW<=0||spanH<=0)return;
+    // Calcular cuánto espacio tiene cada nodo en el A3
+    const scaleToA3=Math.min(AW/spanW,AH/spanH)*0.96;
+    const newNW=Math.round(edNW*scaleToA3);
+    const newNH=Math.round(edNH*scaleToA3);
+    if(Math.abs(newNW-edNW)>2||Math.abs(newNH-edNH)>2){
+      edNW=Math.max(60,Math.min(400,newNW));
+      edNH=Math.max(30,Math.min(200,newNH));
+      syncSizeInputs();
+      saveSizeForArea();
+    }
+  }
+  function saveWPForArea(){writeLS(WP_KEY,{...readLS(WP_KEY),[edViewId]:edWaypoints});}
+  const SIZE_KEY="gcba_org_nodesize_v1";
+  function saveSizeForArea(){writeLS(SIZE_KEY,{...readLS(SIZE_KEY),[edViewId]:{nw:edNW,nh:edNH,fs:edFS}});}
+  function loadSizeForArea(id){const s=readLS(SIZE_KEY)[id];if(s){edNW=s.nw||158;edNH=s.nh||50;edFS=s.fs||9.5;}else{edNW=158;edNH=50;edFS=9.5;}}
+  function syncSizeInputs(){
+    const nwEl=document.getElementById("ed-nw"),nhEl=document.getElementById("ed-nh"),fsEl=document.getElementById("ed-fs");
+    if(nwEl)nwEl.value=Math.round(edNW);
+    if(nhEl)nhEl.value=Math.round(edNH);
+    if(fsEl)fsEl.value=Number(edFS).toFixed(1);
+  }
+  function loadPosForArea(id){return readLS(POS_KEY)[id]||null;}
+  function loadWPForArea(id){return readLS(WP_KEY)[id]||{};}
+  function clearArea(id){
+    const p=readLS(POS_KEY);delete p[id];writeLS(POS_KEY,p);
+    const w=readLS(WP_KEY);delete w[id];writeLS(WP_KEY,w);
+  }
+
+  // ── Árbol helpers ────────────────────────────────────────
+  function getColor(n){if(n?.tipo?.startsWith("CUSTOM:"))return"#5B21B6";
+    const m={JG:"#9B1C1C",VJG:"#9B1C1C",MIN:"#FEA82D",SEC:"#FCD307",SS:"#004F86",
+              DG:"#268948",GG:"#268948",GO:"#268948",ORG:"#E4E9ED"};
+    return m[n?.tipo]||"#374151";}
+  function getLabel(n){
+    if(n?.tipo?.startsWith("CUSTOM:"))return n.tipoLabel||n.tipo.replace("CUSTOM:","");
+    const m={JG:"Jefatura",VJG:"Vicejefatura",MIN:"Ministerio",SEC:"Secretaría",
+              SS:"Subsecretaría",DG:"Dir. General",GG:"Gerencia General",GO:"Gerencia Operativa",ORG:"Organismo"};
+    return m[n?.tipo]||n?.tipo||"";}
+  function flat(n,a=[]){a.push(n);(n.children||[]).forEach(c=>flat(c,a));return a;}
+  function findN(tree,id){if(!tree)return null;if(tree.id===id)return tree;for(const c of(tree.children||[])){const f=findN(c,id);if(f)return f;}return null;}
+  function removeN(tree,id){return{...tree,children:(tree.children||[]).filter(c=>c.id!==id).map(c=>removeN(c,id))};}
+  function updateN(tree,id,fn){if(tree.id===id)return fn(tree);return{...tree,children:(tree.children||[]).map(c=>updateN(c,id,fn))};}
+  function addChildN(tree,pid,child){return updateN(tree,pid,n=>({...n,children:[...(n.children||[]),child]}));}
+  function moveN(tree,nid,pid){const n=findN(tree,nid);if(!n)return tree;return addChildN(removeN(tree,nid),pid,n);}
+
+  function isJGView(){
+    if(!edData||!edViewId)return false;
+    const vr=findN(edData,edViewId)||edData;
+    // Shallow si es el nodo raíz JG, o cualquier nodo con hijos directos MIN/VJG
+    const direct=(vr.children||[]).filter(c=>!c.dashed);
+    return vr.tipo==="JG"||direct.some(c=>c.tipo==="MIN"||c.tipo==="VJG");
+  }
+
+  // Nodos visibles para el área actual (JG: solo 1 nivel)
+  function visibleNodes(){
+    const viewRoot=findN(edData,edViewId)||edData;
+    if(!viewRoot)return[];
+    function collect(node,depth,acc){
+      acc.push(node);
+      if(isJGView()&&depth>=1)return acc;
+      (node.children||[]).forEach(c=>collect(c,depth+1,acc));
+      return acc;
+    }
+    return collect(viewRoot,0,[]);
+  }
+
+  function visibleLinks(nodes){
+    const ids=new Set(nodes.map(n=>n.id));
+    const viewRoot=findN(edData,edViewId)||edData;
+    const links=[];
+    function walk(node,depth){
+      (node.children||[]).forEach(ch=>{
+        if(!ids.has(ch.id))return;
+        links.push({sid:node.id,tid:ch.id,dashed:!!ch.dashed});
+        if(!(isJGView()&&depth>=1))walk(ch,depth+1);
+      });
+    }
+    walk(viewRoot,0);
+    return links;
+  }
+
+  // ── Selector de área ─────────────────────────────────────
+  function populateAreaSel(){
+    const sel=document.getElementById("ed-area-sel");
+    if(!sel||!edData)return;
+    const prev=sel.value;
+    sel.innerHTML="";
+    const direct=edData.children||[];
+    const addOpt=(node,prefix)=>{
+      const o=document.createElement("option");
+      o.value=node.id;
+      o.textContent=prefix+"["+getLabel(node)+"] "+node.nombre;
+      sel.appendChild(o);
+    };
+    addOpt(edData,"");
+    direct.filter(n=>n.tipo==="MIN"||n.tipo==="VJG").forEach(n=>addOpt(n,"　"));
+    direct.filter(n=>n.tipo==="SEC").forEach(n=>addOpt(n,"　"));
+    flat(edData).filter(n=>n.dashed&&(n.children||[]).length>0).forEach(n=>addOpt(n,""));
+    if(prev&&sel.querySelector(`option[value="${prev}"]`))sel.value=prev;
+    else if(sel.options.length>0){sel.value=sel.options[0].value;}
+    edViewId=sel.value;
+  }
+
+  // ── Sidebar ──────────────────────────────────────────────
+  function renderSidebar(){
+    const el=document.getElementById("ed-list");
+    if(!el)return;
+    el.innerHTML="";
+    const q=edSearch.toLowerCase().trim();
+    visibleNodes().forEach(n=>{
+      if(q&&!(n.nombre||"").toLowerCase().includes(q)&&!(n.titular||"").toLowerCase().includes(q))return;
+      const item=document.createElement("div");
+      item.className="ed-ni"+(edSelectedIds.has(n.id)?" sel":"");
+      item.dataset.id=n.id;
+      item.innerHTML=`<div class="ed-dot" style="background:${getColor(n)}"></div><div class="ed-nm">${n.nombre||"—"}</div><div class="ed-tp">${getLabel(n)}</div>`;
+      item.addEventListener("click",()=>selectSingle(n.id));
+      el.appendChild(item);
+    });
+  }
+
+  // ── Canvas ────────────────────────────────────────────────
+  function renderCanvas(){
+    if(!edData||!edViewId)return;
+    const area=document.getElementById("ed-canvas");
+    const svgEl=document.getElementById("ed-svg");
+    if(!area||!svgEl)return;
+    const W=area.clientWidth,H=area.clientHeight;
+    const svg=d3.select(svgEl).attr("width",W).attr("height",H)
+      .style("user-select","none").style("-webkit-user-select","none");
+    svgEl.addEventListener("selectstart",e=>e.preventDefault());
+    svg.selectAll("*").remove();
+
+    // ── Dimensiones del A3 (mismas que genSVGA3) ──
+    const PW=1587,PH=1123,MAR=40,HH=68,FH=34;
+    const AW=PW-MAR*2,AH=PH-HH-FH-MAR;
+
+    const viewRoot=findN(edData,edViewId)||edData;
+    const isJG=isJGView();
+    const nodes=visibleNodes();
+    const links=visibleLinks(nodes);
+
+    // ── Calcular layout inicial igual que genSVGA3 ──
+    // Esto asegura que editor y A3 tengan las mismas proporciones
+    const HGAP=10,VGAP=24;
+    let initNW=edNW,initNH=edNH;
+
+    if(isJG){
+      const direct=(viewRoot.children||[]).filter(c=>!c.dashed);
+      const row1=direct.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
+      const row2=direct.filter(c=>c.tipo==="SEC");
+      const useRow1=row1.length>0?row1:direct.filter(c=>c.tipo!=="SEC");
+      const spanX=Math.max(useRow1.length,row2.length,1);
+      const numRows=row2.length>0?3:2;
+      initNW=Math.max(80,Math.min(280,Math.floor((AW-(spanX-1)*HGAP)/spanX)));
+      initNH=Math.max(36,Math.min(Math.floor((AH-(numRows-1)*VGAP)/numRows),Math.round(initNW/2.6)));
+    } else {
+      function toHierCount(node){const kids=(node.children||[]).filter(c=>!c.dashed);return{...node,_k:kids.map(toHierCount),children:undefined};}
+      const hc=d3.hierarchy(toHierCount(viewRoot),d=>d._k.length?d._k:null);
+      const leafCount=hc.leaves().length||1;
+      const depthCount=(hc.height||1)+1;
+      initNW=Math.max(80,Math.min(280,Math.floor((AW-(leafCount-1)*HGAP)/leafCount)));
+      initNH=Math.max(36,Math.min(Math.floor((AH-(depthCount-1)*VGAP)/depthCount),Math.round(initNW/2.6)));
+    }
+    // Si el usuario cambió el tamaño globalmente, usar el suyo; sino el calculado
+    const NW=edNW!==158?edNW:initNW;
+    const NH=edNH!==50?edNH:initNH;
+
+    // ── Calcular posiciones D3 en coordenadas A3 ──
+    function toH(node,depth){
+      const kids=isJG&&depth>=1?[]:(node.children||[]).filter(c=>!c.dashed);
+      return{...node,_k:kids.map(c=>toH(c,depth+1)),children:undefined};
+    }
+    const d3root=d3.hierarchy(toH(viewRoot,0),d=>d._k.length?d._k:null);
+
+    let d3pos={};
+    if(isJG){
+      // Layout manual JG en coordenadas A3
+      const direct=(viewRoot.children||[]).filter(c=>!c.dashed);
+      const row1=direct.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
+      const row2=direct.filter(c=>c.tipo==="SEC");
+      const useRow1=row1.length>0?row1:direct.filter(c=>c.tipo!=="SEC");
+      const spanX=Math.max(useRow1.length,row2.length,1);
+      const HPAD2=Math.max(HGAP,Math.round((AW-NW*spanX)/(spanX+1)));
+      const VPAD2=Math.max(VGAP,Math.round((AH-NH*(row2.length>0?3:2))/((row2.length>0?3:2)+1)));
+      const makeRow2=(items,rowY)=>{
+        const total=items.length*(NW+HPAD2)-HPAD2;
+        let x=MAR+(AW-total)/2+NW/2;
+        return items.forEach(c=>{d3pos[c.id]={x,y:rowY};x+=NW+HPAD2;});
+      };
+      d3pos[viewRoot.id]={x:PW/2,y:HH+10};
+      makeRow2(useRow1, HH+10+NH+VPAD2);
+      makeRow2(row2, HH+10+NH+VPAD2+NH+VPAD2);
+    } else {
+      const HPAD2=Math.max(HGAP,Math.round((AW-NW*(d3root.leaves().length||1))/(( d3root.leaves().length||1)+1)));
+      const VPAD2=Math.max(VGAP,Math.round((AH-NH*((d3root.height||1)+1))/(((d3root.height||1)+1)+1)));
+      d3.tree().nodeSize([NW+HPAD2,NH+VPAD2])(d3root);
+      d3root.each(n=>{d3pos[n.data.id]={x:n.x,y:n.y};});
+      // Normalizar: mínimo X = MAR+NW/2, mínimo Y = HH+10
+      const allP2=Object.values(d3pos);
+      const minX2=Math.min(...allP2.map(p=>p.x))-NW/2;
+      const minY2=Math.min(...allP2.map(p=>p.y));
+      Object.keys(d3pos).forEach(id=>{
+        d3pos[id].x=d3pos[id].x-minX2+MAR+NW/2+(AW-(Math.max(...allP2.map(p=>p.x))-Math.min(...allP2.map(p=>p.x))+NW))/2;
+        d3pos[id].y=d3pos[id].y-minY2+HH+10+(AH-(Math.max(...allP2.map(p=>p.y))-Math.min(...allP2.map(p=>p.y))+NH))/2;
+      });
+    }
+
+    // ── Posicionar nodos dashed debajo del árbol principal ──
+    {
+      // Encontrar la Y más baja del árbol no-dashed
+      const nonDashedY=Object.values(d3pos).map(p=>p.y);
+      const maxY=nonDashedY.length>0?Math.max(...nonDashedY):HH+10;
+      const dashedStartY=maxY+NH+VGAP*2;
+      // Recopilar nodos dashed del viewRoot (hijos directos dashed)
+      const dashedNodes=(viewRoot.children||[]).filter(c=>c.dashed);
+      if(dashedNodes.length>0){
+        const totalW=dashedNodes.length*(NW+HGAP)-HGAP;
+        let dx=MAR+(AW-totalW)/2+NW/2;
+        dashedNodes.forEach(dn=>{
+          if(!d3pos[dn.id]) d3pos[dn.id]={x:dx,y:dashedStartY};
+          dx+=NW+HGAP;
+        });
+      }
+      // También posicionar dashed anidados (hijos de nodos no-dashed)
+      nodes.filter(n=>n.dashed&&!d3pos[n.id]).forEach((n,i)=>{
+        d3pos[n.id]={x:MAR+NW/2+i*(NW+HGAP),y:dashedStartY+NH+VGAP};
+      });
+    }
+
+    // ── Mezclar posiciones: guardadas o D3 ──
+    const saved=loadPosForArea(edViewId)||{};
+    edPositions={};
+    let hasNewNodes=false;
+    nodes.forEach(n=>{
+      if(saved[n.id]){
+        edPositions[n.id]={x:saved[n.id].x,y:saved[n.id].y,w:saved[n.id].w||NW,h:saved[n.id].h||NH};
+      } else {
+        edPositions[n.id]={...(d3pos[n.id]||{x:PW/2,y:HH+10}),w:NW,h:NH};
+        hasNewNodes=true;
+      }
+    });
+    // Guardar posiciones iniciales en localStorage para que genSVGA3 las use
+    if(hasNewNodes||!Object.keys(saved).length){
+      savePosForArea();
+    }
+    edWaypoints=loadWPForArea(edViewId);
+
+    const g=svg.append("g").attr("class","canvas-root");
+    // ── Fondo A3 ──
+    g.append("rect").attr("x",0).attr("y",0).attr("width",PW).attr("height",PH)
+      .attr("fill","#F8FAFC").attr("rx",4)
+      .attr("filter","drop-shadow(0 4px 24px rgba(0,0,0,0.5))");
+    // Header
+    g.append("rect").attr("x",0).attr("y",0).attr("width",PW).attr("height",HH)
+      .attr("fill","#003D6E").attr("rx",4);
+    g.append("rect").attr("x",0).attr("y",HH-4).attr("width",PW).attr("height",4).attr("fill","#003D6E");
+    // Footer
+    g.append("rect").attr("x",0).attr("y",PH-FH).attr("width",PW).attr("height",FH).attr("fill","#F8FAFC");
+    g.append("line").attr("x1",0).attr("y1",PH-FH).attr("x2",PW).attr("y2",PH-FH).attr("stroke","#E2E8F0").attr("stroke-width",0.8);
+    // Título en el header
+    g.append("text").attr("x",PW/2).attr("y",HH*0.52).attr("text-anchor","middle")
+      .attr("font-size",18).attr("font-weight",700).attr("fill","#fff").attr("font-family","Inter,sans-serif")
+      .text((findN(edData,edViewId)||edData).nombre);
+    g.append("text").attr("x",PW/2).attr("y",HH*0.80).attr("text-anchor","middle")
+      .attr("font-size",9).attr("fill","rgba(255,255,255,0.7)").attr("font-family","Inter,sans-serif")
+      .text("Ciudad Autónoma de Buenos Aires");
+    // Margen guides (líneas punteadas tenues)
+    g.append("rect").attr("x",MAR).attr("y",HH+4).attr("width",AW).attr("height",AH-8)
+      .attr("fill","none").attr("stroke","rgba(0,0,255,0.08)").attr("stroke-dasharray","4,4");
+    edZoom=d3.zoom().scaleExtent([0.04,3]).wheelDelta(e=>-e.deltaY*(e.deltaMode===1?0.1:e.deltaMode?1:0.008)).on("zoom",e=>{
+      edTransform=e.transform;g.attr("transform",e.transform);
+    });
+    // Solo zoom con rueda — NO pan con clic izquierdo
+    svg.call(edZoom)
+      .on("mousedown.zoom",null)   // deshabilitar pan con arrastre
+      .on("touchstart.zoom",null)
+      .on("touchmove.zoom",null)
+      .on("touchend.zoom",null);
+    svg.call(edZoom.transform,edTransform);
+    g.attr("transform",edTransform);
+
+    // ── Pan con clic derecho o clic medio ──────────────────────────
+    let panStart=null;
+    svgEl.addEventListener("mousedown",function(e){
+      if(e.button!==1&&e.button!==2)return; // solo botón medio o derecho
+      e.preventDefault();
+      const tgt=e.target;
+      panStart={cx:e.clientX,cy:e.clientY,tx:edTransform.x,ty:edTransform.y};
+    },{passive:false});
+    svgEl.addEventListener("mousemove",function(e){
+      if(!panStart)return;
+      const dx=e.clientX-panStart.cx, dy=e.clientY-panStart.cy;
+      const t=d3.zoomIdentity.translate(panStart.tx+dx,panStart.ty+dy).scale(edTransform.k);
+      edTransform=t;
+      svg.call(edZoom.transform,t);
+    });
+    svgEl.addEventListener("mouseup",function(e){
+      if(e.button===1||e.button===2)panStart=null;
+    });
+    // Prevent context menu while panning with right click
+    svgEl.addEventListener("contextmenu",function(e){
+      if(panStart!==null)e.preventDefault();
+    });
+
+    // Snap guides desactivadas
+    function clearGuides(){}
+    function drawGuide(){}
+    function toSVG(cx,cy){return{x:cx*edTransform.k+edTransform.x,y:cy*edTransform.k+edTransform.y};}
+
+    // ── Rectángulo de selección (lasso) — clic izquierdo en fondo ──
+    let lassoStart=null;
+    const lassoRect=svg.append("rect")
+      .attr("fill","rgba(77,197,233,0.1)").attr("stroke","#336ACC")
+      .attr("stroke-width",1.5).attr("stroke-dasharray","5,3")
+      .attr("rx",3).style("display","none").style("pointer-events","none");
+
+
+
+    // Links
+    const linkG=g.append("g");
+    const wpG=g.append("g");
+
+    function linkPath(sid,tid){
+      const sp=edPositions[sid]||{x:0,y:0};
+      const tp=edPositions[tid]||{x:0,y:0};
+      const sh=sp.h||NH,_th=tp.h||NH;
+      const sx=sp.x,sy=sp.y+sh,tx=tp.x,ty=tp.y;
+      const wps=edWaypoints[sid+"-"+tid]||[];
+      if(wps.length>0){
+        const pts=[{x:sx,y:sy},...wps,{x:tx,y:ty}];
+        let d=`M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+        for(let i=1;i<pts.length;i++){
+          d+=`L${pts[i].x.toFixed(1)},${pts[i-1].y.toFixed(1)}L${pts[i].x.toFixed(1)},${pts[i].y.toFixed(1)}`;
+        }
+        return d;
+      }
+      const my=sy+(ty-sy)/2;
+      return`M${sx.toFixed(1)},${sy.toFixed(1)}L${sx.toFixed(1)},${my.toFixed(1)}L${tx.toFixed(1)},${my.toFixed(1)}L${tx.toFixed(1)},${ty.toFixed(1)}`;
+    }
+
+    function drawLinks(){
+      linkG.selectAll("path.lpath").data(links).join("path")
+        .attr("class",d=>"lpath c-link"+(d.dashed?" dashed-link":""))
+        .attr("d",d=>linkPath(d.sid,d.tid));
+      linkG.selectAll("path.lhit").data(links).join("path")
+        .attr("class","lhit")
+        .attr("d",d=>linkPath(d.sid,d.tid))
+        .attr("fill","none").attr("stroke","transparent").attr("stroke-width",14)
+        .style("cursor","pointer")
+        .on("click",function(e,d){
+          // Clic simple: seleccionar/resaltar línea
+          e.stopPropagation();
+          lhitG.selectAll(".lhit").attr("stroke","transparent");
+          linkG.selectAll(".clink,.clink-dashed").attr("stroke-opacity",0.25);
+          d3.select(this).attr("stroke","rgba(0,123,199,0.15)");
+          const k=d.sid+"-"+d.tid;
+          const vis=linkG.selectAll(".clink,.clink-dashed").filter(l=>(l.sid+"-"+l.tid)===k);
+          vis.attr("stroke-opacity",1);
+          // Deselect on next canvas click
+          setTimeout(()=>{
+            svgEl.addEventListener("click",function desel(){
+              linkG.selectAll(".clink,.clink-dashed").attr("stroke-opacity",1);
+              lhitG.selectAll(".lhit").attr("stroke","transparent");
+              svgEl.removeEventListener("click",desel);
+            },{once:true});
+          },0);
+        })
+        .on("contextmenu",function(e,d){
+          // Clic derecho: crear punto de quiebre
+          e.preventDefault();
+          e.stopPropagation();
+          const pt=svgEl.createSVGPoint();
+          pt.x=e.clientX;pt.y=e.clientY;
+          const gp=pt.matrixTransform(svgEl.getScreenCTM().inverse());
+          const wp={x:(gp.x-edTransform.x)/edTransform.k,y:(gp.y-edTransform.y)/edTransform.k};
+          const k=d.sid+"-"+d.tid;
+          if(!edWaypoints[k])edWaypoints[k]=[];
+          edWaypoints[k].push(wp);
+          saveWPForArea();drawLinks();drawWPs();
+        });
+    }
+
+    function drawWPs(){
+      wpG.selectAll("*").remove();
+      links.forEach(lk=>{
+        const wps=edWaypoints[lk.sid+"-"+lk.tid]||[];
+        wps.forEach((wp,i)=>{
+          const c=wpG.append("circle")
+            .attr("cx",wp.x).attr("cy",wp.y).attr("r",6)
+            .attr("fill","#4f7ef8").attr("stroke","#fff").attr("stroke-width",1.5)
+            .style("cursor","grab");
+          c.call(d3.drag()
+            .on("drag",function(e){
+              wp.x+=e.dx/edTransform.k*0.55;wp.y+=e.dy/edTransform.k*0.55;
+              d3.select(this).attr("cx",wp.x).attr("cy",wp.y);
+              drawLinks();
+            })
+            .on("end",()=>{saveWPForArea();showSaved();})
+          );
+          c.on("contextmenu",function(e){
+            e.preventDefault();e.stopPropagation();
+            const k=lk.sid+"-"+lk.tid;
+            edWaypoints[k].splice(i,1);
+            if(!edWaypoints[k].length)delete edWaypoints[k];
+            saveWPForArea();drawLinks();drawWPs();
+          });
+        });
+      });
+    }
+
+    drawLinks();drawWPs();
+    registerDrawFns(drawLinks,drawWPs);
+
+    // Nodos
+    const nodeG=g.append("g");
+    const ng=nodeG.selectAll("g.c-node").data(nodes,d=>d.id).enter()
+      .append("g").attr("class",d=>"c-node"+(edSelectedIds.has(d.id)?" sel":""))
+      .attr("transform",d=>{const p=edPositions[d.id]||{x:0,y:0};return`translate(${p.x-(p.w||NW)/2},${p.y})`;})
+      .style("cursor","pointer")
+      .on("click",(e,d)=>{
+        e.stopPropagation();
+        e.preventDefault();
+        selectSingle(d.id);
+      });
+
+    ng.call(d3.drag()
+      .on("start",function(e,d){e.sourceEvent&&e.sourceEvent.preventDefault();pushHistory();if(!edSelectedIds.has(d.id)){edSelectedIds.clear();edSelectedIds.add(d.id);d3.selectAll(".c-node").classed("sel",n=>edSelectedIds.has(n.id));}}
+      )
+      .on("drag",function(e,d){
+        const dx=e.dx/edTransform.k,dy=e.dy/edTransform.k;
+        // Move all selected nodes by raw delta first
+        edSelectedIds.forEach(id=>{
+          if(edPositions[id]){edPositions[id].x+=dx;edPositions[id].y+=dy;}
+        });
+
+        // ── Snap desactivado durante arrastre para no trabar el movimiento ──
+        clearGuides();
+        if(false&&nodes.length>0){  // snap only on drop now
+          // Get bounding box of the dragged group
+          const selNodes=[...edSelectedIds].map(id=>edPositions[id]).filter(Boolean);
+          const gMinX=Math.min(...selNodes.map(p=>p.x-(p.w||NW)/2));
+          const gMaxX=Math.max(...selNodes.map(p=>p.x+(p.w||NW)/2));
+          const gCtrX=(gMinX+gMaxX)/2;
+          const gMinY=Math.min(...selNodes.map(p=>p.y));
+          const gMaxY=Math.max(...selNodes.map(p=>p.y+(p.h||NH)));
+          const gCtrY=(gMinY+gMaxY)/2;
+
+          let snapX=null,snapY=null,guideXval=null,guideYval=null;
+
+          targets.forEach(n=>{
+            const p=edPositions[n.id];
+            const nw=p.w||NW,nh=p.h||NH;
+            const tLeft=p.x-nw/2, tRight=p.x+nw/2, tCtrX=p.x;
+            const tTop=p.y, tBottom=p.y+nh, tCtrY=p.y+nh/2;
+
+            // X snaps: left-left, left-right, center-center, right-left, right-right
+            const xPairs=[
+              [gMinX,tLeft],[gMinX,tRight],[gMinX,tCtrX],
+              [gCtrX,tLeft],[gCtrX,tRight],[gCtrX,tCtrX],
+              [gMaxX,tLeft],[gMaxX,tRight],[gMaxX,tCtrX],
+            ];
+            xPairs.forEach(([src,tgt])=>{
+              const d=Math.abs(src-tgt);
+              if(d<snapDist&&(snapX===null||d<Math.abs(snapX.d))){
+                snapX={delta:tgt-src,d,guideX:tgt};
+              }
+            });
+            // Y snaps: top-top, top-bottom, center-center, bottom-top, bottom-bottom
+            const yPairs=[
+              [gMinY,tTop],[gMinY,tBottom],[gMinY,tCtrY],
+              [gCtrY,tTop],[gCtrY,tBottom],[gCtrY,tCtrY],
+              [gMaxY,tTop],[gMaxY,tBottom],[gMaxY,tCtrY],
+            ];
+            yPairs.forEach(([src,tgt])=>{
+              const d=Math.abs(src-tgt);
+              if(d<snapDist&&(snapY===null||d<Math.abs(snapY.d))){
+                snapY={delta:tgt-src,d,guideY:tgt};
+              }
+            });
+          });
+
+          // Apply snaps
+          if(snapX){
+            edSelectedIds.forEach(id=>{if(edPositions[id])edPositions[id].x+=snapX.delta;});
+            guideXval=snapX.guideX;
+          }
+          if(snapY){
+            edSelectedIds.forEach(id=>{if(edPositions[id])edPositions[id].y+=snapY.delta;});
+            guideYval=snapY.guideY;
+          }
+
+
+        }
+
+        d3.selectAll(".c-node").filter(n=>edSelectedIds.has(n.id))
+          .attr("transform",n=>{const p=edPositions[n.id]||{x:0,y:0};return`translate(${p.x-(p.w||NW)/2},${p.y})`;});
+        drawLinks();drawWPs();
+      })
+      .on("end",()=>{savePosForArea();recalcNodeSize();renderCanvas();showSaved();})
+    );
+
+    ng.append("rect")
+      .attr("width",d=>(edPositions[d.id]?.w||NW))
+      .attr("height",d=>(edPositions[d.id]?.h||NH))
+      .attr("rx",7)
+      .attr("fill",d=>getColor(d))
+      .attr("stroke",d=>d.dashed?"rgba(255,255,255,0.4)":"none")
+      .attr("stroke-width",1.5).attr("stroke-dasharray",d=>d.dashed?"5,3":"none");
+
+    ng.each(function(d){
+      const g2=d3.select(this);
+      const LIGHT_BGS=["#FCD307","#E4E9ED","#FEA82D"];
+      const nodeColor=getColor(d);
+      const isLightNode=LIGHT_BGS.some(c=>nodeColor.toUpperCase()===c.toUpperCase());
+      const nodeTxtMain=isLightNode?"#1A202C":"#fff";
+      const nodeTxtSub=isLightNode?"rgba(30,32,40,0.7)":"rgba(255,255,255,0.75)";
+      const nw=edPositions[d.id]?.w||NW;
+      const nh=edPositions[d.id]?.h||NH;
+      // Tamaño de fuente: del editor o calculado del ancho del nodo
+      const fsMain=edFS>0?edFS:Math.max(7,Math.min(13,nw/11));
+      const fsTit=edFS>0?edFS*0.82:Math.max(6,Math.min(10,nw/15));
+      const charsPerLine=Math.max(8,Math.floor(nw/(fsMain*0.52)));
+      // Wrap texto
+      function wrapLocal(t){
+        if(!t)return[];
+        const ws=t.split(" ");const ls=[];let c="";
+        for(const w of ws){const test=c?" "+w:w;if(c.length+test.length>charsPerLine&&c){ls.push(c);c=w;}else c=(c+test).trim();}
+        if(c)ls.push(c);
+        if(ls.length>2){const last=ls.splice(1).join(" ");ls[1]=last;}
+        return ls;
+      }
+      const lines=wrapLocal(d.nombre||"");
+      const hasTit=d.titular&&d.titular.trim();
+      const lhN=fsMain*1.32,lhT=fsTit*1.28;
+      const gap=hasTit?fsMain*0.3:0;
+      const blockH=lines.length*lhN+gap+(hasTit?lhT:0);
+      // Reducir fuente si no entra
+      const maxH=nh*0.88;
+      const shrink=blockH>maxH?maxH/blockH:1;
+      const afsMain=fsMain*shrink,afsTit=fsTit*shrink;
+      const alhN=lhN*shrink,alhT=lhT*shrink,agap=gap*shrink;
+      let ty=nh/2-(lines.length*alhN+agap+(hasTit?alhT:0))/2+alhN*0.85;
+      lines.forEach((l,i)=>{
+        g2.append("text").attr("x",nw/2).attr("y",ty+i*alhN)
+          .attr("text-anchor","middle").attr("font-size",afsMain.toFixed(1))
+          .attr("font-weight",600).attr("fill",nodeTxtMain).attr("font-family","Inter,sans-serif").text(l);
+      });
+      if(hasTit){
+        ty+=lines.length*alhN+agap;
+        const chT=Math.floor(nw/(afsTit*0.52));
+        const short=d.titular.length>chT?d.titular.slice(0,chT-1)+"…":d.titular;
+        g2.append("text").attr("x",nw/2).attr("y",ty)
+          .attr("text-anchor","middle").attr("font-size",afsTit.toFixed(1))
+          .attr("fill",nodeTxtSub).attr("font-family","Inter,sans-serif").text(short);
+      }
+    });
+
+    // ── Resize handles (esquina inferior derecha, solo en nodos seleccionados) ──
+    const resizeG=g.append("g").attr("class","resize-handles");
+    renderResizeHandles=function(){
+      resizeG.selectAll("*").remove();
+      if(edSelectedIds.size!==1)return; // solo cuando hay un nodo seleccionado
+      const selId=[...edSelectedIds][0];
+      const pos=edPositions[selId];
+      if(!pos)return;
+      const nw=pos.w||NW,nh=pos.h||NH;
+      const hx=pos.x+nw/2-5, hy=pos.y+nh-5;  // relative to group: x=nw-5, y=nh-5
+      // Handle visual
+      // Handle is in SVG absolute coords (same space as node centers)
+      resizeG.append("rect")
+        .attr("x",pos.x+nw/2-10).attr("y",pos.y+nh-10).attr("width",10).attr("height",10)
+        .attr("rx",2).attr("fill","#4f7ef8").attr("stroke","#fff").attr("stroke-width",1.5)
+        .style("cursor","se-resize");
+      // Drag to resize
+      resizeG.select("rect").call(d3.drag()
+        .on("drag",function(e){
+          const dx=e.dx/edTransform.k,dy=e.dy/edTransform.k;
+          const p=edPositions[selId];
+          p.w=Math.max(60,Math.round((p.w||NW)+dx));
+          p.h=Math.max(30,Math.round((p.h||NH)+dy));
+          // Redraw node
+          d3.selectAll(".c-node").filter(n=>n.id===selId)
+            .attr("transform",`translate(${p.x-p.w/2},${p.y})`)
+            .select("rect").attr("width",p.w).attr("height",p.h);
+          d3.selectAll(".c-node").filter(n=>n.id===selId).each(function(d){
+            d3.select(this).selectAll("text").remove();
+            const nwL=p.w,nhL=p.h;
+            const fsM2=edFS>0?edFS:Math.max(7,Math.min(13,nwL/11));
+            const fsT2=edFS>0?edFS*0.82:Math.max(6,Math.min(10,nwL/15));
+            const cpl=Math.max(8,Math.floor(nwL/(fsM2*0.52)));
+            function wl(t){if(!t)return[];const ws=t.split(" ");const ls=[];let c="";for(const w of ws){const test=c?" "+w:w;if(c.length+test.length>cpl&&c){ls.push(c);c=w;}else c=(c+test).trim();}if(c)ls.push(c);if(ls.length>2){const last=ls.splice(1).join(" ");ls[1]=last;}return ls;}
+            const lns=wl(d.nombre||"");
+            const hasTit2=d.titular&&d.titular.trim();
+            const lhN2=fsM2*1.32,lhT2=fsT2*1.28,gap2=hasTit2?fsM2*0.3:0;
+            const bH=lns.length*lhN2+gap2+(hasTit2?lhT2:0);
+            const shrink2=bH>nhL*0.88?nhL*0.88/bH:1;
+            const af=fsM2*shrink2,aft=fsT2*shrink2,alh=lhN2*shrink2,alht=lhT2*shrink2,ag=gap2*shrink2;
+            let ty=nhL/2-(lns.length*alh+ag+(hasTit2?alht:0))/2+alh*0.85;
+            const g3=d3.select(this);
+            lns.forEach((l,i)=>g3.append("text").attr("x",nwL/2).attr("y",ty+i*alh).attr("text-anchor","middle").attr("font-size",af.toFixed(1)).attr("font-weight",600).attr("fill","#fff").attr("font-family","Inter,sans-serif").text(l));
+            if(hasTit2){ty+=lns.length*alh+ag;const chT=Math.floor(nwL/(aft*0.52));const sh=d.titular.length>chT?d.titular.slice(0,chT-1)+"…":d.titular;g3.append("text").attr("x",nwL/2).attr("y",ty).attr("text-anchor","middle").attr("font-size",aft.toFixed(1)).attr("fill",nodeTxtSub).attr("font-family","Inter,sans-serif").text(sh);}
+          });
+          // Move resize handle
+          d3.select(this).attr("x",pos.x+pos.w/2-10).attr("y",pos.y+pos.h-10);
+          drawLinks();drawWPs();
+        })
+        .on("end",()=>{savePosForArea();showSaved();renderCanvas();})
+      );
+    }
+    renderResizeHandles();
+
+    svg.on("click",(e)=>{
+      // Only deselect if clicking on background, not on a node
+      if(e.target!==svgEl&&e.defaultPrevented)return;
+      if(e.target!==svgEl)return;
+      edSelectedIds.clear();d3.selectAll(".c-node").classed("sel",false);resizeG.selectAll("*").remove();renderInspector(null);document.getElementById("ed-actions").style.display="none";});
+
+    // Auto-fit: encajar el A3 completo en la pantalla
+    if(!edFitted){
+      edFitted=true;
+      const padding=30;
+      const sc=Math.min((W-padding*2)/PW,(H-padding*2)/PH)*1.4;  // más zoom inicial
+      const tx=(W-PW*sc)/2;
+      const ty=(H-PH*sc)/2;
+      edTransform=d3.zoomIdentity.translate(tx,ty).scale(sc);
+      svg.call(edZoom.transform,edTransform);
+    }
+  }
+
+  // ── Selección & Inspector ─────────────────────────────────
+  function selectSingle(id){
+    edSelectedIds.clear();if(id)edSelectedIds.add(id);
+    d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));
+    document.querySelectorAll(".ed-ni").forEach(el=>el.classList.toggle("sel",el.dataset.id===id));
+    const node=id?findN(edData,id):null;
+    renderInspector(node);
+    if(typeof renderResizeHandles==="function")renderResizeHandles();
+    updateAlignBar();
+    if(id){const el=document.querySelector(`.ed-ni[data-id="${id}"]`);if(el)el.scrollIntoView({block:"nearest"});}
+  }
+
+  function renderInspector(node){
+    const body=document.getElementById("ed-ins-body");
+    const actions=document.getElementById("ed-actions");
+    const idEl=document.getElementById("ed-ins-id");
+    if(!node){
+      body.innerHTML='<div class="ed-ins-empty"><div class="ico">⬡</div><p>Clic = seleccionar<br>Shift+clic = seleccionar<br>nodo + dependientes</p></div>';
+      actions.style.display="none";idEl.textContent="";return;
+    }
+    idEl.textContent=node.id;
+    actions.style.display="flex";
+    const isC=node.tipo?.startsWith("CUSTOM:");
+    const color=getColor(node);
+    const label=getLabel(node);
+    const tipos={JG:"Jefatura",VJG:"Vicejefatura",MIN:"Ministerio",SEC:"Secretaría",SS:"Subsecretaría",DG:"Dir. General",GG:"Gerencia General",GO:"Gerencia Operativa",ORG:"Organismo"};
+    const tipoOpts=Object.entries(tipos).map(([k,v])=>`<option value="${k}"${node.tipo===k?" selected":""}>${v}</option>`).join("")+`<option value="__custom__"${isC?" selected":""}>✏️ Personalizado…</option>`;
+    body.innerHTML=`
+      <div class="ed-preview" style="background:${color}">
+        <div class="ep-label">${label}</div>
+        <div class="ep-nombre">${node.nombre||"—"}</div>
+        ${node.titular?`<div class="ep-titular">${node.titular}</div>`:""}
+      </div>
+      <div class="ed-field"><label>Nombre</label><input id="ei-n" value="${(node.nombre||"").replace(/"/g,"&quot;")}"/></div>
+      <div class="ed-field"><label>Titular</label><input id="ei-t" value="${(node.titular||"").replace(/"/g,"&quot;")}"/></div>
+      <div class="ed-field"><label>Tipo</label>
+        <select id="ei-tipo" onchange="document.getElementById('ei-cw').style.display=this.value==='__custom__'?'block':'none'">${tipoOpts}</select>
+      </div>
+      <div class="ed-field" id="ei-cw" style="display:${isC?"block":"none"}"><label>Nombre del tipo</label><input id="ei-tl" value="${isC?(node.tipoLabel||node.tipo.replace("CUSTOM:","")):""}" /></div>
+      <div class="ed-field"><label style="display:flex;align-items:center;gap:7px;text-transform:none;font-size:12px;cursor:pointer;">
+        <input type="checkbox" id="ei-d" ${node.dashed?"checked":""} style="width:13px;height:13px;accent-color:#4f7ef8;"/>
+        Dependencia funcional
+      </label></div>`;
+  }
+
+  function saveNodeChanges(){
+    const id=[...edSelectedIds][0];
+    if(!id)return;
+    const nombre=document.getElementById("ei-n")?.value.trim()||"";
+    const titular=document.getElementById("ei-t")?.value.trim()||"";
+    const tipoRaw=document.getElementById("ei-tipo")?.value||"DG";
+    const tipoLabel=document.getElementById("ei-tl")?.value.trim()||"";
+    const dashed=document.getElementById("ei-d")?.checked||false;
+    const tipo=tipoRaw==="__custom__"?"CUSTOM:"+tipoLabel:tipoRaw;
+    const newData=updateN(edData,id,n=>({...n,nombre,titular,tipo,tipoLabel:tipoLabel||undefined,dashed}));
+    edData=newData;
+    window.dispatchEvent(new CustomEvent("editorDataChanged",{detail:JSON.parse(JSON.stringify(newData))}));
+    renderSidebar();renderCanvas();selectSingle(id);showSaved();
+  }
+
+  function deleteNode(){
+    const id=[...edSelectedIds][0];
+    if(!id||id===edData?.id)return;
+    const node=findN(edData,id);
+    if(!confirm(`¿Eliminar "${node?.nombre}" y todas sus dependencias?`))return;
+    const newData=removeN(edData,id);
+    edData=newData;
+    edSelectedIds.clear();
+    window.dispatchEvent(new CustomEvent("editorDataChanged",{detail:JSON.parse(JSON.stringify(newData))}));
+    renderSidebar();renderCanvas();renderInspector(null);
+    document.getElementById("ed-actions").style.display="none";
+    showSaved();
+  }
+
+  function showMoveModal(){
+    const id=[...edSelectedIds][0];
+    if(!id||id===edData?.id)return;
+    const node=findN(edData,id);
+    const allN=flat(edData).filter(n=>n.id!==id);
+    const opts=allN.map(n=>`<option value="${n.id}">[${getLabel(n)}] ${n.nombre}</option>`).join("");
+    const overlay=document.createElement("div");
+    overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:3000;display:flex;align-items:center;justify-content:center;";
+    overlay.innerHTML=`<div style="background:#1a1d27;border:1px solid #333650;border-radius:12px;width:360px;overflow:hidden;">
+      <div style="background:#232636;padding:12px 16px;border-bottom:1px solid #333650;font-size:13px;font-weight:600;color:#e8eaf2;">Mover: ${node?.nombre}</div>
+      <div style="padding:16px;"><label style="font-size:10px;font-weight:600;color:#6b7199;text-transform:uppercase;display:block;margin-bottom:4px;">Nuevo padre</label>
+        <select id="mv-sel" style="width:100%;background:#232636;border:1px solid #333650;color:#e8eaf2;font-family:inherit;font-size:12px;padding:7px;border-radius:6px;outline:none;">${opts}</select></div>
+      <div style="padding:10px 16px;border-top:1px solid #333650;display:flex;gap:8px;justify-content:flex-end;">
+        <button id="mv-cancel" style="padding:6px 14px;border-radius:7px;background:#232636;border:1px solid #333650;color:#9da3c4;font-family:inherit;font-size:12px;cursor:pointer;">Cancelar</button>
+        <button id="mv-ok" style="padding:6px 14px;border-radius:7px;background:#4f7ef8;border:none;color:#fff;font-family:inherit;font-size:12px;cursor:pointer;">Mover</button>
+      </div></div>`;
+    document.body.appendChild(overlay);
+    document.getElementById("mv-cancel").onclick=()=>overlay.remove();
+    document.getElementById("mv-ok").onclick=()=>{
+      const np=document.getElementById("mv-sel").value;
+      if(np){const nd=moveN(edData,id,np);edData=nd;window.dispatchEvent(new CustomEvent("editorDataChanged",{detail:JSON.parse(JSON.stringify(nd))}));renderSidebar();renderCanvas();}
+      overlay.remove();showSaved();
+    };
+  }
+
+  function exportAreaA3(){
+    const viewRoot=findN(edData,edViewId)||edData;
+      try{
+
+      const svg=genSVGA3(viewRoot,1,1);
+      dlSVG(svg,`organigrama-${edViewId}-A3.svg`);
+      showSaved();
+    }catch(err){
+      console.error("Export error:",err);
+      alert("Error al exportar: "+err.message);
+    }
+  }
+
+  function showSaved(){
+    const el=document.getElementById("ed-saved-msg");
+    if(!el)return;
+    el.style.opacity="1";clearTimeout(el._t);
+    el._t=setTimeout(()=>el.style.opacity="0",2000);
+  }
+
+
+  // ── Funciones de alineación y distribución ─────────────────────────────
+  function getSelNodes(){
+    return [...edSelectedIds].map(id=>({id,pos:edPositions[id]})).filter(n=>n.pos);
+  }
+
+  function applyAlignment(fn){
+    const sel=getSelNodes();
+    if(sel.length<2)return;
+    fn(sel);
+    redrawAll();
+    savePosForArea();showSaved();
+  }
+
+  function redrawAll(){
+    d3.selectAll(".c-node").attr("transform",d=>{
+      const p=edPositions[d.id]||{x:0,y:0};
+      return`translate(${p.x-(p.w||NW)/2},${p.y})`;
+    });
+    if(typeof drawLinks==="function")drawLinks();
+    if(typeof drawWPs==="function")drawWPs();
+  }
+
+  // Referencia a drawLinks/drawWPs (se sobreescribe cada vez que se renderiza el canvas)
+  let drawLinks=()=>{},drawWPs=()=>{};
+  function registerDrawFns(dl,dw){drawLinks=dl;drawWPs=dw;}
+
+  function alignLeft(sel){
+    const minX=Math.min(...sel.map(n=>n.pos.x-(n.pos.w||NW)/2));
+    sel.forEach(n=>{edPositions[n.id].x=minX+(n.pos.w||NW)/2;});
+  }
+  function alignCenter(sel){
+    const minX=Math.min(...sel.map(n=>n.pos.x-(n.pos.w||NW)/2));
+    const maxX=Math.max(...sel.map(n=>n.pos.x+(n.pos.w||NW)/2));
+    const cx=(minX+maxX)/2;
+    sel.forEach(n=>{edPositions[n.id].x=cx;});
+  }
+  function alignRight(sel){
+    const maxX=Math.max(...sel.map(n=>n.pos.x+(n.pos.w||NW)/2));
+    sel.forEach(n=>{edPositions[n.id].x=maxX-(n.pos.w||NW)/2;});
+  }
+  function alignTop(sel){
+    const minY=Math.min(...sel.map(n=>n.pos.y));
+    sel.forEach(n=>{edPositions[n.id].y=minY;});
+  }
+  function alignMiddle(sel){
+    const minY=Math.min(...sel.map(n=>n.pos.y));
+    const maxY=Math.max(...sel.map(n=>n.pos.y+(n.pos.h||NH)));
+    const cy=(minY+maxY)/2;
+    sel.forEach(n=>{edPositions[n.id].y=cy-(n.pos.h||NH)/2;});
+  }
+  function alignBottom(sel){
+    const maxY=Math.max(...sel.map(n=>n.pos.y+(n.pos.h||NH)));
+    sel.forEach(n=>{edPositions[n.id].y=maxY-(n.pos.h||NH);});
+  }
+  function distributeH(sel){
+    if(sel.length<3)return;
+    const sorted=[...sel].sort((a,b)=>a.pos.x-b.pos.x);
+    const minX=sorted[0].pos.x-(sorted[0].pos.w||NW)/2;
+    const maxX=sorted[sorted.length-1].pos.x+(sorted[sorted.length-1].pos.w||NW)/2;
+    const totalW=sorted.reduce((s,n)=>s+(n.pos.w||NW),0);
+    const gap=(maxX-minX-totalW)/(sorted.length-1);
+    let x=minX;
+    sorted.forEach(n=>{edPositions[n.id].x=x+(n.pos.w||NW)/2;x+=(n.pos.w||NW)+gap;});
+  }
+  function distributeV(sel){
+    if(sel.length<3)return;
+    const sorted=[...sel].sort((a,b)=>a.pos.y-b.pos.y);
+    const minY=sorted[0].pos.y;
+    const maxY=sorted[sorted.length-1].pos.y+(sorted[sorted.length-1].pos.h||NH);
+    const totalH=sorted.reduce((s,n)=>s+(n.pos.h||NH),0);
+    const gap=(maxY-minY-totalH)/(sorted.length-1);
+    let y=minY;
+    sorted.forEach(n=>{edPositions[n.id].y=y;y+=(n.pos.h||NH)+gap;});
+  }
+  function sameWidth(sel){
+    // Use width of first selected node as reference
+    const ref=sel[0].pos.w||NW;
+    sel.forEach(n=>{if(edPositions[n.id])edPositions[n.id].w=ref;});
+  }
+  function sameHeight(sel){
+    const ref=sel[0].pos.h||NH;
+    sel.forEach(n=>{if(edPositions[n.id])edPositions[n.id].h=ref;});
+  }
+  function groupHorizontal(sel){
+    // Arrange selected nodes in a row, evenly spaced, preserving their Y average
+    const avgY=sel.reduce((s,n)=>s+n.pos.y,0)/sel.length;
+    const nodeW=sel[0].pos.w||NW;
+    const gap=20;
+    const totalW=sel.length*nodeW+(sel.length-1)*gap;
+    let x=sel[0].pos.x-totalW/2+nodeW/2;
+    const sorted=[...sel].sort((a,b)=>a.pos.x-b.pos.x);
+    sorted.forEach(n=>{
+      edPositions[n.id].x=x;
+      edPositions[n.id].y=Math.round(avgY);
+      x+=nodeW+gap;
+    });
+  }
+  function groupVertical(sel){
+    const avgX=sel.reduce((s,n)=>s+n.pos.x,0)/sel.length;
+    const nodeH=sel[0].pos.h||NH;
+    const gap=20;
+    const sorted=[...sel].sort((a,b)=>a.pos.y-b.pos.y);
+    let y=sorted[0].pos.y;
+    sorted.forEach(n=>{
+      edPositions[n.id].x=Math.round(avgX);
+      edPositions[n.id].y=y;
+      y+=nodeH+gap;
+    });
+  }
+
+  function updateAlignBar(){
+    const bar=document.getElementById("ed-align-bar");
+    if(bar){
+      if(edSelectedIds.size>=2){
+        bar.classList.add("visible");
+        const cnt=document.getElementById("ed-sel-count");
+        if(cnt)cnt.textContent=edSelectedIds.size;
+      } else {
+        bar.classList.remove("visible");
+      }
+    }
+    updateToolsSelInfo();
+  }
+
+
+  function resetLayout(){
+    if(!edViewId)return;
+    if(!confirm("¿Restablecer el layout automático para esta área?"))return;
+    clearArea(edViewId);edFitted=false;edTransform=d3.zoomIdentity;
+    renderCanvas();showSaved();
+  }
+
+  // ── Wire buttons ─────────────────────────────────────────
+  // Prevent text selection in editor
+  const edPaneEl=document.getElementById("ed-pane");
+  if(edPaneEl)edPaneEl.addEventListener("selectstart",e=>e.preventDefault());
+
+  // ── Tab switching ────────────────────────────────────────────────
+  function switchTab(tab){
+    const tabs=["inspector","tools"];
+    tabs.forEach(t=>{
+      const panel=document.getElementById("tab-"+t);
+      const btn=document.getElementById("tab-btn-"+t);
+      if(!panel||!btn)return;
+      const active=t===tab;
+      panel.style.display=active?"flex":"none";
+      btn.style.background=active?"var(--ed-accent)":"var(--ed-surface)";
+      btn.style.color=active?"#fff":"var(--ed-text3)";
+    });
+  }
+
+  // ── Copiar/pegar formato (tamaño) ─────────────────────────────
+  let _formatClipboard=null;
+  function copyFormat(){
+    const refId=[...edSelectedIds][0];
+    if(!refId){alert("Hacé clic en un nodo primero.");return;}
+    const p=edPositions[refId];if(!p)return;
+    _formatClipboard={w:p.w||NW,h:p.h||NH};
+    const el=document.getElementById("format-clipboard");
+    if(el)el.textContent=`Copiado: ${Math.round(_formatClipboard.w)}×${Math.round(_formatClipboard.h)}px`;
+  }
+  function pasteFormat(){
+    if(!_formatClipboard){alert("Primero copiá el tamaño de un nodo.");return;}
+    if(!edSelectedIds.size){alert("Seleccioná los nodos destino.");return;}
+    edSelectedIds.forEach(id=>{
+      const p=edPositions[id];if(!p)return;
+      p.w=_formatClipboard.w;p.h=_formatClipboard.h;
+    });
+    renderCanvas();savePosForArea();showSaved();
+    setTimeout(()=>{
+      const ids=[...edSelectedIds];
+      edSelectedIds.clear();ids.forEach(id=>edSelectedIds.add(id));
+      d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));
+      updateAlignBar();updateToolsSelInfo();
+    },50);
+  }
+
+  // ── Redimensionar todos los nodos seleccionados ─────────────────
+  function resizeAll(dim,delta){
+    if(!edSelectedIds.size)return;
+    edSelectedIds.forEach(id=>{
+      const p=edPositions[id];if(!p)return;
+      if(dim==="w") p.w=Math.max(60,Math.min(400,(p.w||NW)+delta));
+      if(dim==="h") p.h=Math.max(30,Math.min(200,(p.h||NH)+delta));
+    });
+    renderCanvas();savePosForArea();showSaved();
+    // Restore selection after renderCanvas
+    setTimeout(()=>{
+      const ids=[...edSelectedIds];
+      edSelectedIds.clear();
+      ids.forEach(id=>edSelectedIds.add(id));
+      d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));
+      updateAlignBar();updateToolsSelInfo();
+    },50);
+  }
+  function resizeAllExact(dim,val){
+    if(!val||val<10)return;
+    edSelectedIds.forEach(id=>{
+      const p=edPositions[id];if(!p)return;
+      if(dim==="w") p.w=Math.max(60,Math.min(400,val));
+      if(dim==="h") p.h=Math.max(30,Math.min(200,val));
+    });
+    renderCanvas();savePosForArea();showSaved();
+    setTimeout(()=>{
+      const ids=[...edSelectedIds];
+      edSelectedIds.clear();
+      ids.forEach(id=>edSelectedIds.add(id));
+      d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));
+      updateAlignBar();updateToolsSelInfo();
+    },50);
+  }
+
+  // ── Nudge: mover nodos seleccionados sin teclado ──────────────────
+  function nudge(dx,dy){
+    if(!edSelectedIds.size)return;
+    edSelectedIds.forEach(id=>{
+      if(edPositions[id]){edPositions[id].x+=dx;edPositions[id].y+=dy;}
+    });
+    d3.selectAll(".c-node").filter(n=>edSelectedIds.has(n.id))
+      .attr("transform",n=>{const p=edPositions[n.id]||{x:0,y:0};return`translate(${p.x-(p.w||NW)/2},${p.y})`;});
+    drawLinks();drawWPs();
+    savePosForArea();
+  }
+
+  // ── Select all / clear ────────────────────────────────────────────
+  function selectAllNodes(){
+    const nodes=visibleNodes();
+    edSelectedIds.clear();
+    nodes.forEach(n=>edSelectedIds.add(n.id));
+    d3.selectAll(".c-node").classed("sel",true);
+    updateAlignBar();
+    updateToolsSelInfo();
+  }
+  function clearSelection(){
+    edSelectedIds.clear();
+    d3.selectAll(".c-node").classed("sel",false);
+    updateAlignBar();
+    updateToolsSelInfo();
+    renderInspector(null);
+    document.getElementById("ed-actions").style.display="none";
+  }
+
+  function selectFrom(direction){
+    // Get reference node — the currently selected single node
+    const refId=[...edSelectedIds][0];
+    const refPos=refId?edPositions[refId]:null;
+    if(!refPos){alert("Primero hacé clic en un nodo de referencia.");return;}
+
+    const ROW_TOLERANCE=30; // px — nodos dentro de este margen Y se consideran "misma fila"
+
+    const rx=refPos.x, ry=refPos.y+(refPos.h||NH)/2; // center of ref node
+
+    // Keep ref node selected, add matching nodes
+    nodes.forEach(n=>{
+      if(n.id===refId)return;
+      const p=edPositions[n.id];if(!p)return;
+      const nx=p.x, ny=p.y+(p.h||NH)/2;
+      let match=false;
+      if(direction==="right")  match=nx>rx;
+      if(direction==="left")   match=nx<rx;
+      if(direction==="below")  match=ny>ry;
+      if(direction==="above")  match=ny<ry;
+      if(direction==="row")    match=Math.abs(ny-ry)<=ROW_TOLERANCE;
+      if(match)edSelectedIds.add(n.id);
+    });
+
+    d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));
+    document.getElementById("ed-actions").style.display="flex";
+    updateAlignBar();
+    updateToolsSelInfo();
+  }
+  function updateToolsSelInfo(){
+    const info=document.getElementById("tools-sel-info");
+    const cnt=document.getElementById("tools-sel-count");
+    if(!info||!cnt)return;
+    if(edSelectedIds.size>0){
+      info.style.display="block";
+      cnt.textContent=edSelectedIds.size;
+    } else {
+      info.style.display="none";
+    }
+  }
+
+  function wire(id,fn){const el=document.getElementById(id);if(el)el.onclick=fn;}
+  // Alignment buttons
+  wire("al-left",   ()=>applyAlignment(alignLeft));
+  wire("al-center", ()=>applyAlignment(alignCenter));
+  wire("al-right",  ()=>applyAlignment(alignRight));
+  wire("al-top",    ()=>applyAlignment(alignTop));
+  wire("al-middle", ()=>applyAlignment(alignMiddle));
+  wire("al-bottom", ()=>applyAlignment(alignBottom));
+  wire("al-dist-h", ()=>applyAlignment(distributeH));
+  wire("al-dist-v", ()=>applyAlignment(distributeV));
+  wire("al-same-w", ()=>applyAlignment(sameWidth));
+  wire("al-same-h", ()=>applyAlignment(sameHeight));
+  wire("al-group-h",()=>applyAlignment(groupHorizontal));
+  wire("al-group-v",()=>applyAlignment(groupVertical));
+  wire("ed-zi",()=>{if(edZoom)d3.select("#ed-svg").call(edZoom.scaleBy,1.3);});
+  wire("ed-zo",()=>{if(edZoom)d3.select("#ed-svg").call(edZoom.scaleBy,0.77);});
+  wire("ed-zr",()=>{edTransform=d3.zoomIdentity;edFitted=false;renderCanvas();});
+  wire("ed-btn-save",()=>{savePosForArea();saveWPForArea();recalcNodeSize();saveSizeForArea();showSaved();});
+  wire("ed-btn-undo",()=>undoLast());
+  // Ctrl+Z shortcut
+  document.addEventListener("keydown",e=>{
+    if((e.ctrlKey||e.metaKey)&&e.key==="z"&&document.getElementById("ed-pane").classList.contains("visible")){
+      e.preventDefault();undoLast();
+    }
+  });
+  const edSearchEl=document.getElementById("ed-search");
+  if(edSearchEl)edSearchEl.addEventListener("input",function(){edSearch=this.value;renderSidebar();});
+  wire("ed-btn-apply-size",()=>{
+    const nwEl=document.getElementById("ed-nw"),nhEl=document.getElementById("ed-nh"),fsEl=document.getElementById("ed-fs");
+    edNW=Math.max(60,Math.min(400,parseInt(nwEl?.value)||158));
+    edNH=Math.max(30,Math.min(200,parseInt(nhEl?.value)||50));
+    edFS=Math.max(6,Math.min(20,parseFloat(fsEl?.value)||9.5));
+    syncSizeInputs();saveSizeForArea();edFitted=false;renderCanvas();
+  });
+  wire("ed-btn-export",()=>exportAreaA3());
+  wire("ed-btn-reset",()=>resetLayout());
+  wire("ed-btn-back",()=>{if(window.__goToOrganigrama)window.__goToOrganigrama();});
+  wire("ed-btn-node-save",()=>saveNodeChanges());
+  wire("ed-btn-move",()=>showMoveModal());
+  wire("ed-btn-delete",()=>deleteNode());
+
+  document.getElementById("ed-area-sel").onchange=function(){
+    edViewId=this.value;edSelectedIds.clear();edFitted=false;edTransform=d3.zoomIdentity;
+    loadSizeForArea(edViewId);syncSizeInputs();
+    renderSidebar();renderCanvas();renderInspector(null);
+    document.getElementById("ed-actions").style.display="none";
+  };
+
+  window.addEventListener("resize",()=>{
+    if(document.getElementById("ed-pane").classList.contains("visible"))renderCanvas();
+  });
+
+  // ── Activación desde React ───────────────────────────────
+  window.addEventListener("editorActivated",e=>{
+    edData=e.detail;
+    populateAreaSel();
+    // Si no hay área seleccionada, tomar la primera del selector
+    if(!edViewId||!findN(edData,edViewId)){
+      const sel=document.getElementById("ed-area-sel");
+      edViewId=sel?.options[0]?.value||edData.id;
+      if(sel)sel.value=edViewId;
+    }
+    loadSizeForArea(edViewId);syncSizeInputs();
+    // Para JG: siempre usar layout automático (limpiar posiciones guardadas)
+    const activeRoot=findN(edData,edViewId)||edData;
+    const activeIsDirect=(activeRoot.children||[]).filter(c=>!c.dashed).some(c=>c.tipo==="MIN"||c.tipo==="VJG");
+    if(activeRoot.tipo==="JG"||activeIsDirect){
+      clearArea(edViewId);
+    }
+    edFitted=false;
+    renderSidebar();
+    renderCanvas();
+  });
+
+  window.addEventListener("orgDataChanged",e=>{
+    edData=e.detail;
+    if(document.getElementById("ed-pane").classList.contains("visible")){
+      populateAreaSel();renderSidebar();renderCanvas();
+    }
+  });
+
+  // ── Flechas del teclado para mover nodos seleccionados ──────────
+  document.addEventListener("keydown",function(e){
+    // Solo cuando el editor está visible y hay nodos seleccionados
+    if(!document.getElementById("ed-pane").classList.contains("visible"))return;
+    if(!edSelectedIds.size)return;
+    // No interferir si el foco está en un input o textarea
+    const tag=document.activeElement?.tagName;
+    if(tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT")return;
+    const step=e.shiftKey?10:1;
+    if(e.key==="ArrowLeft") {e.preventDefault();nudge(-step,0);}
+    else if(e.key==="ArrowRight"){e.preventDefault();nudge(step,0);}
+    else if(e.key==="ArrowUp")   {e.preventDefault();nudge(0,-step);}
+    else if(e.key==="ArrowDown") {e.preventDefault();nudge(0,step);}
+  });
+
+  // Exponer al scope global para onclick del HTML
+  window.switchTab=switchTab;
+  window.nudge=nudge;
+  window.selectAllNodes=selectAllNodes;
+  window.clearSelection=clearSelection;
+  window.selectFrom=selectFrom;
+  window.resizeAll=resizeAll;
+  window.resizeAllExact=resizeAllExact;
+  window.copyFormat=copyFormat;
+  window.pasteFormat=pasteFormat;
+
+})();
+</script>
 <script>
 /* Pre-transpiled JSX — no Babel runtime needed */
 const {
@@ -5310,1213 +6537,6 @@ function App() {
   }, "Mover"))));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
-</script>
-
-
-<!-- ═══════════════════════════════════════════════════════════
-     EDITOR D3 — scope plain JS, sin dependencias de Babel
-     Lee/escribe en localStorage con la misma clave que React
-     ═══════════════════════════════════════════════════════════ -->
-<script>
-(function(){
-  "use strict";
-
-  // ── Constantes ──────────────────────────────────────────
-  const POS_KEY="gcba_org_positions_v1";
-  const SNAP_DIST=18;  // píxeles en coordenadas del canvas para activar snap
-  const GUIDE_COLOR="#336ACC";
-  const WP_KEY="gcba_org_waypoints_v1";
-  const HPAD=18,VPAD=58; // edNW and edNH are dynamic per area
-
-  // ── Estado ──────────────────────────────────────────────
-  let edData=null;
-  let edViewId=null;          // id del área seleccionada
-  let edSelectedIds=new Set();
-  let edPositions={};         // {nodeId: {x,y}} para el área actual
-  let edWaypoints={};         // {"sid-tid": [{x,y},...]}
-  let edZoom=null;
-  let edTransform=d3.zoomIdentity;
-  let edFitted=false;
-  let edNW=158;
-  let edNH=50;
-  let edFS=9.5;  // font size override (0 = auto)
-  let renderResizeHandles=()=>{};  // set inside renderCanvas
-  let edHistory=[];          // stack de estados anteriores {positions, waypoints}
-  let edSearch="";           // búsqueda en sidebar
-
-  // ── LocalStorage helpers ─────────────────────────────────
-  function readLS(key){try{return JSON.parse(localStorage.getItem(key)||"{}");}catch{return{};}}
-  function writeLS(key,val){try{localStorage.setItem(key,JSON.stringify(val));}catch{}}
-  function savePosForArea(){writeLS(POS_KEY,{...readLS(POS_KEY),[edViewId]:edPositions});}
-
-  function pushHistory(){
-    edHistory.push({
-      positions:JSON.parse(JSON.stringify(edPositions)),
-      waypoints:JSON.parse(JSON.stringify(edWaypoints))
-    });
-    if(edHistory.length>30)edHistory.shift(); // máximo 30 pasos
-  }
-
-  function undoLast(){
-    if(!edHistory.length)return;
-    const prev=edHistory.pop();
-    edPositions=prev.positions;
-    edWaypoints=prev.waypoints;
-    savePosForArea();saveWPForArea();
-    renderCanvas();showSaved();
-  }
-
-  // Recalcular NW/NH óptimo para que los nodos llenen el A3 con las posiciones actuales
-  function recalcNodeSize(){
-    const positions=Object.values(edPositions);
-    if(positions.length<2)return;
-    const PW=1587,PH=1123,MAR=40,HH=68,FH=34;
-    const AW=PW-MAR*2,AH=PH-HH-FH-MAR;
-    // Bounding box de las posiciones actuales (en coordenadas del editor)
-    const xs=positions.map(p=>p.x),ys=positions.map(p=>p.y);
-    const spanW=Math.max(...xs)-Math.min(...xs)+edNW;
-    const spanH=Math.max(...ys)-Math.min(...ys)+edNH;
-    if(spanW<=0||spanH<=0)return;
-    // Calcular cuánto espacio tiene cada nodo en el A3
-    const scaleToA3=Math.min(AW/spanW,AH/spanH)*0.96;
-    const newNW=Math.round(edNW*scaleToA3);
-    const newNH=Math.round(edNH*scaleToA3);
-    if(Math.abs(newNW-edNW)>2||Math.abs(newNH-edNH)>2){
-      edNW=Math.max(60,Math.min(400,newNW));
-      edNH=Math.max(30,Math.min(200,newNH));
-      syncSizeInputs();
-      saveSizeForArea();
-    }
-  }
-  function saveWPForArea(){writeLS(WP_KEY,{...readLS(WP_KEY),[edViewId]:edWaypoints});}
-  const SIZE_KEY="gcba_org_nodesize_v1";
-  function saveSizeForArea(){writeLS(SIZE_KEY,{...readLS(SIZE_KEY),[edViewId]:{nw:edNW,nh:edNH,fs:edFS}});}
-  function loadSizeForArea(id){const s=readLS(SIZE_KEY)[id];if(s){edNW=s.nw||158;edNH=s.nh||50;edFS=s.fs||9.5;}else{edNW=158;edNH=50;edFS=9.5;}}
-  function syncSizeInputs(){
-    const nwEl=document.getElementById("ed-nw"),nhEl=document.getElementById("ed-nh"),fsEl=document.getElementById("ed-fs");
-    if(nwEl)nwEl.value=Math.round(edNW);
-    if(nhEl)nhEl.value=Math.round(edNH);
-    if(fsEl)fsEl.value=Number(edFS).toFixed(1);
-  }
-  function loadPosForArea(id){return readLS(POS_KEY)[id]||null;}
-  function loadWPForArea(id){return readLS(WP_KEY)[id]||{};}
-  function clearArea(id){
-    const p=readLS(POS_KEY);delete p[id];writeLS(POS_KEY,p);
-    const w=readLS(WP_KEY);delete w[id];writeLS(WP_KEY,w);
-  }
-
-  // ── Árbol helpers ────────────────────────────────────────
-  function getColor(n){if(n?.tipo?.startsWith("CUSTOM:"))return"#5B21B6";
-    const m={JG:"#9B1C1C",VJG:"#9B1C1C",MIN:"#FEA82D",SEC:"#FCD307",SS:"#004F86",
-              DG:"#268948",GG:"#268948",GO:"#268948",ORG:"#E4E9ED"};
-    return m[n?.tipo]||"#374151";}
-  function getLabel(n){
-    if(n?.tipo?.startsWith("CUSTOM:"))return n.tipoLabel||n.tipo.replace("CUSTOM:","");
-    const m={JG:"Jefatura",VJG:"Vicejefatura",MIN:"Ministerio",SEC:"Secretaría",
-              SS:"Subsecretaría",DG:"Dir. General",GG:"Gerencia General",GO:"Gerencia Operativa",ORG:"Organismo"};
-    return m[n?.tipo]||n?.tipo||"";}
-  function flat(n,a=[]){a.push(n);(n.children||[]).forEach(c=>flat(c,a));return a;}
-  function findN(tree,id){if(!tree)return null;if(tree.id===id)return tree;for(const c of(tree.children||[])){const f=findN(c,id);if(f)return f;}return null;}
-  function removeN(tree,id){return{...tree,children:(tree.children||[]).filter(c=>c.id!==id).map(c=>removeN(c,id))};}
-  function updateN(tree,id,fn){if(tree.id===id)return fn(tree);return{...tree,children:(tree.children||[]).map(c=>updateN(c,id,fn))};}
-  function addChildN(tree,pid,child){return updateN(tree,pid,n=>({...n,children:[...(n.children||[]),child]}));}
-  function moveN(tree,nid,pid){const n=findN(tree,nid);if(!n)return tree;return addChildN(removeN(tree,nid),pid,n);}
-
-  function isJGView(){
-    if(!edData||!edViewId)return false;
-    const vr=findN(edData,edViewId)||edData;
-    // Shallow si es el nodo raíz JG, o cualquier nodo con hijos directos MIN/VJG
-    const direct=(vr.children||[]).filter(c=>!c.dashed);
-    return vr.tipo==="JG"||direct.some(c=>c.tipo==="MIN"||c.tipo==="VJG");
-  }
-
-  // Nodos visibles para el área actual (JG: solo 1 nivel)
-  function visibleNodes(){
-    const viewRoot=findN(edData,edViewId)||edData;
-    if(!viewRoot)return[];
-    function collect(node,depth,acc){
-      acc.push(node);
-      if(isJGView()&&depth>=1)return acc;
-      (node.children||[]).forEach(c=>collect(c,depth+1,acc));
-      return acc;
-    }
-    return collect(viewRoot,0,[]);
-  }
-
-  function visibleLinks(nodes){
-    const ids=new Set(nodes.map(n=>n.id));
-    const viewRoot=findN(edData,edViewId)||edData;
-    const links=[];
-    function walk(node,depth){
-      (node.children||[]).forEach(ch=>{
-        if(!ids.has(ch.id))return;
-        links.push({sid:node.id,tid:ch.id,dashed:!!ch.dashed});
-        if(!(isJGView()&&depth>=1))walk(ch,depth+1);
-      });
-    }
-    walk(viewRoot,0);
-    return links;
-  }
-
-  // ── Selector de área ─────────────────────────────────────
-  function populateAreaSel(){
-    const sel=document.getElementById("ed-area-sel");
-    if(!sel||!edData)return;
-    const prev=sel.value;
-    sel.innerHTML="";
-    const direct=edData.children||[];
-    const addOpt=(node,prefix)=>{
-      const o=document.createElement("option");
-      o.value=node.id;
-      o.textContent=prefix+"["+getLabel(node)+"] "+node.nombre;
-      sel.appendChild(o);
-    };
-    addOpt(edData,"");
-    direct.filter(n=>n.tipo==="MIN"||n.tipo==="VJG").forEach(n=>addOpt(n,"　"));
-    direct.filter(n=>n.tipo==="SEC").forEach(n=>addOpt(n,"　"));
-    flat(edData).filter(n=>n.dashed&&(n.children||[]).length>0).forEach(n=>addOpt(n,""));
-    if(prev&&sel.querySelector(`option[value="${prev}"]`))sel.value=prev;
-    else if(sel.options.length>0){sel.value=sel.options[0].value;}
-    edViewId=sel.value;
-  }
-
-  // ── Sidebar ──────────────────────────────────────────────
-  function renderSidebar(){
-    const el=document.getElementById("ed-list");
-    if(!el)return;
-    el.innerHTML="";
-    const q=edSearch.toLowerCase().trim();
-    visibleNodes().forEach(n=>{
-      if(q&&!(n.nombre||"").toLowerCase().includes(q)&&!(n.titular||"").toLowerCase().includes(q))return;
-      const item=document.createElement("div");
-      item.className="ed-ni"+(edSelectedIds.has(n.id)?" sel":"");
-      item.dataset.id=n.id;
-      item.innerHTML=`<div class="ed-dot" style="background:${getColor(n)}"></div><div class="ed-nm">${n.nombre||"—"}</div><div class="ed-tp">${getLabel(n)}</div>`;
-      item.addEventListener("click",()=>selectSingle(n.id));
-      el.appendChild(item);
-    });
-  }
-
-  // ── Canvas ────────────────────────────────────────────────
-  function renderCanvas(){
-    if(!edData||!edViewId)return;
-    const area=document.getElementById("ed-canvas");
-    const svgEl=document.getElementById("ed-svg");
-    if(!area||!svgEl)return;
-    const W=area.clientWidth,H=area.clientHeight;
-    const svg=d3.select(svgEl).attr("width",W).attr("height",H)
-      .style("user-select","none").style("-webkit-user-select","none");
-    svgEl.addEventListener("selectstart",e=>e.preventDefault());
-    svg.selectAll("*").remove();
-
-    // ── Dimensiones del A3 (mismas que genSVGA3) ──
-    const PW=1587,PH=1123,MAR=40,HH=68,FH=34;
-    const AW=PW-MAR*2,AH=PH-HH-FH-MAR;
-
-    const viewRoot=findN(edData,edViewId)||edData;
-    const isJG=isJGView();
-    const nodes=visibleNodes();
-    const links=visibleLinks(nodes);
-
-    // ── Calcular layout inicial igual que genSVGA3 ──
-    // Esto asegura que editor y A3 tengan las mismas proporciones
-    const HGAP=10,VGAP=24;
-    let initNW=edNW,initNH=edNH;
-
-    if(isJG){
-      const direct=(viewRoot.children||[]).filter(c=>!c.dashed);
-      const row1=direct.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
-      const row2=direct.filter(c=>c.tipo==="SEC");
-      const useRow1=row1.length>0?row1:direct.filter(c=>c.tipo!=="SEC");
-      const spanX=Math.max(useRow1.length,row2.length,1);
-      const numRows=row2.length>0?3:2;
-      initNW=Math.max(80,Math.min(280,Math.floor((AW-(spanX-1)*HGAP)/spanX)));
-      initNH=Math.max(36,Math.min(Math.floor((AH-(numRows-1)*VGAP)/numRows),Math.round(initNW/2.6)));
-    } else {
-      function toHierCount(node){const kids=(node.children||[]).filter(c=>!c.dashed);return{...node,_k:kids.map(toHierCount),children:undefined};}
-      const hc=d3.hierarchy(toHierCount(viewRoot),d=>d._k.length?d._k:null);
-      const leafCount=hc.leaves().length||1;
-      const depthCount=(hc.height||1)+1;
-      initNW=Math.max(80,Math.min(280,Math.floor((AW-(leafCount-1)*HGAP)/leafCount)));
-      initNH=Math.max(36,Math.min(Math.floor((AH-(depthCount-1)*VGAP)/depthCount),Math.round(initNW/2.6)));
-    }
-    // Si el usuario cambió el tamaño globalmente, usar el suyo; sino el calculado
-    const NW=edNW!==158?edNW:initNW;
-    const NH=edNH!==50?edNH:initNH;
-
-    // ── Calcular posiciones D3 en coordenadas A3 ──
-    function toH(node,depth){
-      const kids=isJG&&depth>=1?[]:(node.children||[]).filter(c=>!c.dashed);
-      return{...node,_k:kids.map(c=>toH(c,depth+1)),children:undefined};
-    }
-    const d3root=d3.hierarchy(toH(viewRoot,0),d=>d._k.length?d._k:null);
-
-    let d3pos={};
-    if(isJG){
-      // Layout manual JG en coordenadas A3
-      const direct=(viewRoot.children||[]).filter(c=>!c.dashed);
-      const row1=direct.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
-      const row2=direct.filter(c=>c.tipo==="SEC");
-      const useRow1=row1.length>0?row1:direct.filter(c=>c.tipo!=="SEC");
-      const spanX=Math.max(useRow1.length,row2.length,1);
-      const HPAD2=Math.max(HGAP,Math.round((AW-NW*spanX)/(spanX+1)));
-      const VPAD2=Math.max(VGAP,Math.round((AH-NH*(row2.length>0?3:2))/((row2.length>0?3:2)+1)));
-      const makeRow2=(items,rowY)=>{
-        const total=items.length*(NW+HPAD2)-HPAD2;
-        let x=MAR+(AW-total)/2+NW/2;
-        return items.forEach(c=>{d3pos[c.id]={x,y:rowY};x+=NW+HPAD2;});
-      };
-      d3pos[viewRoot.id]={x:PW/2,y:HH+10};
-      makeRow2(useRow1, HH+10+NH+VPAD2);
-      makeRow2(row2, HH+10+NH+VPAD2+NH+VPAD2);
-    } else {
-      const HPAD2=Math.max(HGAP,Math.round((AW-NW*(d3root.leaves().length||1))/(( d3root.leaves().length||1)+1)));
-      const VPAD2=Math.max(VGAP,Math.round((AH-NH*((d3root.height||1)+1))/(((d3root.height||1)+1)+1)));
-      d3.tree().nodeSize([NW+HPAD2,NH+VPAD2])(d3root);
-      d3root.each(n=>{d3pos[n.data.id]={x:n.x,y:n.y};});
-      // Normalizar: mínimo X = MAR+NW/2, mínimo Y = HH+10
-      const allP2=Object.values(d3pos);
-      const minX2=Math.min(...allP2.map(p=>p.x))-NW/2;
-      const minY2=Math.min(...allP2.map(p=>p.y));
-      Object.keys(d3pos).forEach(id=>{
-        d3pos[id].x=d3pos[id].x-minX2+MAR+NW/2+(AW-(Math.max(...allP2.map(p=>p.x))-Math.min(...allP2.map(p=>p.x))+NW))/2;
-        d3pos[id].y=d3pos[id].y-minY2+HH+10+(AH-(Math.max(...allP2.map(p=>p.y))-Math.min(...allP2.map(p=>p.y))+NH))/2;
-      });
-    }
-
-    // ── Posicionar nodos dashed debajo del árbol principal ──
-    {
-      // Encontrar la Y más baja del árbol no-dashed
-      const nonDashedY=Object.values(d3pos).map(p=>p.y);
-      const maxY=nonDashedY.length>0?Math.max(...nonDashedY):HH+10;
-      const dashedStartY=maxY+NH+VGAP*2;
-      // Recopilar nodos dashed del viewRoot (hijos directos dashed)
-      const dashedNodes=(viewRoot.children||[]).filter(c=>c.dashed);
-      if(dashedNodes.length>0){
-        const totalW=dashedNodes.length*(NW+HGAP)-HGAP;
-        let dx=MAR+(AW-totalW)/2+NW/2;
-        dashedNodes.forEach(dn=>{
-          if(!d3pos[dn.id]) d3pos[dn.id]={x:dx,y:dashedStartY};
-          dx+=NW+HGAP;
-        });
-      }
-      // También posicionar dashed anidados (hijos de nodos no-dashed)
-      nodes.filter(n=>n.dashed&&!d3pos[n.id]).forEach((n,i)=>{
-        d3pos[n.id]={x:MAR+NW/2+i*(NW+HGAP),y:dashedStartY+NH+VGAP};
-      });
-    }
-
-    // ── Mezclar posiciones: guardadas o D3 ──
-    const saved=loadPosForArea(edViewId)||{};
-    edPositions={};
-    let hasNewNodes=false;
-    nodes.forEach(n=>{
-      if(saved[n.id]){
-        edPositions[n.id]={x:saved[n.id].x,y:saved[n.id].y,w:saved[n.id].w||NW,h:saved[n.id].h||NH};
-      } else {
-        edPositions[n.id]={...(d3pos[n.id]||{x:PW/2,y:HH+10}),w:NW,h:NH};
-        hasNewNodes=true;
-      }
-    });
-    // Guardar posiciones iniciales en localStorage para que genSVGA3 las use
-    if(hasNewNodes||!Object.keys(saved).length){
-      savePosForArea();
-    }
-    edWaypoints=loadWPForArea(edViewId);
-
-    const g=svg.append("g").attr("class","canvas-root");
-    // ── Fondo A3 ──
-    g.append("rect").attr("x",0).attr("y",0).attr("width",PW).attr("height",PH)
-      .attr("fill","#F8FAFC").attr("rx",4)
-      .attr("filter","drop-shadow(0 4px 24px rgba(0,0,0,0.5))");
-    // Header
-    g.append("rect").attr("x",0).attr("y",0).attr("width",PW).attr("height",HH)
-      .attr("fill","#003D6E").attr("rx",4);
-    g.append("rect").attr("x",0).attr("y",HH-4).attr("width",PW).attr("height",4).attr("fill","#003D6E");
-    // Footer
-    g.append("rect").attr("x",0).attr("y",PH-FH).attr("width",PW).attr("height",FH).attr("fill","#F8FAFC");
-    g.append("line").attr("x1",0).attr("y1",PH-FH).attr("x2",PW).attr("y2",PH-FH).attr("stroke","#E2E8F0").attr("stroke-width",0.8);
-    // Título en el header
-    g.append("text").attr("x",PW/2).attr("y",HH*0.52).attr("text-anchor","middle")
-      .attr("font-size",18).attr("font-weight",700).attr("fill","#fff").attr("font-family","Inter,sans-serif")
-      .text((findN(edData,edViewId)||edData).nombre);
-    g.append("text").attr("x",PW/2).attr("y",HH*0.80).attr("text-anchor","middle")
-      .attr("font-size",9).attr("fill","rgba(255,255,255,0.7)").attr("font-family","Inter,sans-serif")
-      .text("Ciudad Autónoma de Buenos Aires");
-    // Margen guides (líneas punteadas tenues)
-    g.append("rect").attr("x",MAR).attr("y",HH+4).attr("width",AW).attr("height",AH-8)
-      .attr("fill","none").attr("stroke","rgba(0,0,255,0.08)").attr("stroke-dasharray","4,4");
-    edZoom=d3.zoom().scaleExtent([0.04,3]).wheelDelta(e=>-e.deltaY*(e.deltaMode===1?0.1:e.deltaMode?1:0.008)).on("zoom",e=>{
-      edTransform=e.transform;g.attr("transform",e.transform);
-    });
-    // Solo zoom con rueda — NO pan con clic izquierdo
-    svg.call(edZoom)
-      .on("mousedown.zoom",null)   // deshabilitar pan con arrastre
-      .on("touchstart.zoom",null)
-      .on("touchmove.zoom",null)
-      .on("touchend.zoom",null);
-    svg.call(edZoom.transform,edTransform);
-    g.attr("transform",edTransform);
-
-    // ── Pan con clic derecho o clic medio ──────────────────────────
-    let panStart=null;
-    svgEl.addEventListener("mousedown",function(e){
-      if(e.button!==1&&e.button!==2)return; // solo botón medio o derecho
-      e.preventDefault();
-      const tgt=e.target;
-      panStart={cx:e.clientX,cy:e.clientY,tx:edTransform.x,ty:edTransform.y};
-    },{passive:false});
-    svgEl.addEventListener("mousemove",function(e){
-      if(!panStart)return;
-      const dx=e.clientX-panStart.cx, dy=e.clientY-panStart.cy;
-      const t=d3.zoomIdentity.translate(panStart.tx+dx,panStart.ty+dy).scale(edTransform.k);
-      edTransform=t;
-      svg.call(edZoom.transform,t);
-    });
-    svgEl.addEventListener("mouseup",function(e){
-      if(e.button===1||e.button===2)panStart=null;
-    });
-    // Prevent context menu while panning with right click
-    svgEl.addEventListener("contextmenu",function(e){
-      if(panStart!==null)e.preventDefault();
-    });
-
-    // Snap guides desactivadas
-    function clearGuides(){}
-    function drawGuide(){}
-    function toSVG(cx,cy){return{x:cx*edTransform.k+edTransform.x,y:cy*edTransform.k+edTransform.y};}
-
-    // ── Rectángulo de selección (lasso) — clic izquierdo en fondo ──
-    let lassoStart=null;
-    const lassoRect=svg.append("rect")
-      .attr("fill","rgba(77,197,233,0.1)").attr("stroke","#336ACC")
-      .attr("stroke-width",1.5).attr("stroke-dasharray","5,3")
-      .attr("rx",3).style("display","none").style("pointer-events","none");
-
-
-
-    // Links
-    const linkG=g.append("g");
-    const wpG=g.append("g");
-
-    function linkPath(sid,tid){
-      const sp=edPositions[sid]||{x:0,y:0};
-      const tp=edPositions[tid]||{x:0,y:0};
-      const sh=sp.h||NH,_th=tp.h||NH;
-      const sx=sp.x,sy=sp.y+sh,tx=tp.x,ty=tp.y;
-      const wps=edWaypoints[sid+"-"+tid]||[];
-      if(wps.length>0){
-        const pts=[{x:sx,y:sy},...wps,{x:tx,y:ty}];
-        let d=`M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
-        for(let i=1;i<pts.length;i++){
-          d+=`L${pts[i].x.toFixed(1)},${pts[i-1].y.toFixed(1)}L${pts[i].x.toFixed(1)},${pts[i].y.toFixed(1)}`;
-        }
-        return d;
-      }
-      const my=sy+(ty-sy)/2;
-      return`M${sx.toFixed(1)},${sy.toFixed(1)}L${sx.toFixed(1)},${my.toFixed(1)}L${tx.toFixed(1)},${my.toFixed(1)}L${tx.toFixed(1)},${ty.toFixed(1)}`;
-    }
-
-    function drawLinks(){
-      linkG.selectAll("path.lpath").data(links).join("path")
-        .attr("class",d=>"lpath c-link"+(d.dashed?" dashed-link":""))
-        .attr("d",d=>linkPath(d.sid,d.tid));
-      linkG.selectAll("path.lhit").data(links).join("path")
-        .attr("class","lhit")
-        .attr("d",d=>linkPath(d.sid,d.tid))
-        .attr("fill","none").attr("stroke","transparent").attr("stroke-width",14)
-        .style("cursor","pointer")
-        .on("click",function(e,d){
-          // Clic simple: seleccionar/resaltar línea
-          e.stopPropagation();
-          lhitG.selectAll(".lhit").attr("stroke","transparent");
-          linkG.selectAll(".clink,.clink-dashed").attr("stroke-opacity",0.25);
-          d3.select(this).attr("stroke","rgba(0,123,199,0.15)");
-          const k=d.sid+"-"+d.tid;
-          const vis=linkG.selectAll(".clink,.clink-dashed").filter(l=>(l.sid+"-"+l.tid)===k);
-          vis.attr("stroke-opacity",1);
-          // Deselect on next canvas click
-          setTimeout(()=>{
-            svgEl.addEventListener("click",function desel(){
-              linkG.selectAll(".clink,.clink-dashed").attr("stroke-opacity",1);
-              lhitG.selectAll(".lhit").attr("stroke","transparent");
-              svgEl.removeEventListener("click",desel);
-            },{once:true});
-          },0);
-        })
-        .on("contextmenu",function(e,d){
-          // Clic derecho: crear punto de quiebre
-          e.preventDefault();
-          e.stopPropagation();
-          const pt=svgEl.createSVGPoint();
-          pt.x=e.clientX;pt.y=e.clientY;
-          const gp=pt.matrixTransform(svgEl.getScreenCTM().inverse());
-          const wp={x:(gp.x-edTransform.x)/edTransform.k,y:(gp.y-edTransform.y)/edTransform.k};
-          const k=d.sid+"-"+d.tid;
-          if(!edWaypoints[k])edWaypoints[k]=[];
-          edWaypoints[k].push(wp);
-          saveWPForArea();drawLinks();drawWPs();
-        });
-    }
-
-    function drawWPs(){
-      wpG.selectAll("*").remove();
-      links.forEach(lk=>{
-        const wps=edWaypoints[lk.sid+"-"+lk.tid]||[];
-        wps.forEach((wp,i)=>{
-          const c=wpG.append("circle")
-            .attr("cx",wp.x).attr("cy",wp.y).attr("r",6)
-            .attr("fill","#4f7ef8").attr("stroke","#fff").attr("stroke-width",1.5)
-            .style("cursor","grab");
-          c.call(d3.drag()
-            .on("drag",function(e){
-              wp.x+=e.dx/edTransform.k*0.55;wp.y+=e.dy/edTransform.k*0.55;
-              d3.select(this).attr("cx",wp.x).attr("cy",wp.y);
-              drawLinks();
-            })
-            .on("end",()=>{saveWPForArea();showSaved();})
-          );
-          c.on("contextmenu",function(e){
-            e.preventDefault();e.stopPropagation();
-            const k=lk.sid+"-"+lk.tid;
-            edWaypoints[k].splice(i,1);
-            if(!edWaypoints[k].length)delete edWaypoints[k];
-            saveWPForArea();drawLinks();drawWPs();
-          });
-        });
-      });
-    }
-
-    drawLinks();drawWPs();
-    registerDrawFns(drawLinks,drawWPs);
-
-    // Nodos
-    const nodeG=g.append("g");
-    const ng=nodeG.selectAll("g.c-node").data(nodes,d=>d.id).enter()
-      .append("g").attr("class",d=>"c-node"+(edSelectedIds.has(d.id)?" sel":""))
-      .attr("transform",d=>{const p=edPositions[d.id]||{x:0,y:0};return`translate(${p.x-(p.w||NW)/2},${p.y})`;})
-      .style("cursor","pointer")
-      .on("click",(e,d)=>{
-        e.stopPropagation();
-        e.preventDefault();
-        selectSingle(d.id);
-      });
-
-    ng.call(d3.drag()
-      .on("start",function(e,d){e.sourceEvent&&e.sourceEvent.preventDefault();pushHistory();if(!edSelectedIds.has(d.id)){edSelectedIds.clear();edSelectedIds.add(d.id);d3.selectAll(".c-node").classed("sel",n=>edSelectedIds.has(n.id));}}
-      )
-      .on("drag",function(e,d){
-        const dx=e.dx/edTransform.k,dy=e.dy/edTransform.k;
-        // Move all selected nodes by raw delta first
-        edSelectedIds.forEach(id=>{
-          if(edPositions[id]){edPositions[id].x+=dx;edPositions[id].y+=dy;}
-        });
-
-        // ── Snap desactivado durante arrastre para no trabar el movimiento ──
-        clearGuides();
-        if(false&&nodes.length>0){  // snap only on drop now
-          // Get bounding box of the dragged group
-          const selNodes=[...edSelectedIds].map(id=>edPositions[id]).filter(Boolean);
-          const gMinX=Math.min(...selNodes.map(p=>p.x-(p.w||NW)/2));
-          const gMaxX=Math.max(...selNodes.map(p=>p.x+(p.w||NW)/2));
-          const gCtrX=(gMinX+gMaxX)/2;
-          const gMinY=Math.min(...selNodes.map(p=>p.y));
-          const gMaxY=Math.max(...selNodes.map(p=>p.y+(p.h||NH)));
-          const gCtrY=(gMinY+gMaxY)/2;
-
-          let snapX=null,snapY=null,guideXval=null,guideYval=null;
-
-          targets.forEach(n=>{
-            const p=edPositions[n.id];
-            const nw=p.w||NW,nh=p.h||NH;
-            const tLeft=p.x-nw/2, tRight=p.x+nw/2, tCtrX=p.x;
-            const tTop=p.y, tBottom=p.y+nh, tCtrY=p.y+nh/2;
-
-            // X snaps: left-left, left-right, center-center, right-left, right-right
-            const xPairs=[
-              [gMinX,tLeft],[gMinX,tRight],[gMinX,tCtrX],
-              [gCtrX,tLeft],[gCtrX,tRight],[gCtrX,tCtrX],
-              [gMaxX,tLeft],[gMaxX,tRight],[gMaxX,tCtrX],
-            ];
-            xPairs.forEach(([src,tgt])=>{
-              const d=Math.abs(src-tgt);
-              if(d<snapDist&&(snapX===null||d<Math.abs(snapX.d))){
-                snapX={delta:tgt-src,d,guideX:tgt};
-              }
-            });
-            // Y snaps: top-top, top-bottom, center-center, bottom-top, bottom-bottom
-            const yPairs=[
-              [gMinY,tTop],[gMinY,tBottom],[gMinY,tCtrY],
-              [gCtrY,tTop],[gCtrY,tBottom],[gCtrY,tCtrY],
-              [gMaxY,tTop],[gMaxY,tBottom],[gMaxY,tCtrY],
-            ];
-            yPairs.forEach(([src,tgt])=>{
-              const d=Math.abs(src-tgt);
-              if(d<snapDist&&(snapY===null||d<Math.abs(snapY.d))){
-                snapY={delta:tgt-src,d,guideY:tgt};
-              }
-            });
-          });
-
-          // Apply snaps
-          if(snapX){
-            edSelectedIds.forEach(id=>{if(edPositions[id])edPositions[id].x+=snapX.delta;});
-            guideXval=snapX.guideX;
-          }
-          if(snapY){
-            edSelectedIds.forEach(id=>{if(edPositions[id])edPositions[id].y+=snapY.delta;});
-            guideYval=snapY.guideY;
-          }
-
-
-        }
-
-        d3.selectAll(".c-node").filter(n=>edSelectedIds.has(n.id))
-          .attr("transform",n=>{const p=edPositions[n.id]||{x:0,y:0};return`translate(${p.x-(p.w||NW)/2},${p.y})`;});
-        drawLinks();drawWPs();
-      })
-      .on("end",()=>{savePosForArea();recalcNodeSize();renderCanvas();showSaved();})
-    );
-
-    ng.append("rect")
-      .attr("width",d=>(edPositions[d.id]?.w||NW))
-      .attr("height",d=>(edPositions[d.id]?.h||NH))
-      .attr("rx",7)
-      .attr("fill",d=>getColor(d))
-      .attr("stroke",d=>d.dashed?"rgba(255,255,255,0.4)":"none")
-      .attr("stroke-width",1.5).attr("stroke-dasharray",d=>d.dashed?"5,3":"none");
-
-    ng.each(function(d){
-      const g2=d3.select(this);
-      const LIGHT_BGS=["#FCD307","#E4E9ED","#FEA82D"];
-      const nodeColor=getColor(d);
-      const isLightNode=LIGHT_BGS.some(c=>nodeColor.toUpperCase()===c.toUpperCase());
-      const nodeTxtMain=isLightNode?"#1A202C":"#fff";
-      const nodeTxtSub=isLightNode?"rgba(30,32,40,0.7)":"rgba(255,255,255,0.75)";
-      const nw=edPositions[d.id]?.w||NW;
-      const nh=edPositions[d.id]?.h||NH;
-      // Tamaño de fuente: del editor o calculado del ancho del nodo
-      const fsMain=edFS>0?edFS:Math.max(7,Math.min(13,nw/11));
-      const fsTit=edFS>0?edFS*0.82:Math.max(6,Math.min(10,nw/15));
-      const charsPerLine=Math.max(8,Math.floor(nw/(fsMain*0.52)));
-      // Wrap texto
-      function wrapLocal(t){
-        if(!t)return[];
-        const ws=t.split(" ");const ls=[];let c="";
-        for(const w of ws){const test=c?" "+w:w;if(c.length+test.length>charsPerLine&&c){ls.push(c);c=w;}else c=(c+test).trim();}
-        if(c)ls.push(c);
-        if(ls.length>2){const last=ls.splice(1).join(" ");ls[1]=last;}
-        return ls;
-      }
-      const lines=wrapLocal(d.nombre||"");
-      const hasTit=d.titular&&d.titular.trim();
-      const lhN=fsMain*1.32,lhT=fsTit*1.28;
-      const gap=hasTit?fsMain*0.3:0;
-      const blockH=lines.length*lhN+gap+(hasTit?lhT:0);
-      // Reducir fuente si no entra
-      const maxH=nh*0.88;
-      const shrink=blockH>maxH?maxH/blockH:1;
-      const afsMain=fsMain*shrink,afsTit=fsTit*shrink;
-      const alhN=lhN*shrink,alhT=lhT*shrink,agap=gap*shrink;
-      let ty=nh/2-(lines.length*alhN+agap+(hasTit?alhT:0))/2+alhN*0.85;
-      lines.forEach((l,i)=>{
-        g2.append("text").attr("x",nw/2).attr("y",ty+i*alhN)
-          .attr("text-anchor","middle").attr("font-size",afsMain.toFixed(1))
-          .attr("font-weight",600).attr("fill",nodeTxtMain).attr("font-family","Inter,sans-serif").text(l);
-      });
-      if(hasTit){
-        ty+=lines.length*alhN+agap;
-        const chT=Math.floor(nw/(afsTit*0.52));
-        const short=d.titular.length>chT?d.titular.slice(0,chT-1)+"…":d.titular;
-        g2.append("text").attr("x",nw/2).attr("y",ty)
-          .attr("text-anchor","middle").attr("font-size",afsTit.toFixed(1))
-          .attr("fill",nodeTxtSub).attr("font-family","Inter,sans-serif").text(short);
-      }
-    });
-
-    // ── Resize handles (esquina inferior derecha, solo en nodos seleccionados) ──
-    const resizeG=g.append("g").attr("class","resize-handles");
-    renderResizeHandles=function(){
-      resizeG.selectAll("*").remove();
-      if(edSelectedIds.size!==1)return; // solo cuando hay un nodo seleccionado
-      const selId=[...edSelectedIds][0];
-      const pos=edPositions[selId];
-      if(!pos)return;
-      const nw=pos.w||NW,nh=pos.h||NH;
-      const hx=pos.x+nw/2-5, hy=pos.y+nh-5;  // relative to group: x=nw-5, y=nh-5
-      // Handle visual
-      // Handle is in SVG absolute coords (same space as node centers)
-      resizeG.append("rect")
-        .attr("x",pos.x+nw/2-10).attr("y",pos.y+nh-10).attr("width",10).attr("height",10)
-        .attr("rx",2).attr("fill","#4f7ef8").attr("stroke","#fff").attr("stroke-width",1.5)
-        .style("cursor","se-resize");
-      // Drag to resize
-      resizeG.select("rect").call(d3.drag()
-        .on("drag",function(e){
-          const dx=e.dx/edTransform.k,dy=e.dy/edTransform.k;
-          const p=edPositions[selId];
-          p.w=Math.max(60,Math.round((p.w||NW)+dx));
-          p.h=Math.max(30,Math.round((p.h||NH)+dy));
-          // Redraw node
-          d3.selectAll(".c-node").filter(n=>n.id===selId)
-            .attr("transform",`translate(${p.x-p.w/2},${p.y})`)
-            .select("rect").attr("width",p.w).attr("height",p.h);
-          d3.selectAll(".c-node").filter(n=>n.id===selId).each(function(d){
-            d3.select(this).selectAll("text").remove();
-            const nwL=p.w,nhL=p.h;
-            const fsM2=edFS>0?edFS:Math.max(7,Math.min(13,nwL/11));
-            const fsT2=edFS>0?edFS*0.82:Math.max(6,Math.min(10,nwL/15));
-            const cpl=Math.max(8,Math.floor(nwL/(fsM2*0.52)));
-            function wl(t){if(!t)return[];const ws=t.split(" ");const ls=[];let c="";for(const w of ws){const test=c?" "+w:w;if(c.length+test.length>cpl&&c){ls.push(c);c=w;}else c=(c+test).trim();}if(c)ls.push(c);if(ls.length>2){const last=ls.splice(1).join(" ");ls[1]=last;}return ls;}
-            const lns=wl(d.nombre||"");
-            const hasTit2=d.titular&&d.titular.trim();
-            const lhN2=fsM2*1.32,lhT2=fsT2*1.28,gap2=hasTit2?fsM2*0.3:0;
-            const bH=lns.length*lhN2+gap2+(hasTit2?lhT2:0);
-            const shrink2=bH>nhL*0.88?nhL*0.88/bH:1;
-            const af=fsM2*shrink2,aft=fsT2*shrink2,alh=lhN2*shrink2,alht=lhT2*shrink2,ag=gap2*shrink2;
-            let ty=nhL/2-(lns.length*alh+ag+(hasTit2?alht:0))/2+alh*0.85;
-            const g3=d3.select(this);
-            lns.forEach((l,i)=>g3.append("text").attr("x",nwL/2).attr("y",ty+i*alh).attr("text-anchor","middle").attr("font-size",af.toFixed(1)).attr("font-weight",600).attr("fill","#fff").attr("font-family","Inter,sans-serif").text(l));
-            if(hasTit2){ty+=lns.length*alh+ag;const chT=Math.floor(nwL/(aft*0.52));const sh=d.titular.length>chT?d.titular.slice(0,chT-1)+"…":d.titular;g3.append("text").attr("x",nwL/2).attr("y",ty).attr("text-anchor","middle").attr("font-size",aft.toFixed(1)).attr("fill",nodeTxtSub).attr("font-family","Inter,sans-serif").text(sh);}
-          });
-          // Move resize handle
-          d3.select(this).attr("x",pos.x+pos.w/2-10).attr("y",pos.y+pos.h-10);
-          drawLinks();drawWPs();
-        })
-        .on("end",()=>{savePosForArea();showSaved();renderCanvas();})
-      );
-    }
-    renderResizeHandles();
-
-    svg.on("click",(e)=>{
-      // Only deselect if clicking on background, not on a node
-      if(e.target!==svgEl&&e.defaultPrevented)return;
-      if(e.target!==svgEl)return;
-      edSelectedIds.clear();d3.selectAll(".c-node").classed("sel",false);resizeG.selectAll("*").remove();renderInspector(null);document.getElementById("ed-actions").style.display="none";});
-
-    // Auto-fit: encajar el A3 completo en la pantalla
-    if(!edFitted){
-      edFitted=true;
-      const padding=30;
-      const sc=Math.min((W-padding*2)/PW,(H-padding*2)/PH)*1.4;  // más zoom inicial
-      const tx=(W-PW*sc)/2;
-      const ty=(H-PH*sc)/2;
-      edTransform=d3.zoomIdentity.translate(tx,ty).scale(sc);
-      svg.call(edZoom.transform,edTransform);
-    }
-  }
-
-  // ── Selección & Inspector ─────────────────────────────────
-  function selectSingle(id){
-    edSelectedIds.clear();if(id)edSelectedIds.add(id);
-    d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));
-    document.querySelectorAll(".ed-ni").forEach(el=>el.classList.toggle("sel",el.dataset.id===id));
-    const node=id?findN(edData,id):null;
-    renderInspector(node);
-    if(typeof renderResizeHandles==="function")renderResizeHandles();
-    updateAlignBar();
-    if(id){const el=document.querySelector(`.ed-ni[data-id="${id}"]`);if(el)el.scrollIntoView({block:"nearest"});}
-  }
-
-  function renderInspector(node){
-    const body=document.getElementById("ed-ins-body");
-    const actions=document.getElementById("ed-actions");
-    const idEl=document.getElementById("ed-ins-id");
-    if(!node){
-      body.innerHTML='<div class="ed-ins-empty"><div class="ico">⬡</div><p>Clic = seleccionar<br>Shift+clic = seleccionar<br>nodo + dependientes</p></div>';
-      actions.style.display="none";idEl.textContent="";return;
-    }
-    idEl.textContent=node.id;
-    actions.style.display="flex";
-    const isC=node.tipo?.startsWith("CUSTOM:");
-    const color=getColor(node);
-    const label=getLabel(node);
-    const tipos={JG:"Jefatura",VJG:"Vicejefatura",MIN:"Ministerio",SEC:"Secretaría",SS:"Subsecretaría",DG:"Dir. General",GG:"Gerencia General",GO:"Gerencia Operativa",ORG:"Organismo"};
-    const tipoOpts=Object.entries(tipos).map(([k,v])=>`<option value="${k}"${node.tipo===k?" selected":""}>${v}</option>`).join("")+`<option value="__custom__"${isC?" selected":""}>✏️ Personalizado…</option>`;
-    body.innerHTML=`
-      <div class="ed-preview" style="background:${color}">
-        <div class="ep-label">${label}</div>
-        <div class="ep-nombre">${node.nombre||"—"}</div>
-        ${node.titular?`<div class="ep-titular">${node.titular}</div>`:""}
-      </div>
-      <div class="ed-field"><label>Nombre</label><input id="ei-n" value="${(node.nombre||"").replace(/"/g,"&quot;")}"/></div>
-      <div class="ed-field"><label>Titular</label><input id="ei-t" value="${(node.titular||"").replace(/"/g,"&quot;")}"/></div>
-      <div class="ed-field"><label>Tipo</label>
-        <select id="ei-tipo" onchange="document.getElementById('ei-cw').style.display=this.value==='__custom__'?'block':'none'">${tipoOpts}</select>
-      </div>
-      <div class="ed-field" id="ei-cw" style="display:${isC?"block":"none"}"><label>Nombre del tipo</label><input id="ei-tl" value="${isC?(node.tipoLabel||node.tipo.replace("CUSTOM:","")):""}" /></div>
-      <div class="ed-field"><label style="display:flex;align-items:center;gap:7px;text-transform:none;font-size:12px;cursor:pointer;">
-        <input type="checkbox" id="ei-d" ${node.dashed?"checked":""} style="width:13px;height:13px;accent-color:#4f7ef8;"/>
-        Dependencia funcional
-      </label></div>`;
-  }
-
-  function saveNodeChanges(){
-    const id=[...edSelectedIds][0];
-    if(!id)return;
-    const nombre=document.getElementById("ei-n")?.value.trim()||"";
-    const titular=document.getElementById("ei-t")?.value.trim()||"";
-    const tipoRaw=document.getElementById("ei-tipo")?.value||"DG";
-    const tipoLabel=document.getElementById("ei-tl")?.value.trim()||"";
-    const dashed=document.getElementById("ei-d")?.checked||false;
-    const tipo=tipoRaw==="__custom__"?"CUSTOM:"+tipoLabel:tipoRaw;
-    const newData=updateN(edData,id,n=>({...n,nombre,titular,tipo,tipoLabel:tipoLabel||undefined,dashed}));
-    edData=newData;
-    window.dispatchEvent(new CustomEvent("editorDataChanged",{detail:JSON.parse(JSON.stringify(newData))}));
-    renderSidebar();renderCanvas();selectSingle(id);showSaved();
-  }
-
-  function deleteNode(){
-    const id=[...edSelectedIds][0];
-    if(!id||id===edData?.id)return;
-    const node=findN(edData,id);
-    if(!confirm(`¿Eliminar "${node?.nombre}" y todas sus dependencias?`))return;
-    const newData=removeN(edData,id);
-    edData=newData;
-    edSelectedIds.clear();
-    window.dispatchEvent(new CustomEvent("editorDataChanged",{detail:JSON.parse(JSON.stringify(newData))}));
-    renderSidebar();renderCanvas();renderInspector(null);
-    document.getElementById("ed-actions").style.display="none";
-    showSaved();
-  }
-
-  function showMoveModal(){
-    const id=[...edSelectedIds][0];
-    if(!id||id===edData?.id)return;
-    const node=findN(edData,id);
-    const allN=flat(edData).filter(n=>n.id!==id);
-    const opts=allN.map(n=>`<option value="${n.id}">[${getLabel(n)}] ${n.nombre}</option>`).join("");
-    const overlay=document.createElement("div");
-    overlay.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:3000;display:flex;align-items:center;justify-content:center;";
-    overlay.innerHTML=`<div style="background:#1a1d27;border:1px solid #333650;border-radius:12px;width:360px;overflow:hidden;">
-      <div style="background:#232636;padding:12px 16px;border-bottom:1px solid #333650;font-size:13px;font-weight:600;color:#e8eaf2;">Mover: ${node?.nombre}</div>
-      <div style="padding:16px;"><label style="font-size:10px;font-weight:600;color:#6b7199;text-transform:uppercase;display:block;margin-bottom:4px;">Nuevo padre</label>
-        <select id="mv-sel" style="width:100%;background:#232636;border:1px solid #333650;color:#e8eaf2;font-family:inherit;font-size:12px;padding:7px;border-radius:6px;outline:none;">${opts}</select></div>
-      <div style="padding:10px 16px;border-top:1px solid #333650;display:flex;gap:8px;justify-content:flex-end;">
-        <button id="mv-cancel" style="padding:6px 14px;border-radius:7px;background:#232636;border:1px solid #333650;color:#9da3c4;font-family:inherit;font-size:12px;cursor:pointer;">Cancelar</button>
-        <button id="mv-ok" style="padding:6px 14px;border-radius:7px;background:#4f7ef8;border:none;color:#fff;font-family:inherit;font-size:12px;cursor:pointer;">Mover</button>
-      </div></div>`;
-    document.body.appendChild(overlay);
-    document.getElementById("mv-cancel").onclick=()=>overlay.remove();
-    document.getElementById("mv-ok").onclick=()=>{
-      const np=document.getElementById("mv-sel").value;
-      if(np){const nd=moveN(edData,id,np);edData=nd;window.dispatchEvent(new CustomEvent("editorDataChanged",{detail:JSON.parse(JSON.stringify(nd))}));renderSidebar();renderCanvas();}
-      overlay.remove();showSaved();
-    };
-  }
-
-  function exportAreaA3(){
-    const viewRoot=findN(edData,edViewId)||edData;
-      try{
-
-      const svg=genSVGA3(viewRoot,1,1);
-      dlSVG(svg,`organigrama-${edViewId}-A3.svg`);
-      showSaved();
-    }catch(err){
-      console.error("Export error:",err);
-      alert("Error al exportar: "+err.message);
-    }
-  }
-
-  function showSaved(){
-    const el=document.getElementById("ed-saved-msg");
-    if(!el)return;
-    el.style.opacity="1";clearTimeout(el._t);
-    el._t=setTimeout(()=>el.style.opacity="0",2000);
-  }
-
-
-  // ── Funciones de alineación y distribución ─────────────────────────────
-  function getSelNodes(){
-    return [...edSelectedIds].map(id=>({id,pos:edPositions[id]})).filter(n=>n.pos);
-  }
-
-  function applyAlignment(fn){
-    const sel=getSelNodes();
-    if(sel.length<2)return;
-    fn(sel);
-    redrawAll();
-    savePosForArea();showSaved();
-  }
-
-  function redrawAll(){
-    d3.selectAll(".c-node").attr("transform",d=>{
-      const p=edPositions[d.id]||{x:0,y:0};
-      return`translate(${p.x-(p.w||NW)/2},${p.y})`;
-    });
-    if(typeof drawLinks==="function")drawLinks();
-    if(typeof drawWPs==="function")drawWPs();
-  }
-
-  // Referencia a drawLinks/drawWPs (se sobreescribe cada vez que se renderiza el canvas)
-  let drawLinks=()=>{},drawWPs=()=>{};
-  function registerDrawFns(dl,dw){drawLinks=dl;drawWPs=dw;}
-
-  function alignLeft(sel){
-    const minX=Math.min(...sel.map(n=>n.pos.x-(n.pos.w||NW)/2));
-    sel.forEach(n=>{edPositions[n.id].x=minX+(n.pos.w||NW)/2;});
-  }
-  function alignCenter(sel){
-    const minX=Math.min(...sel.map(n=>n.pos.x-(n.pos.w||NW)/2));
-    const maxX=Math.max(...sel.map(n=>n.pos.x+(n.pos.w||NW)/2));
-    const cx=(minX+maxX)/2;
-    sel.forEach(n=>{edPositions[n.id].x=cx;});
-  }
-  function alignRight(sel){
-    const maxX=Math.max(...sel.map(n=>n.pos.x+(n.pos.w||NW)/2));
-    sel.forEach(n=>{edPositions[n.id].x=maxX-(n.pos.w||NW)/2;});
-  }
-  function alignTop(sel){
-    const minY=Math.min(...sel.map(n=>n.pos.y));
-    sel.forEach(n=>{edPositions[n.id].y=minY;});
-  }
-  function alignMiddle(sel){
-    const minY=Math.min(...sel.map(n=>n.pos.y));
-    const maxY=Math.max(...sel.map(n=>n.pos.y+(n.pos.h||NH)));
-    const cy=(minY+maxY)/2;
-    sel.forEach(n=>{edPositions[n.id].y=cy-(n.pos.h||NH)/2;});
-  }
-  function alignBottom(sel){
-    const maxY=Math.max(...sel.map(n=>n.pos.y+(n.pos.h||NH)));
-    sel.forEach(n=>{edPositions[n.id].y=maxY-(n.pos.h||NH);});
-  }
-  function distributeH(sel){
-    if(sel.length<3)return;
-    const sorted=[...sel].sort((a,b)=>a.pos.x-b.pos.x);
-    const minX=sorted[0].pos.x-(sorted[0].pos.w||NW)/2;
-    const maxX=sorted[sorted.length-1].pos.x+(sorted[sorted.length-1].pos.w||NW)/2;
-    const totalW=sorted.reduce((s,n)=>s+(n.pos.w||NW),0);
-    const gap=(maxX-minX-totalW)/(sorted.length-1);
-    let x=minX;
-    sorted.forEach(n=>{edPositions[n.id].x=x+(n.pos.w||NW)/2;x+=(n.pos.w||NW)+gap;});
-  }
-  function distributeV(sel){
-    if(sel.length<3)return;
-    const sorted=[...sel].sort((a,b)=>a.pos.y-b.pos.y);
-    const minY=sorted[0].pos.y;
-    const maxY=sorted[sorted.length-1].pos.y+(sorted[sorted.length-1].pos.h||NH);
-    const totalH=sorted.reduce((s,n)=>s+(n.pos.h||NH),0);
-    const gap=(maxY-minY-totalH)/(sorted.length-1);
-    let y=minY;
-    sorted.forEach(n=>{edPositions[n.id].y=y;y+=(n.pos.h||NH)+gap;});
-  }
-  function sameWidth(sel){
-    // Use width of first selected node as reference
-    const ref=sel[0].pos.w||NW;
-    sel.forEach(n=>{if(edPositions[n.id])edPositions[n.id].w=ref;});
-  }
-  function sameHeight(sel){
-    const ref=sel[0].pos.h||NH;
-    sel.forEach(n=>{if(edPositions[n.id])edPositions[n.id].h=ref;});
-  }
-  function groupHorizontal(sel){
-    // Arrange selected nodes in a row, evenly spaced, preserving their Y average
-    const avgY=sel.reduce((s,n)=>s+n.pos.y,0)/sel.length;
-    const nodeW=sel[0].pos.w||NW;
-    const gap=20;
-    const totalW=sel.length*nodeW+(sel.length-1)*gap;
-    let x=sel[0].pos.x-totalW/2+nodeW/2;
-    const sorted=[...sel].sort((a,b)=>a.pos.x-b.pos.x);
-    sorted.forEach(n=>{
-      edPositions[n.id].x=x;
-      edPositions[n.id].y=Math.round(avgY);
-      x+=nodeW+gap;
-    });
-  }
-  function groupVertical(sel){
-    const avgX=sel.reduce((s,n)=>s+n.pos.x,0)/sel.length;
-    const nodeH=sel[0].pos.h||NH;
-    const gap=20;
-    const sorted=[...sel].sort((a,b)=>a.pos.y-b.pos.y);
-    let y=sorted[0].pos.y;
-    sorted.forEach(n=>{
-      edPositions[n.id].x=Math.round(avgX);
-      edPositions[n.id].y=y;
-      y+=nodeH+gap;
-    });
-  }
-
-  function updateAlignBar(){
-    const bar=document.getElementById("ed-align-bar");
-    if(bar){
-      if(edSelectedIds.size>=2){
-        bar.classList.add("visible");
-        const cnt=document.getElementById("ed-sel-count");
-        if(cnt)cnt.textContent=edSelectedIds.size;
-      } else {
-        bar.classList.remove("visible");
-      }
-    }
-    updateToolsSelInfo();
-  }
-
-
-  function resetLayout(){
-    if(!edViewId)return;
-    if(!confirm("¿Restablecer el layout automático para esta área?"))return;
-    clearArea(edViewId);edFitted=false;edTransform=d3.zoomIdentity;
-    renderCanvas();showSaved();
-  }
-
-  // ── Wire buttons ─────────────────────────────────────────
-  // Prevent text selection in editor
-  const edPaneEl=document.getElementById("ed-pane");
-  if(edPaneEl)edPaneEl.addEventListener("selectstart",e=>e.preventDefault());
-
-  // ── Tab switching ────────────────────────────────────────────────
-  function switchTab(tab){
-    const tabs=["inspector","tools"];
-    tabs.forEach(t=>{
-      const panel=document.getElementById("tab-"+t);
-      const btn=document.getElementById("tab-btn-"+t);
-      if(!panel||!btn)return;
-      const active=t===tab;
-      panel.style.display=active?"flex":"none";
-      btn.style.background=active?"var(--ed-accent)":"var(--ed-surface)";
-      btn.style.color=active?"#fff":"var(--ed-text3)";
-    });
-  }
-
-  // ── Copiar/pegar formato (tamaño) ─────────────────────────────
-  let _formatClipboard=null;
-  function copyFormat(){
-    const refId=[...edSelectedIds][0];
-    if(!refId){alert("Hacé clic en un nodo primero.");return;}
-    const p=edPositions[refId];if(!p)return;
-    _formatClipboard={w:p.w||NW,h:p.h||NH};
-    const el=document.getElementById("format-clipboard");
-    if(el)el.textContent=`Copiado: ${Math.round(_formatClipboard.w)}×${Math.round(_formatClipboard.h)}px`;
-  }
-  function pasteFormat(){
-    if(!_formatClipboard){alert("Primero copiá el tamaño de un nodo.");return;}
-    if(!edSelectedIds.size){alert("Seleccioná los nodos destino.");return;}
-    edSelectedIds.forEach(id=>{
-      const p=edPositions[id];if(!p)return;
-      p.w=_formatClipboard.w;p.h=_formatClipboard.h;
-    });
-    renderCanvas();savePosForArea();showSaved();
-    setTimeout(()=>{
-      const ids=[...edSelectedIds];
-      edSelectedIds.clear();ids.forEach(id=>edSelectedIds.add(id));
-      d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));
-      updateAlignBar();updateToolsSelInfo();
-    },50);
-  }
-
-  // ── Redimensionar todos los nodos seleccionados ─────────────────
-  function resizeAll(dim,delta){
-    if(!edSelectedIds.size)return;
-    edSelectedIds.forEach(id=>{
-      const p=edPositions[id];if(!p)return;
-      if(dim==="w") p.w=Math.max(60,Math.min(400,(p.w||NW)+delta));
-      if(dim==="h") p.h=Math.max(30,Math.min(200,(p.h||NH)+delta));
-    });
-    renderCanvas();savePosForArea();showSaved();
-    // Restore selection after renderCanvas
-    setTimeout(()=>{
-      const ids=[...edSelectedIds];
-      edSelectedIds.clear();
-      ids.forEach(id=>edSelectedIds.add(id));
-      d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));
-      updateAlignBar();updateToolsSelInfo();
-    },50);
-  }
-  function resizeAllExact(dim,val){
-    if(!val||val<10)return;
-    edSelectedIds.forEach(id=>{
-      const p=edPositions[id];if(!p)return;
-      if(dim==="w") p.w=Math.max(60,Math.min(400,val));
-      if(dim==="h") p.h=Math.max(30,Math.min(200,val));
-    });
-    renderCanvas();savePosForArea();showSaved();
-    setTimeout(()=>{
-      const ids=[...edSelectedIds];
-      edSelectedIds.clear();
-      ids.forEach(id=>edSelectedIds.add(id));
-      d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));
-      updateAlignBar();updateToolsSelInfo();
-    },50);
-  }
-
-  // ── Nudge: mover nodos seleccionados sin teclado ──────────────────
-  function nudge(dx,dy){
-    if(!edSelectedIds.size)return;
-    edSelectedIds.forEach(id=>{
-      if(edPositions[id]){edPositions[id].x+=dx;edPositions[id].y+=dy;}
-    });
-    d3.selectAll(".c-node").filter(n=>edSelectedIds.has(n.id))
-      .attr("transform",n=>{const p=edPositions[n.id]||{x:0,y:0};return`translate(${p.x-(p.w||NW)/2},${p.y})`;});
-    drawLinks();drawWPs();
-    savePosForArea();
-  }
-
-  // ── Select all / clear ────────────────────────────────────────────
-  function selectAllNodes(){
-    const nodes=visibleNodes();
-    edSelectedIds.clear();
-    nodes.forEach(n=>edSelectedIds.add(n.id));
-    d3.selectAll(".c-node").classed("sel",true);
-    updateAlignBar();
-    updateToolsSelInfo();
-  }
-  function clearSelection(){
-    edSelectedIds.clear();
-    d3.selectAll(".c-node").classed("sel",false);
-    updateAlignBar();
-    updateToolsSelInfo();
-    renderInspector(null);
-    document.getElementById("ed-actions").style.display="none";
-  }
-
-  function selectFrom(direction){
-    // Get reference node — the currently selected single node
-    const refId=[...edSelectedIds][0];
-    const refPos=refId?edPositions[refId]:null;
-    if(!refPos){alert("Primero hacé clic en un nodo de referencia.");return;}
-
-    const ROW_TOLERANCE=30; // px — nodos dentro de este margen Y se consideran "misma fila"
-
-    const rx=refPos.x, ry=refPos.y+(refPos.h||NH)/2; // center of ref node
-
-    // Keep ref node selected, add matching nodes
-    nodes.forEach(n=>{
-      if(n.id===refId)return;
-      const p=edPositions[n.id];if(!p)return;
-      const nx=p.x, ny=p.y+(p.h||NH)/2;
-      let match=false;
-      if(direction==="right")  match=nx>rx;
-      if(direction==="left")   match=nx<rx;
-      if(direction==="below")  match=ny>ry;
-      if(direction==="above")  match=ny<ry;
-      if(direction==="row")    match=Math.abs(ny-ry)<=ROW_TOLERANCE;
-      if(match)edSelectedIds.add(n.id);
-    });
-
-    d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));
-    document.getElementById("ed-actions").style.display="flex";
-    updateAlignBar();
-    updateToolsSelInfo();
-  }
-  function updateToolsSelInfo(){
-    const info=document.getElementById("tools-sel-info");
-    const cnt=document.getElementById("tools-sel-count");
-    if(!info||!cnt)return;
-    if(edSelectedIds.size>0){
-      info.style.display="block";
-      cnt.textContent=edSelectedIds.size;
-    } else {
-      info.style.display="none";
-    }
-  }
-
-  function wire(id,fn){const el=document.getElementById(id);if(el)el.onclick=fn;}
-  // Alignment buttons
-  wire("al-left",   ()=>applyAlignment(alignLeft));
-  wire("al-center", ()=>applyAlignment(alignCenter));
-  wire("al-right",  ()=>applyAlignment(alignRight));
-  wire("al-top",    ()=>applyAlignment(alignTop));
-  wire("al-middle", ()=>applyAlignment(alignMiddle));
-  wire("al-bottom", ()=>applyAlignment(alignBottom));
-  wire("al-dist-h", ()=>applyAlignment(distributeH));
-  wire("al-dist-v", ()=>applyAlignment(distributeV));
-  wire("al-same-w", ()=>applyAlignment(sameWidth));
-  wire("al-same-h", ()=>applyAlignment(sameHeight));
-  wire("al-group-h",()=>applyAlignment(groupHorizontal));
-  wire("al-group-v",()=>applyAlignment(groupVertical));
-  wire("ed-zi",()=>{if(edZoom)d3.select("#ed-svg").call(edZoom.scaleBy,1.3);});
-  wire("ed-zo",()=>{if(edZoom)d3.select("#ed-svg").call(edZoom.scaleBy,0.77);});
-  wire("ed-zr",()=>{edTransform=d3.zoomIdentity;edFitted=false;renderCanvas();});
-  wire("ed-btn-save",()=>{savePosForArea();saveWPForArea();recalcNodeSize();saveSizeForArea();showSaved();});
-  wire("ed-btn-undo",()=>undoLast());
-  // Ctrl+Z shortcut
-  document.addEventListener("keydown",e=>{
-    if((e.ctrlKey||e.metaKey)&&e.key==="z"&&document.getElementById("ed-pane").classList.contains("visible")){
-      e.preventDefault();undoLast();
-    }
-  });
-  const edSearchEl=document.getElementById("ed-search");
-  if(edSearchEl)edSearchEl.addEventListener("input",function(){edSearch=this.value;renderSidebar();});
-  wire("ed-btn-apply-size",()=>{
-    const nwEl=document.getElementById("ed-nw"),nhEl=document.getElementById("ed-nh"),fsEl=document.getElementById("ed-fs");
-    edNW=Math.max(60,Math.min(400,parseInt(nwEl?.value)||158));
-    edNH=Math.max(30,Math.min(200,parseInt(nhEl?.value)||50));
-    edFS=Math.max(6,Math.min(20,parseFloat(fsEl?.value)||9.5));
-    syncSizeInputs();saveSizeForArea();edFitted=false;renderCanvas();
-  });
-  wire("ed-btn-export",()=>exportAreaA3());
-  wire("ed-btn-reset",()=>resetLayout());
-  wire("ed-btn-back",()=>{if(window.__goToOrganigrama)window.__goToOrganigrama();});
-  wire("ed-btn-node-save",()=>saveNodeChanges());
-  wire("ed-btn-move",()=>showMoveModal());
-  wire("ed-btn-delete",()=>deleteNode());
-
-  document.getElementById("ed-area-sel").onchange=function(){
-    edViewId=this.value;edSelectedIds.clear();edFitted=false;edTransform=d3.zoomIdentity;
-    loadSizeForArea(edViewId);syncSizeInputs();
-    renderSidebar();renderCanvas();renderInspector(null);
-    document.getElementById("ed-actions").style.display="none";
-  };
-
-  window.addEventListener("resize",()=>{
-    if(document.getElementById("ed-pane").classList.contains("visible"))renderCanvas();
-  });
-
-  // ── Activación desde React ───────────────────────────────
-  window.addEventListener("editorActivated",e=>{
-    edData=e.detail;
-    populateAreaSel();
-    // Si no hay área seleccionada, tomar la primera del selector
-    if(!edViewId||!findN(edData,edViewId)){
-      const sel=document.getElementById("ed-area-sel");
-      edViewId=sel?.options[0]?.value||edData.id;
-      if(sel)sel.value=edViewId;
-    }
-    loadSizeForArea(edViewId);syncSizeInputs();
-    // Para JG: siempre usar layout automático (limpiar posiciones guardadas)
-    const activeRoot=findN(edData,edViewId)||edData;
-    const activeIsDirect=(activeRoot.children||[]).filter(c=>!c.dashed).some(c=>c.tipo==="MIN"||c.tipo==="VJG");
-    if(activeRoot.tipo==="JG"||activeIsDirect){
-      clearArea(edViewId);
-    }
-    edFitted=false;
-    renderSidebar();
-    renderCanvas();
-  });
-
-  window.addEventListener("orgDataChanged",e=>{
-    edData=e.detail;
-    if(document.getElementById("ed-pane").classList.contains("visible")){
-      populateAreaSel();renderSidebar();renderCanvas();
-    }
-  });
-
-  // ── Flechas del teclado para mover nodos seleccionados ──────────
-  document.addEventListener("keydown",function(e){
-    // Solo cuando el editor está visible y hay nodos seleccionados
-    if(!document.getElementById("ed-pane").classList.contains("visible"))return;
-    if(!edSelectedIds.size)return;
-    // No interferir si el foco está en un input o textarea
-    const tag=document.activeElement?.tagName;
-    if(tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT")return;
-    const step=e.shiftKey?10:1;
-    if(e.key==="ArrowLeft") {e.preventDefault();nudge(-step,0);}
-    else if(e.key==="ArrowRight"){e.preventDefault();nudge(step,0);}
-    else if(e.key==="ArrowUp")   {e.preventDefault();nudge(0,-step);}
-    else if(e.key==="ArrowDown") {e.preventDefault();nudge(0,step);}
-  });
-
-  // Exponer al scope global para onclick del HTML
-  window.switchTab=switchTab;
-  window.nudge=nudge;
-  window.selectAllNodes=selectAllNodes;
-  window.clearSelection=clearSelection;
-  window.selectFrom=selectFrom;
-  window.resizeAll=resizeAll;
-  window.resizeAllExact=resizeAllExact;
-  window.copyFormat=copyFormat;
-  window.pasteFormat=pasteFormat;
-
-})();
 </script>
 </body>
 </html>
