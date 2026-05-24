@@ -438,6 +438,11 @@ function dlSVG(svgStr,fname){
 }
 
 // genSVGA3, dlSVG, flatList, findNode — disponibles globalmente
+window.__genSVGA3 = genSVGA3;
+window.genSVGA3   = genSVGA3;
+window.__dlSVG    = dlSVG;
+window.__flatList = flatList;
+window.__findNode = findNode;
 
 
   </script>
@@ -795,8 +800,33 @@ function dlSVG(svgStr,fname){
 
     const g=svg.append("g").attr("class","canvas-root");
     edZoom=d3.zoom().scaleExtent([0.04,3]).on("zoom",e=>{edTransform=e.transform;g.attr("transform",e.transform);});
-    svg.call(edZoom).call(edZoom.transform,edTransform);
+    // Wheel zoom only — no drag-to-pan
+    svg.call(edZoom)
+      .on("mousedown.zoom",null)
+      .on("touchstart.zoom",null);
+    svg.call(edZoom.transform,edTransform);
     g.attr("transform",edTransform);
+
+    // Pan with right-click drag
+    let panStart=null;
+    svgEl.addEventListener("mousedown",function(e){
+      if(e.button!==1&&e.button!==2)return;
+      e.preventDefault();
+      panStart={cx:e.clientX,cy:e.clientY,tx:edTransform.x,ty:edTransform.y};
+    },{passive:false});
+    svgEl.addEventListener("mousemove",function(e){
+      if(!panStart)return;
+      const t=d3.zoomIdentity.translate(panStart.tx+(e.clientX-panStart.cx),panStart.ty+(e.clientY-panStart.cy)).scale(edTransform.k);
+      edTransform=t;svg.call(edZoom.transform,t);
+    });
+    svgEl.addEventListener("mouseup",function(e){if(e.button===1||e.button===2)panStart=null;});
+    svgEl.addEventListener("contextmenu",function(e){if(panStart!==null)e.preventDefault();});
+
+    // Canvas background
+    g.append("rect")
+      .attr("x",-2000).attr("y",-2000)
+      .attr("width",10000).attr("height",10000)
+      .attr("fill","#1e2130");
 
     // Links
     const linkG=g.append("g");
@@ -822,7 +852,11 @@ function dlSVG(svgStr,fname){
     function drawLinks(){
       linkG.selectAll("path.lpath").data(links).join("path")
         .attr("class",d=>"lpath c-link"+(d.dashed?" dashed-link":""))
-        .attr("d",d=>linkPath(d.sid,d.tid));
+        .attr("d",d=>linkPath(d.sid,d.tid))
+        .attr("fill","none")
+        .attr("stroke",d=>d.dashed?"rgba(160,174,192,0.7)":"#A0AEC0")
+        .attr("stroke-width",1.5)
+        .attr("stroke-dasharray",d=>d.dashed?"5,3":"none");
       linkG.selectAll("path.lhit").data(links).join("path")
         .attr("class","lhit")
         .attr("d",d=>linkPath(d.sid,d.tid))
@@ -872,6 +906,54 @@ function dlSVG(svgStr,fname){
     }
 
     drawLinks();drawWPs();
+
+    // Lasso selection
+    let lassoStart=null;
+    const lassoRect=svg.append("rect")
+      .attr("fill","rgba(77,197,233,0.1)").attr("stroke","#4DC5E9")
+      .attr("stroke-width",1.5).attr("stroke-dasharray","5,3")
+      .attr("rx",3).style("display","none").style("pointer-events","none");
+
+    svgEl.addEventListener("mousedown",function(e){
+      if(e.button!==0)return;
+      const tgt=e.target;
+      if(tgt.closest&&(tgt.closest(".c-node")||tgt.closest(".lhit")||tgt.closest(".wp-dot")))return;
+      const svgR=svgEl.getBoundingClientRect();
+      const svgX=e.clientX-svgR.left,svgY=e.clientY-svgR.top;
+      const cx=(svgX-edTransform.x)/edTransform.k,cy=(svgY-edTransform.y)/edTransform.k;
+      lassoStart={cx1:cx,cy1:cy,sx:svgX,sy:svgY,ex:e.clientX,ey:e.clientY};
+      lassoRect.style("display",null).attr("x",svgX).attr("y",svgY).attr("width",0).attr("height",0);
+    });
+    svgEl.addEventListener("mousemove",function(e){
+      if(!lassoStart)return;
+      const svgR=svgEl.getBoundingClientRect();
+      const svgX=e.clientX-svgR.left,svgY=e.clientY-svgR.top;
+      const x=Math.min(lassoStart.sx,svgX),y=Math.min(lassoStart.sy,svgY);
+      lassoRect.attr("x",x).attr("y",y).attr("width",Math.abs(svgX-lassoStart.sx)).attr("height",Math.abs(svgY-lassoStart.sy));
+    });
+    svgEl.addEventListener("mouseup",function(e){
+      if(e.button!==0||!lassoStart)return;
+      lassoRect.style("display","none");
+      const svgR=svgEl.getBoundingClientRect();
+      const svgX=e.clientX-svgR.left,svgY=e.clientY-svgR.top;
+      const dx=Math.abs(e.clientX-lassoStart.ex),dy=Math.abs(e.clientY-lassoStart.ey);
+      if(dx<5&&dy<5){
+        edSelectedIds.clear();d3.selectAll(".c-node").classed("sel",false);
+        renderInspector(null);document.getElementById("ed-actions").style.display="none";
+        updateAlignBar();lassoStart=null;return;
+      }
+      const cx2=(svgX-edTransform.x)/edTransform.k,cy2=(svgY-edTransform.y)/edTransform.k;
+      const rx1=Math.min(lassoStart.cx1,cx2),ry1=Math.min(lassoStart.cy1,cy2);
+      const rx2=Math.max(lassoStart.cx1,cx2),ry2=Math.max(lassoStart.cy1,cy2);
+      if(!e.shiftKey)edSelectedIds.clear();
+      nodes.forEach(n=>{
+        const p=edPositions[n.id];if(!p)return;
+        if(p.x-NW/2<rx2&&p.x+NW/2>rx1&&p.y<ry2&&p.y+NH>ry1)edSelectedIds.add(n.id);
+      });
+      d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));
+      if(edSelectedIds.size>0){document.getElementById("ed-actions").style.display="flex";}
+      updateAlignBar();lassoStart=null;
+    });
 
     // Nodos
     const nodeG=g.append("g");
@@ -1045,8 +1127,9 @@ function dlSVG(svgStr,fname){
 
   function exportAreaA3(){
     const viewRoot=findN(edData,edViewId)||edData;
-    if(!window.__genSVGA3){alert("Esperá que cargue la app.");return;}
-    const svg=window.__genSVGA3(viewRoot,1,1);
+    const _genSVGA3=window.genSVGA3||window.__genSVGA3;
+    if(!_genSVGA3){alert("Esperá que cargue la app.");return;}
+    const svg=_genSVGA3(viewRoot,1,1);
     window.__dlSVG(svg,`organigrama-${edViewId}-A3.svg`);
     showSaved();
   }
