@@ -28,7 +28,7 @@
 body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);color:var(--texto);height:100vh;overflow:hidden}
 
 /* ── EDITOR PANE ── */
-#ed-pane{position:fixed;inset:0;display:none;flex-direction:column;background:var(--ed-bg);z-index:50;}
+#ed-pane{position:fixed;inset:0;display:none;flex-direction:column;background:var(--ed-bg);z-index:50;user-select:none;-webkit-user-select:none;}
 #ed-pane.visible{display:flex;}
 #ed-toolbar{height:44px;background:var(--ed-surface);border-bottom:1px solid var(--ed-border);
   display:flex;align-items:center;padding:0 12px;gap:8px;flex-shrink:0;overflow:hidden;}
@@ -91,10 +91,14 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
 .ed-btn.danger{border-color:#ef444455;color:#ef4444;}
 .c-node rect{transition:filter .12s;}
 .c-node:hover rect{filter:brightness(1.18);}
-.c-node.sel rect{stroke:#fff;stroke-width:2;}
+.c-node.sel rect{stroke:#FFD500;stroke-width:3;filter:drop-shadow(0 0 6px rgba(255,213,0,0.8));}
+.c-node.sel{opacity:1!important;}
 .c-link{fill:none;stroke:var(--ed-border2);stroke-width:1.1;}
 .c-link.dashed-link{stroke-dasharray:5,3;stroke:var(--ed-text3);}
 .ed-saved{font-size:11px;color:#22c55e;opacity:0;transition:opacity .3s;margin-right:4px;}
+/* Tab panels inside inspector */
+#tab-inspector,#tab-tools{min-height:0;flex:1;overflow:hidden;}
+#tab-tools{overflow-y:auto;}
 .ed-aln{width:26px!important;height:26px!important;font-size:12px!important;padding:0!important;}
 .ed-aln:hover{background:var(--ed-accent)!important;color:#fff!important;border-color:var(--ed-accent)!important;}
 .ed-tool-btn{background:var(--ed-surface2);border:1px solid var(--ed-border2);color:var(--ed-text2);
@@ -300,8 +304,24 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
           <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;
             letter-spacing:.07em;margin-bottom:6px;">Selección</div>
           <div style="display:grid;grid-template-columns:1fr;gap:4px;">
-            <button class="ed-tool-btn" onclick="selectAllNodes()">☰ Seleccionar todos</button>
+            <button class="ed-tool-btn" onclick="selectAllNodes()">☰ Todos</button>
             <button class="ed-tool-btn" onclick="clearSelection()">✕ Deseleccionar</button>
+          </div>
+        </div>
+
+        <!-- Selección direccional -->
+        <div style="margin-bottom:12px;">
+          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;
+            letter-spacing:.07em;margin-bottom:4px;">Seleccionar desde el nodo activo</div>
+          <div style="font-size:8px;color:var(--ed-text3);margin-bottom:6px;line-height:1.4;">
+            Primero hacé clic en un nodo de referencia, luego elegí dirección.
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px;">
+            <button class="ed-tool-btn" onclick="selectFrom('right')"  title="Todos los nodos a la derecha del seleccionado">→ Derecha</button>
+            <button class="ed-tool-btn" onclick="selectFrom('left')"   title="Todos los nodos a la izquierda del seleccionado">← Izquierda</button>
+            <button class="ed-tool-btn" onclick="selectFrom('below')"  title="Todos los nodos debajo del seleccionado">↓ Abajo</button>
+            <button class="ed-tool-btn" onclick="selectFrom('above')"  title="Todos los nodos arriba del seleccionado">↑ Arriba</button>
+            <button class="ed-tool-btn" onclick="selectFrom('row')"    title="Todos los nodos en la misma fila horizontal" style="grid-column:span 2;">↔ Misma fila</button>
           </div>
         </div>
 
@@ -438,7 +458,7 @@ function genSVGA3(root,pn=1,tot=1){
   
   let nodes=[],links=[],NW,NH;
 
-  if(savedPos&&Object.keys(savedPos).length>0){
+  if(savedPos&&Object.keys(savedPos).length>0&&!root.dashed){
     // ── Posiciones del editor ──────────────────────────────
     // Recopilar nodos visibles (JG: 1 nivel)
     const visible=[];
@@ -1049,7 +1069,7 @@ const INITIAL={
 
 
 const STORAGE_KEY="gcba_org_v2";
-const APP_VERSION="20260524"; // Cambia con cada nueva versión del archivo
+const APP_VERSION="20260525"; // Cambia con cada nueva versión del archivo
 const VERSION_KEY="gcba_org_version";
 function loadData(){
   try{
@@ -1717,23 +1737,32 @@ function App(){
 
   // Exportar todo A3
   function dlAll(){
-    // Páginas principales — orden del PDF original
-    const PDF_IDS=["JG","VJG","MJGGC","MHFGC","MJGC","MSEGC","MSGC","MEDGC","MDECGC","MCGC","MDHYHGC","MEPHUGC","MMIGC","SECGE","SECLYT","SECCO","SECAE","SECGVC","SECME"];
     const allNodes=flatList(data);
-    const mainAreas=PDF_IDS.map(id=>allNodes.find(n=>n.id===id)).filter(Boolean);
+    const pmap={};
+    (function bp(n){(n.children||[]).forEach(c=>{pmap[c.id]=n.id;bp(c);});})(data);
 
-    // Organismos fuera de nivel con estructura propia (hijos > 0)
-    // Orden: primero los de JG, luego por ministerio/secretaría
-    const fnAreas=allNodes.filter(n=>
-      n.dashed &&
-      (n.children||[]).length>0 &&
-      !PDF_IDS.includes(n.id) // que no estén ya en la lista principal
-    );
+    // F/N con estructura propia, indexados por padre
+    const fnByParent={};
+    allNodes.filter(n=>n.dashed&&(n.children||[]).length>0&&n.id!=="SGCBA").forEach(n=>{
+      const p=pmap[n.id]||"JG";
+      if(!fnByParent[p])fnByParent[p]=[];
+      fnByParent[p].push(n);
+    });
 
-    const areas=[...mainAreas,...fnAreas];
+    // Orden del PDF: cada ministerio/secretaría seguido de sus F/N
+    const PDF_IDS=["JG","VJG","MJGGC","MHFGC","MJGC","MSEGC","MSGC","MEDGC","MDECGC","MCGC","MDHYHGC","MEPHUGC","MMIGC","SECGE","SECLYT","SECCO","SECAE","SECGVC","SECME"];
+    const areas=[];
+    PDF_IDS.forEach(id=>{
+      const node=allNodes.find(n=>n.id===id);
+      if(node)areas.push(node);
+      // Agregar F/N de este ministerio inmediatamente después
+      (fnByParent[id]||[]).forEach(fn=>areas.push(fn));
+    });
+
     const PH=1123;
-    const pages=areas.map((a,i)=>genSVGA3(a,i+1,areas.length));
-    const combined=`<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="1587" height="${PH*pages.length}" viewBox="0 0 1587 ${PH*pages.length}">${pages.map((p,i)=>`<g transform="translate(0,${i*PH})">${p.replace(/<\/?svg[^>]*>/g,"")}</g>`).join("")}</svg>`;
+    const total=areas.length;
+    const pages=areas.map((a,i)=>genSVGA3(a,i+1,total));
+    const combined=`<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="1587" height="${PH*total}" viewBox="0 0 1587 ${PH*total}">${pages.map((p,i)=>`<g transform="translate(0,${i*PH})">${p.replace(/<\/?svg[^>]*>/g,"")}</g>`).join("")}</svg>`;
     dlSVG(combined,"organigrama-gcba-completo-A3.svg");
   }
 
@@ -2021,7 +2050,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
   // ── Constantes ──────────────────────────────────────────
   const POS_KEY="gcba_org_positions_v1";
-  const SNAP_DIST=8;   // píxeles en coordenadas del canvas para activar snap
+  const SNAP_DIST=18;  // píxeles en coordenadas del canvas para activar snap
   const GUIDE_COLOR="#4DC5E9";
   const WP_KEY="gcba_org_waypoints_v1";
   const HPAD=18,VPAD=58; // edNW and edNH are dynamic per area
@@ -2202,7 +2231,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     const svgEl=document.getElementById("ed-svg");
     if(!area||!svgEl)return;
     const W=area.clientWidth,H=area.clientHeight;
-    const svg=d3.select(svgEl).attr("width",W).attr("height",H);
+    const svg=d3.select(svgEl).attr("width",W).attr("height",H)
+      .style("user-select","none").style("-webkit-user-select","none");
+    svgEl.addEventListener("selectstart",e=>e.preventDefault());
     svg.selectAll("*").remove();
 
     // ── Dimensiones del A3 (mismas que genSVGA3) ──
@@ -2342,7 +2373,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     // Margen guides (líneas punteadas tenues)
     g.append("rect").attr("x",MAR).attr("y",HH+4).attr("width",AW).attr("height",AH-8)
       .attr("fill","none").attr("stroke","rgba(0,0,255,0.08)").attr("stroke-dasharray","4,4");
-    edZoom=d3.zoom().scaleExtent([0.04,3]).on("zoom",e=>{
+    edZoom=d3.zoom().scaleExtent([0.04,3]).wheelDelta(e=>-e.deltaY*(e.deltaMode===1?0.1:e.deltaMode?1:0.008)).on("zoom",e=>{
       edTransform=e.transform;g.attr("transform",e.transform);
     });
     // Solo zoom con rueda — NO pan con clic izquierdo
@@ -2372,24 +2403,15 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     svgEl.addEventListener("mouseup",function(e){
       if(e.button===1||e.button===2)panStart=null;
     });
+    // Prevent context menu while panning with right click
     svgEl.addEventListener("contextmenu",function(e){
-      // Evitar menú contextual al usar clic derecho para pan
-      // Solo si estábamos panneando (panStart ya se limpió en mouseup)
-      // Dejamos el contextmenu habilitado para los waypoints de líneas
+      if(panStart!==null)e.preventDefault();
     });
 
-    // ── Capa de guías de alineación (snap guides) ──────────────────
-    const guideG=svg.append("g").attr("class","snap-guides").style("pointer-events","none");
-    function clearGuides(){guideG.selectAll("*").remove();}
-    function drawGuide(x1,y1,x2,y2){
-      guideG.append("line")
-        .attr("x1",x1).attr("y1",y1).attr("x2",x2).attr("y2",y2)
-        .attr("stroke",GUIDE_COLOR).attr("stroke-width",1)
-        .attr("stroke-dasharray","4,3").attr("opacity",0.85);
-    }
-    function toSVG(cx,cy){
-      return{x:cx*edTransform.k+edTransform.x,y:cy*edTransform.k+edTransform.y};
-    }
+    // Snap guides desactivadas
+    function clearGuides(){}
+    function drawGuide(){}
+    function toSVG(cx,cy){return{x:cx*edTransform.k+edTransform.x,y:cy*edTransform.k+edTransform.y};}
 
     // ── Rectángulo de selección (lasso) — clic izquierdo en fondo ──
     let lassoStart=null;
@@ -2398,67 +2420,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       .attr("stroke-width",1.5).attr("stroke-dasharray","5,3")
       .attr("rx",3).style("display","none").style("pointer-events","none");
 
-    svgEl.addEventListener("mousedown",function(e){
-      if(e.button!==0)return;
-      const tgt=e.target;
-      // No activar si es sobre un nodo, handle o control
-      if(tgt.closest&&(tgt.closest(".c-node")||tgt.closest(".ed-resize-handle")||
-         tgt.closest(".lhit")||tgt.closest(".wp-dot")))return;
-      e.stopPropagation();
-      const pt=svgEl.createSVGPoint();
-      pt.x=e.clientX;pt.y=e.clientY;
-      const gp=pt.matrixTransform(svgEl.getScreenCTM().inverse());
-      lassoStart={sx:gp.x,sy:gp.y,cx:e.clientX,cy:e.clientY};
-      lassoRect.style("display",null).attr("x",gp.x).attr("y",gp.y).attr("width",0).attr("height",0);
-    },{passive:false});
 
-    svgEl.addEventListener("mousemove",function(e){
-      if(!lassoStart)return;
-      const pt=svgEl.createSVGPoint();
-      pt.x=e.clientX;pt.y=e.clientY;
-      const gp=pt.matrixTransform(svgEl.getScreenCTM().inverse());
-      const x=Math.min(lassoStart.sx,gp.x),y=Math.min(lassoStart.sy,gp.y);
-      const w=Math.abs(gp.x-lassoStart.sx),h=Math.abs(gp.y-lassoStart.sy);
-      lassoRect.attr("x",x).attr("y",y).attr("width",w).attr("height",h);
-    });
-
-    svgEl.addEventListener("mouseup",function(e){
-      if(e.button!==0||!lassoStart)return;
-      lassoRect.style("display","none");
-      const dx=Math.abs(e.clientX-lassoStart.cx),dy=Math.abs(e.clientY-lassoStart.cy);
-      if(dx<5&&dy<5){
-        // Clic simple en fondo — deseleccionar todo
-        edSelectedIds.clear();
-        d3.selectAll(".c-node").classed("sel",false);
-        renderInspector(null);
-        document.getElementById("ed-actions").style.display="none";
-        updateAlignBar();
-        lassoStart=null;
-        return;
-      }
-      // Seleccionar nodos dentro del rectángulo
-      const pt=svgEl.createSVGPoint();
-      pt.x=e.clientX;pt.y=e.clientY;
-      const gp=pt.matrixTransform(svgEl.getScreenCTM().inverse());
-      const rx1=(Math.min(lassoStart.sx,gp.x)-edTransform.x)/edTransform.k;
-      const ry1=(Math.min(lassoStart.sy,gp.y)-edTransform.y)/edTransform.k;
-      const rx2=(Math.max(lassoStart.sx,gp.x)-edTransform.x)/edTransform.k;
-      const ry2=(Math.max(lassoStart.sy,gp.y)-edTransform.y)/edTransform.k;
-      if(!e.shiftKey)edSelectedIds.clear();
-      nodes.forEach(n=>{
-        const p=edPositions[n.id];if(!p)return;
-        const nw=p.w||NW,nh=p.h||NH;
-        const nx1=p.x-nw/2,ny1=p.y,nx2=p.x+nw/2,ny2=p.y+nh;
-        if(nx2>rx1&&nx1<rx2&&ny2>ry1&&ny1<ry2)edSelectedIds.add(n.id);
-      });
-      d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));
-      if(edSelectedIds.size>0){
-        document.getElementById("ed-actions").style.display="flex";
-        renderInspector(edSelectedIds.size===1?findN(edData,[...edSelectedIds][0]):null);
-      }
-      updateAlignBar();
-      lassoStart=null;
-    });
 
     // Links
     const linkG=g.append("g");
@@ -2563,20 +2525,12 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       .style("cursor","pointer")
       .on("click",(e,d)=>{
         e.stopPropagation();
-        if(e.shiftKey){
-          const desc=flat(findN(edData,d.id)||{children:[]}).map(n=>n.id);
-          const allIn=desc.every(id=>edSelectedIds.has(id));
-          if(allIn)desc.forEach(id=>edSelectedIds.delete(id));
-          else desc.forEach(id=>edSelectedIds.add(id));
-          d3.selectAll(".c-node").classed("sel",n=>edSelectedIds.has(n.id));
-          renderInspector(findN(edData,d.id));
-          document.getElementById("ed-actions").style.display="flex";
-          updateAlignBar();
-        }else{selectSingle(d.id);}
+        e.preventDefault();
+        selectSingle(d.id);
       });
 
     ng.call(d3.drag()
-      .on("start",function(e,d){pushHistory();if(!edSelectedIds.has(d.id)){edSelectedIds.clear();edSelectedIds.add(d.id);d3.selectAll(".c-node").classed("sel",n=>edSelectedIds.has(n.id));}}
+      .on("start",function(e,d){e.sourceEvent&&e.sourceEvent.preventDefault();pushHistory();if(!edSelectedIds.has(d.id)){edSelectedIds.clear();edSelectedIds.add(d.id);d3.selectAll(".c-node").classed("sel",n=>edSelectedIds.has(n.id));}}
       )
       .on("drag",function(e,d){
         const dx=e.dx/edTransform.k,dy=e.dy/edTransform.k;
@@ -2645,15 +2599,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
             guideYval=snapY.guideY;
           }
 
-          // Draw guide lines in SVG coords
-          if(guideXval!==null){
-            const sv=toSVG(guideXval,0);
-            drawGuide(sv.x,0,sv.x,svg.attr("height"));
-          }
-          if(guideYval!==null){
-            const sv=toSVG(0,guideYval);
-            drawGuide(0,sv.y,svg.attr("width"),sv.y);
-          }
+
         }
 
         d3.selectAll(".c-node").filter(n=>edSelectedIds.has(n.id))
@@ -2773,7 +2719,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     }
     renderResizeHandles();
 
-    svg.on("click",()=>{edSelectedIds.clear();d3.selectAll(".c-node").classed("sel",false);resizeG.selectAll("*").remove();renderInspector(null);document.getElementById("ed-actions").style.display="none";});
+    svg.on("click",(e)=>{
+      // Only deselect if clicking on background, not on a node
+      if(e.target!==svgEl&&e.defaultPrevented)return;
+      if(e.target!==svgEl)return;
+      edSelectedIds.clear();d3.selectAll(".c-node").classed("sel",false);resizeG.selectAll("*").remove();renderInspector(null);document.getElementById("ed-actions").style.display="none";});
 
     // Auto-fit: encajar el A3 completo en la pantalla
     if(!edFitted){
@@ -3040,6 +2990,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
   }
 
   // ── Wire buttons ─────────────────────────────────────────
+  // Prevent text selection in editor
+  const edPaneEl=document.getElementById("ed-pane");
+  if(edPaneEl)edPaneEl.addEventListener("selectstart",e=>e.preventDefault());
+
   // ── Tab switching ────────────────────────────────────────────────
   function switchTab(tab){
     const tabs=["inspector","tools"];
@@ -3082,6 +3036,36 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     updateToolsSelInfo();
     renderInspector(null);
     document.getElementById("ed-actions").style.display="none";
+  }
+
+  function selectFrom(direction){
+    // Get reference node — the currently selected single node
+    const refId=[...edSelectedIds][0];
+    const refPos=refId?edPositions[refId]:null;
+    if(!refPos){alert("Primero hacé clic en un nodo de referencia.");return;}
+
+    const ROW_TOLERANCE=30; // px — nodos dentro de este margen Y se consideran "misma fila"
+
+    const rx=refPos.x, ry=refPos.y+(refPos.h||NH)/2; // center of ref node
+
+    // Keep ref node selected, add matching nodes
+    nodes.forEach(n=>{
+      if(n.id===refId)return;
+      const p=edPositions[n.id];if(!p)return;
+      const nx=p.x, ny=p.y+(p.h||NH)/2;
+      let match=false;
+      if(direction==="right")  match=nx>rx;
+      if(direction==="left")   match=nx<rx;
+      if(direction==="below")  match=ny>ry;
+      if(direction==="above")  match=ny<ry;
+      if(direction==="row")    match=Math.abs(ny-ry)<=ROW_TOLERANCE;
+      if(match)edSelectedIds.add(n.id);
+    });
+
+    d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));
+    document.getElementById("ed-actions").style.display="flex";
+    updateAlignBar();
+    updateToolsSelInfo();
   }
   function updateToolsSelInfo(){
     const info=document.getElementById("tools-sel-info");
@@ -3181,6 +3165,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
   window.nudge=nudge;
   window.selectAllNodes=selectAllNodes;
   window.clearSelection=clearSelection;
+  window.selectFrom=selectFrom;
 
 })();
 </script>
