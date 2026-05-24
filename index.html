@@ -194,23 +194,16 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
       <div style="display:flex;border-bottom:1px solid var(--ed-border);flex-shrink:0;">
         <button id="tab-btn-inspector" onclick="switchTab('inspector')"
           style="flex:1;padding:8px 4px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer;
-            background:var(--ed-accent);border:none;color:#fff;letter-spacing:.04em;">
-          🔍 NODO
-        </button>
+            background:var(--ed-accent);border:none;color:#fff;letter-spacing:.04em;">🔍 NODO</button>
         <button id="tab-btn-tools" onclick="switchTab('tools')"
           style="flex:1;padding:8px 4px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer;
-            background:var(--ed-surface);border:none;color:var(--ed-text3);border-left:1px solid var(--ed-border);letter-spacing:.04em;">
-          🔧 HERRAMIENTAS
-        </button>
+            background:var(--ed-surface);border:none;color:var(--ed-text3);
+            border-left:1px solid var(--ed-border);letter-spacing:.04em;">🔧 HERRAMIENTAS</button>
       </div>
-
-      <!-- Panel: Inspector -->
-      <div id="tab-inspector" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+      <!-- Inspector panel -->
+      <div id="tab-inspector" style="display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0;">
         <div class="ed-ins-body" id="ed-ins-body">
-          <div class="ed-ins-empty">
-            <div class="ico">⬡</div>
-            <p>Clic en un nodo<br>para editarlo</p>
-          </div>
+          <div class="ed-ins-empty"><div class="ico">⬡</div><p>Clic en un nodo para editarlo</p></div>
         </div>
         <div class="ed-actions" id="ed-actions" style="display:none;">
           <button class="ed-btn primary" id="ed-btn-node-save">✓ Guardar cambios</button>
@@ -218,71 +211,78 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
           <button class="ed-btn danger" id="ed-btn-delete">✕ Eliminar nodo</button>
         </div>
       </div>
+      <!-- Tools panel -->
+      <div id="tab-tools" style="display:none;flex-direction:column;flex:1;overflow-y:auto;min-height:0;padding:10px;gap:0;">
 
-      <!-- Panel: Herramientas -->
-      <div id="tab-tools" style="display:none;flex-direction:column;flex:1;overflow-y:auto;padding:10px;">
-
-        <!-- Selección múltiple info -->
-        <div id="tools-sel-info" style="background:var(--ed-surface2);border-radius:6px;padding:8px 10px;
-          margin-bottom:10px;font-size:10px;color:var(--ed-text3);text-align:center;display:none;">
+        <!-- Sel info -->
+        <div id="tools-sel-info" style="display:none;background:var(--ed-surface2);border-radius:6px;
+          padding:8px 10px;margin-bottom:10px;font-size:10px;color:var(--ed-text3);text-align:center;">
           <span id="tools-sel-count" style="font-size:16px;font-weight:700;color:var(--ed-accent);display:block;"></span>
           nodos seleccionados
         </div>
 
-        <!-- Alinear -->
+        <!-- Copiar formato -->
         <div style="margin-bottom:12px;">
-          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;
-            letter-spacing:.07em;margin-bottom:6px;">Alinear</div>
+          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Copiar formato (tamaño)</div>
+          <div style="font-size:8px;color:var(--ed-text3);margin-bottom:6px;line-height:1.4;">Copiá el tamaño de un nodo y pegalo en todos los seleccionados.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+            <button class="ed-tool-btn" onclick="copyFormat()" title="Copia el ancho y alto del nodo activo">📋 Copiar tamaño</button>
+            <button class="ed-tool-btn" onclick="pasteFormat()" title="Pega el tamaño copiado en todos los seleccionados">📌 Pegar en sel.</button>
+          </div>
+          <div id="format-clipboard" style="font-size:8px;color:var(--ed-text3);margin-top:4px;min-height:14px;"></div>
+        </div>
+
+        <div style="height:1px;background:var(--ed-border);margin:0 0 10px;"></div>
+
+        <!-- Alinear -->
+        <div style="margin-bottom:10px;">
+          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Alinear</div>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;">
             <button class="ed-tool-btn" id="al-left"   title="Alinear borde izquierdo">◧ Izq.</button>
-            <button class="ed-tool-btn" id="al-center" title="Centrar horizontalmente">⊞ Centro H</button>
+            <button class="ed-tool-btn" id="al-center" title="Centrar horizontalmente">⊞ Cen.H</button>
             <button class="ed-tool-btn" id="al-right"  title="Alinear borde derecho">◨ Der.</button>
-            <button class="ed-tool-btn" id="al-top"    title="Alinear borde superior">⬆ Arriba</button>
-            <button class="ed-tool-btn" id="al-middle" title="Centrar verticalmente">⊟ Centro V</button>
-            <button class="ed-tool-btn" id="al-bottom" title="Alinear borde inferior">⬇ Abajo</button>
+            <button class="ed-tool-btn" id="al-top"    title="Alinear borde superior">⬆ Arr.</button>
+            <button class="ed-tool-btn" id="al-middle" title="Centrar verticalmente">⊟ Cen.V</button>
+            <button class="ed-tool-btn" id="al-bottom" title="Alinear borde inferior">⬇ Ab.</button>
           </div>
         </div>
 
         <!-- Distribuir -->
-        <div style="margin-bottom:12px;">
-          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;
-            letter-spacing:.07em;margin-bottom:6px;">Distribuir (mín. 3 nodos)</div>
-          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px;">
-            <button class="ed-tool-btn" id="al-dist-h" title="Espaciado horizontal igual">⇿ Horizontal</button>
-            <button class="ed-tool-btn" id="al-dist-v" title="Espaciado vertical igual">↕ Vertical</button>
+        <div style="margin-bottom:10px;">
+          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Distribuir (mín. 3)</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+            <button class="ed-tool-btn" id="al-dist-h">⇿ Horizontal</button>
+            <button class="ed-tool-btn" id="al-dist-v">↕ Vertical</button>
           </div>
         </div>
 
         <!-- Tamaño -->
-        <div style="margin-bottom:12px;">
-          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;
-            letter-spacing:.07em;margin-bottom:6px;">Igualar tamaño</div>
-          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px;">
-            <button class="ed-tool-btn" id="al-same-w" title="Mismo ancho que el primero">= Ancho</button>
-            <button class="ed-tool-btn" id="al-same-h" title="Misma altura que el primero">= Alto</button>
+        <div style="margin-bottom:10px;">
+          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Igualar tamaño</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+            <button class="ed-tool-btn" id="al-same-w">= Ancho</button>
+            <button class="ed-tool-btn" id="al-same-h">= Alto</button>
           </div>
         </div>
 
-        <!-- Redimensionar todos -->
-        <div style="margin-bottom:12px;">
-          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;
-            letter-spacing:.07em;margin-bottom:6px;">Redimensionar seleccionados</div>
-          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px;margin-bottom:4px;">
-            <button class="ed-tool-btn" onclick="resizeAll('w',10)"  title="Más ancho">↔ + Ancho</button>
-            <button class="ed-tool-btn" onclick="resizeAll('w',-10)" title="Menos ancho">↔ − Ancho</button>
-            <button class="ed-tool-btn" onclick="resizeAll('h',6)"   title="Más alto">↕ + Alto</button>
-            <button class="ed-tool-btn" onclick="resizeAll('h',-6)"  title="Menos alto">↕ − Alto</button>
+        <!-- Redimensionar -->
+        <div style="margin-bottom:10px;">
+          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Redimensionar seleccionados</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;">
+            <button class="ed-tool-btn" onclick="resizeAll('w',10)">↔ +Ancho</button>
+            <button class="ed-tool-btn" onclick="resizeAll('w',-10)">↔ −Ancho</button>
+            <button class="ed-tool-btn" onclick="resizeAll('h',6)">↕ +Alto</button>
+            <button class="ed-tool-btn" onclick="resizeAll('h',-6)">↕ −Alto</button>
           </div>
-          <div style="font-size:8px;color:var(--ed-text3);margin-bottom:6px;">Tamaño exacto (aplica a todos):</div>
           <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
-            <span style="font-size:9px;color:var(--ed-text3);width:32px;">Ancho</span>
+            <span style="font-size:9px;color:var(--ed-text3);width:32px;flex-shrink:0;">Ancho</span>
             <input id="resize-w-input" type="number" min="60" max="400" placeholder="px"
               style="flex:1;border:1px solid var(--ed-border2);border-radius:4px;padding:4px 6px;
                 font-size:11px;font-family:inherit;background:var(--ed-surface2);color:var(--ed-text1);"
               onchange="resizeAllExact('w',+this.value)"/>
           </div>
           <div style="display:flex;gap:4px;align-items:center;">
-            <span style="font-size:9px;color:var(--ed-text3);width:32px;">Alto</span>
+            <span style="font-size:9px;color:var(--ed-text3);width:32px;flex-shrink:0;">Alto</span>
             <input id="resize-h-input" type="number" min="30" max="200" placeholder="px"
               style="flex:1;border:1px solid var(--ed-border2);border-radius:4px;padding:4px 6px;
                 font-size:11px;font-family:inherit;background:var(--ed-surface2);color:var(--ed-text1);"
@@ -290,72 +290,54 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--gris-bg);colo
           </div>
         </div>
 
-        <!-- Agrupar -->
-        <div style="margin-bottom:12px;">
-          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;
-            letter-spacing:.07em;margin-bottom:6px;">Ordenar</div>
-          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px;">
-            <button class="ed-tool-btn" id="al-group-h" title="Ordenar en fila horizontal">▭▭ Fila →</button>
-            <button class="ed-tool-btn" id="al-group-v" title="Ordenar en columna vertical">↓ Columna</button>
+        <div style="height:1px;background:var(--ed-border);margin:0 0 10px;"></div>
+
+        <!-- Ordenar -->
+        <div style="margin-bottom:10px;">
+          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Ordenar</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+            <button class="ed-tool-btn" id="al-group-h">▭▭ Fila →</button>
+            <button class="ed-tool-btn" id="al-group-v">↓ Columna</button>
           </div>
         </div>
 
-        <div style="height:1px;background:var(--ed-border);margin:4px 0 12px;"></div>
-
-        <!-- Mover con botones -->
-        <div style="margin-bottom:12px;">
-          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;
-            letter-spacing:.07em;margin-bottom:6px;">Mover nodo(s) — sin teclado</div>
+        <!-- Mover -->
+        <div style="margin-bottom:10px;">
+          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Mover sin teclado</div>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:4px;">
             <div></div>
-            <button class="ed-tool-btn" id="mv-up"   onclick="nudge(0,-10)">⬆ Arriba</button>
+            <button class="ed-tool-btn" onclick="nudge(0,-10)">⬆ 10px</button>
             <div></div>
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:4px;">
-            <button class="ed-tool-btn" id="mv-left"  onclick="nudge(-10,0)">⬅ Izq.</button>
-            <button class="ed-tool-btn" id="mv-down"  onclick="nudge(0,10)">⬇ Abajo</button>
-            <button class="ed-tool-btn" id="mv-right" onclick="nudge(10,0)">➡ Der.</button>
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px;margin-top:4px;">
+            <button class="ed-tool-btn" onclick="nudge(-10,0)">⬅ 10px</button>
+            <button class="ed-tool-btn" onclick="nudge(0,10)">⬇ 10px</button>
+            <button class="ed-tool-btn" onclick="nudge(10,0)">➡ 10px</button>
             <button class="ed-tool-btn" onclick="nudge(-1,0)" style="font-size:9px;">◀ 1px</button>
-            <button class="ed-tool-btn" onclick="nudge(1,0)"  style="font-size:9px;">1px ▶</button>
-            <button class="ed-tool-btn" onclick="nudge(0,-1)" style="font-size:9px;">▲ 1px</button>
             <button class="ed-tool-btn" onclick="nudge(0,1)"  style="font-size:9px;">▼ 1px</button>
+            <button class="ed-tool-btn" onclick="nudge(1,0)"  style="font-size:9px;">▶ 1px</button>
           </div>
         </div>
 
-        <div style="height:1px;background:var(--ed-border);margin:4px 0 12px;"></div>
+        <div style="height:1px;background:var(--ed-border);margin:0 0 10px;"></div>
 
         <!-- Selección -->
-        <div style="margin-bottom:12px;">
-          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;
-            letter-spacing:.07em;margin-bottom:6px;">Selección</div>
-          <div style="display:grid;grid-template-columns:1fr;gap:4px;">
+        <div style="margin-bottom:10px;">
+          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Selección</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;">
             <button class="ed-tool-btn" onclick="selectAllNodes()">☰ Todos</button>
-            <button class="ed-tool-btn" onclick="clearSelection()">✕ Deseleccionar</button>
+            <button class="ed-tool-btn" onclick="clearSelection()">✕ Deselec.</button>
           </div>
-        </div>
-
-        <!-- Selección direccional -->
-        <div style="margin-bottom:12px;">
-          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;
-            letter-spacing:.07em;margin-bottom:4px;">Seleccionar desde el nodo activo</div>
-          <div style="font-size:8px;color:var(--ed-text3);margin-bottom:6px;line-height:1.4;">
-            Primero hacé clic en un nodo de referencia, luego elegí dirección.
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px;">
-            <button class="ed-tool-btn" onclick="selectFrom('right')"  title="Todos los nodos a la derecha del seleccionado">→ Derecha</button>
-            <button class="ed-tool-btn" onclick="selectFrom('left')"   title="Todos los nodos a la izquierda del seleccionado">← Izquierda</button>
-            <button class="ed-tool-btn" onclick="selectFrom('below')"  title="Todos los nodos debajo del seleccionado">↓ Abajo</button>
-            <button class="ed-tool-btn" onclick="selectFrom('above')"  title="Todos los nodos arriba del seleccionado">↑ Arriba</button>
-            <button class="ed-tool-btn" onclick="selectFrom('row')"    title="Todos los nodos en la misma fila horizontal" style="grid-column:span 2;">↔ Misma fila</button>
+          <div style="font-size:8px;color:var(--ed-text3);margin-bottom:4px;">Desde nodo activo →</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+            <button class="ed-tool-btn" onclick="selectFrom('right')">→ Derecha</button>
+            <button class="ed-tool-btn" onclick="selectFrom('left')">← Izquierda</button>
+            <button class="ed-tool-btn" onclick="selectFrom('below')">↓ Abajo</button>
+            <button class="ed-tool-btn" onclick="selectFrom('above')">↑ Arriba</button>
+            <button class="ed-tool-btn" onclick="selectFrom('row')" style="grid-column:span 2;">↔ Misma fila</button>
           </div>
         </div>
 
       </div>
     </div>
-  </div>
-</div>
 
 <!-- REACT APP -->
 <div id="root" style="height:100vh;"></div>
@@ -2012,6 +1994,14 @@ function App(){
           )}
           <div style={{background:"#F3F6F9",borderTop:"1px solid #E2E8F0",padding:"6px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <span style={{fontSize:10,color:"#A0AEC0"}}>SGCBA · Ciudad Autónoma de Buenos Aires · {fechaApp}</span>
+            <a href="https://boletinoficial.buenosaires.gob.ar" target="_blank" rel="noopener"
+              style={{fontSize:10,color:"#4DC5E9",textDecoration:"none",fontWeight:500,
+                padding:"2px 8px",border:"1px solid #4DC5E9",borderRadius:4,
+                transition:"all .15s"}}
+              onMouseEnter={e=>{e.currentTarget.style.background="#4DC5E9";e.currentTarget.style.color="#fff";}}
+              onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="#4DC5E9";}}>
+              📋 Boletín Oficial CABA
+            </a>
             <img src="data:image/png;base64,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" alt="Buenos Aires Ciudad" style={{height:22,opacity:.65}}/>
             <span style={{fontSize:10,color:"#A0AEC0"}}>{allNodes.length} organismos</span>
           </div>
@@ -3041,6 +3031,32 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     });
   }
 
+  // ── Copiar/pegar formato (tamaño) ─────────────────────────────
+  let _formatClipboard=null;
+  function copyFormat(){
+    const refId=[...edSelectedIds][0];
+    if(!refId){alert("Hacé clic en un nodo primero.");return;}
+    const p=edPositions[refId];if(!p)return;
+    _formatClipboard={w:p.w||NW,h:p.h||NH};
+    const el=document.getElementById("format-clipboard");
+    if(el)el.textContent=`Copiado: ${Math.round(_formatClipboard.w)}×${Math.round(_formatClipboard.h)}px`;
+  }
+  function pasteFormat(){
+    if(!_formatClipboard){alert("Primero copiá el tamaño de un nodo.");return;}
+    if(!edSelectedIds.size){alert("Seleccioná los nodos destino.");return;}
+    edSelectedIds.forEach(id=>{
+      const p=edPositions[id];if(!p)return;
+      p.w=_formatClipboard.w;p.h=_formatClipboard.h;
+    });
+    renderCanvas();savePosForArea();showSaved();
+    setTimeout(()=>{
+      const ids=[...edSelectedIds];
+      edSelectedIds.clear();ids.forEach(id=>edSelectedIds.add(id));
+      d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));
+      updateAlignBar();updateToolsSelInfo();
+    },50);
+  }
+
   // ── Redimensionar todos los nodos seleccionados ─────────────────
   function resizeAll(dim,delta){
     if(!edSelectedIds.size)return;
@@ -3228,6 +3244,21 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     }
   });
 
+  // ── Flechas del teclado para mover nodos seleccionados ──────────
+  document.addEventListener("keydown",function(e){
+    // Solo cuando el editor está visible y hay nodos seleccionados
+    if(!document.getElementById("ed-pane").classList.contains("visible"))return;
+    if(!edSelectedIds.size)return;
+    // No interferir si el foco está en un input o textarea
+    const tag=document.activeElement?.tagName;
+    if(tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT")return;
+    const step=e.shiftKey?10:1;
+    if(e.key==="ArrowLeft") {e.preventDefault();nudge(-step,0);}
+    else if(e.key==="ArrowRight"){e.preventDefault();nudge(step,0);}
+    else if(e.key==="ArrowUp")   {e.preventDefault();nudge(0,-step);}
+    else if(e.key==="ArrowDown") {e.preventDefault();nudge(0,step);}
+  });
+
   // Exponer al scope global para onclick del HTML
   window.switchTab=switchTab;
   window.nudge=nudge;
@@ -3236,6 +3267,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
   window.selectFrom=selectFrom;
   window.resizeAll=resizeAll;
   window.resizeAllExact=resizeAllExact;
+  window.copyFormat=copyFormat;
+  window.pasteFormat=pasteFormat;
 
 })();
 </script>
