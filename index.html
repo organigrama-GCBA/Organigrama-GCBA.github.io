@@ -793,7 +793,12 @@ window.__dlSVG    = dlSVG;
     const saved=loadPosForArea(edViewId)||{};
     edPositions={};
     nodes.forEach(n=>{
-      edPositions[n.id]=saved[n.id]?{x:saved[n.id].x,y:saved[n.id].y}:{...(d3pos[n.id]||{x:0,y:0})};
+      if(saved[n.id]){
+        const s=saved[n.id];
+        edPositions[n.id]={x:s.x,y:s.y,w:s.w||NW,h:s.h||NH};
+      } else {
+        edPositions[n.id]={...(d3pos[n.id]||{x:0,y:0}),w:NW,h:NH};
+      }
     });
     edWaypoints=loadWPForArea(edViewId);
 
@@ -1036,8 +1041,8 @@ window.__dlSVG    = dlSVG;
             ev.stopPropagation();
             const dx=(ev.clientX-startX)/edTransform.k;
             const dy=(ev.clientY-startY)/edTransform.k;
-            p.w=Math.max(80,Math.min(400,startW+dx));
-            p.h=Math.max(28,Math.min(150,startH+dy));
+            p.w=Math.max(80,Math.min(600,startW+dx));
+            p.h=Math.max(28,Math.min(300,startH+dy));
             par.select("rect:not(.resize-handle)").attr("width",p.w).attr("height",p.h);
             d3.select(handleEl).attr("x",p.w-RHANDLE/2).attr("y",p.h-RHANDLE/2);
             const _fs=Math.max(8,Math.min(24,Math.min(p.w/8, p.h/(lines.length+(hasTit?1:0)+1)*0.7)));
