@@ -399,8 +399,8 @@ function genSVGA3(root,pn=1,tot=1){
   });
   nodes.forEach(n=>{
     const nw=n.w||NW,nh=n.h||NH;
-    const fsNn=ED_FS>0?ED_FS:Math.max(7,Math.min(13,nw/11));
-    const fsTn=ED_FS>0?ED_FS*0.82:Math.max(6,Math.min(10.5,nw/15));
+    const fsNn=ED_FS>0?ED_FS:Math.max(7,Math.min(60,nw/5));
+    const fsTn=ED_FS>0?ED_FS*0.82:Math.max(6,Math.min(50,nw/7));
     nodesSVG+=svgBox(n.x-nw/2,n.y,n.data,nw,nh,!!n.data?.dashed,fsNn,fsTn);
   });
 
@@ -1006,7 +1006,7 @@ window.__dlSVG    = dlSVG;
       const lines=l2?[l1,l2]:[l1];
       const _nw=edPositions[d.id]?.w||NW;
       const _nh=edPositions[d.id]?.h||NH;
-      const _fs=Math.max(8,Math.min(24,Math.min(_nw/8, _nh/(lines.length+(hasTit?1:0)+1)*0.7)));
+      const _fs=Math.max(8,Math.min(60,Math.min(_nw/5, _nh/(lines.length+(hasTit?1:0)+0.8)*0.75)));
       const _lh=_fs+3;
       const totalLines=lines.length+(hasTit?1:0);
       const blockH=totalLines*_lh;
@@ -1054,7 +1054,7 @@ window.__dlSVG    = dlSVG;
             for(const w of words){if((l1+" "+w).trim().length<=20)l1=(l1+" "+w).trim();else l2=(l2+" "+w).trim();}
             const hasTit=d.titular&&d.titular.trim();
             const lines=l2?[l1,l2]:[l1];
-            const _fs=Math.max(8,Math.min(28,Math.min(p.w/7, p.h/(lines.length+(hasTit?1:0)+0.5)*0.65)));
+            const _fs=Math.max(8,Math.min(60,Math.min(p.w/5, p.h/(lines.length+(hasTit?1:0)+0.8)*0.75)));
             const _lh=_fs+3;
             const blockH=(lines.length+(hasTit?1:0))*_lh;
             const sy=(p.h-blockH)/2+_fs;
