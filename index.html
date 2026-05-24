@@ -1055,16 +1055,18 @@ window.__dlSVG    = dlSVG;
             const _lh=_fs+3;
             const blockH=(lines.length+(hasTit?1:0))*_lh;
             const sy=(p.h-blockH)/2+_fs;
+            // Keep node centered on p.x
+            par.attr("transform",`translate(${p.x-p.w/2},${p.y})`);
             par.selectAll("text").remove();
             lines.forEach((l,_i)=>par.append("text")
               .attr("x",p.w/2).attr("y",sy+_i*_lh)
               .attr("text-anchor","middle").attr("dominant-baseline","auto")
-              .attr("font-size",_fs).attr("font-weight",600)
+              .style("font-size",_fs+"px").attr("font-weight",600)
               .attr("fill","#fff").attr("font-family","Open Sans,sans-serif").text(l));
             if(hasTit)par.append("text")
               .attr("x",p.w/2).attr("y",sy+lines.length*_lh+1.5)
               .attr("text-anchor","middle")
-              .attr("font-size",Math.max(6,_fs-1.5))
+              .style("font-size",Math.max(6,_fs-1.5)+"px")
               .attr("fill","rgba(255,255,255,0.75)")
               .attr("font-family","Open Sans,sans-serif")
               .text(d.titular.length>28?d.titular.slice(0,26)+"…":d.titular);
