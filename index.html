@@ -1121,9 +1121,9 @@ window.__dlSVG    = dlSVG;
     const idEl=document.getElementById("ed-ins-id");
     if(!node){
       body.innerHTML='<div class="ed-ins-empty"><div class="ico">⬡</div><p>Clic = seleccionar<br>Shift+clic = seleccionar<br>nodo + dependientes</p></div>';
-      actions.style.display="none";idEl.textContent="";return;
+      actions.style.display="none";if(idEl)idEl.textContent="";return;
     }
-    idEl.textContent=node.id;
+    if(idEl)idEl.textContent=node.id;
     actions.style.display="flex";
     const isC=node.tipo?.startsWith("CUSTOM:");
     const color=getColor(node);
