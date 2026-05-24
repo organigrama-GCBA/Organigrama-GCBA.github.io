@@ -992,7 +992,7 @@ window.__dlSVG    = dlSVG;
       .on("end",()=>{savePosForArea();showSaved();})
     );
 
-    ng.append("rect").attr("width",NW).attr("height",NH).attr("rx",7)
+    ng.append("rect").attr("width",d=>(edPositions[d.id]?.w||NW)).attr("height",d=>(edPositions[d.id]?.h||NH)).attr("rx",7)
       .attr("fill",d=>getColor(d))
       .attr("stroke",d=>d.dashed?"rgba(255,255,255,0.4)":"none")
       .attr("stroke-width",1.5).attr("stroke-dasharray",d=>d.dashed?"5,3":"none");
