@@ -839,7 +839,7 @@ window.__dlSVG    = dlSVG;
     function linkPath(sid,tid){
       const sp=edPositions[sid]||{x:0,y:0};
       const tp=edPositions[tid]||{x:0,y:0};
-      const sx=sp.x,sy=sp.y+NH,tx=tp.x,ty=tp.y;
+      const sx=sp.x,sy=sp.y+(sp.h||NH),tx=tp.x,ty=tp.y;
       const wps=edWaypoints[sid+"-"+tid]||[];
       if(wps.length>0){
         const pts=[{x:sx,y:sy},...wps,{x:tx,y:ty}];
@@ -2471,25 +2471,35 @@ function App(){
           <div style={{fontSize:14,fontWeight:700,color:"#fff",lineHeight:1.2}}>Organigrama de Gobierno</div>
           <div style={{fontSize:10,color:"rgba(255,255,255,.65)"}}>Ciudad Autónoma de Buenos Aires</div>
         </div>
-        {/* Tabs */}
+        {/* Tabs — editor oculto, acceso por botón de administración */}
         <div className="app-tabs">
-          {[["organigrama","📋 Organigrama"],["arbol","🌐 Árbol"],["editor","✏️ Editor visual"]].map(([id,label])=>(
+          {[["organigrama","📋 Organigrama"],["arbol","🌐 Árbol"]].map(([id,label])=>(
             <button key={id} className={`app-tab${activeTab===id?" active":""}`}
-              onClick={()=>{
-                if(id==="editor"){
-                  const h=async()=>{
-                    const pwd=prompt("Contraseña del editor:");
-                    if(!pwd)return;
-                    const hash=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(pwd)))).map(b=>b.toString(16).padStart(2,"0")).join("");
-                    if(hash==="03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"){window._gcbaEditorAuth=true;setActiveTab(id);}
-                    else alert("Contraseña incorrecta");
-                  };
-                  if(window._gcbaEditorAuth===true){setActiveTab(id);return;}
-                  h();
-                }else{setActiveTab(id);}
-              }}>{label}</button>
+              onClick={()=>setActiveTab(id)}>{label}</button>
           ))}
         </div>
+        {/* Botón de acceso admin — discreto, a la derecha */}
+        <button
+          onClick={async()=>{
+            if(window._gcbaEditorAuth===true){setActiveTab("editor");return;}
+            const pwd=prompt("Contraseña de administración:");
+            if(!pwd)return;
+            const hash=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(pwd)))).map(b=>b.toString(16).padStart(2,"0")).join("");
+            if(hash==="03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"){
+              window._gcbaEditorAuth=true;
+              setActiveTab("editor");
+            } else {
+              alert("Contraseña incorrecta");
+            }
+          }}
+          style={{marginLeft:8,padding:"4px 10px",fontSize:10,fontWeight:600,
+            background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.2)",
+            color:"rgba(255,255,255,0.4)",borderRadius:5,cursor:"pointer",
+            fontFamily:"inherit",letterSpacing:".05em",transition:"all .2s"}}
+          onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.15)";e.currentTarget.style.color="rgba(255,255,255,0.8)";}}
+          onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.08)";e.currentTarget.style.color="rgba(255,255,255,0.4)";}}>
+          ⚙
+        </button>
         {/* Botones derecha */}
         <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
           <Btn variant="ghost" onClick={dlAll} small>⬇ Descargar todo A3</Btn>
