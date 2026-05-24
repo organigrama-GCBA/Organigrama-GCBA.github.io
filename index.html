@@ -441,8 +441,7 @@ function dlSVG(svgStr,fname){
 window.__genSVGA3 = genSVGA3;
 window.genSVGA3   = genSVGA3;
 window.__dlSVG    = dlSVG;
-window.__flatList = flatList;
-window.__findNode = findNode;
+// flatList and findNode are defined in the React JSX block
 
 
   </script>
@@ -987,12 +986,33 @@ window.__findNode = findNode;
       .on("end",()=>{savePosForArea();showSaved();})
     );
 
-    // ── Resize handle: esquina inferior derecha ─────────────
+    ng.append("rect").attr("width",NW).attr("height",NH).attr("rx",7)
+      .attr("fill",d=>getColor(d))
+      .attr("stroke",d=>d.dashed?"rgba(255,255,255,0.4)":"none")
+      .attr("stroke-width",1.5).attr("stroke-dasharray",d=>d.dashed?"5,3":"none");
+
+    ng.each(function(d){
+      const g2=d3.select(this);
+      const words=(d.nombre||"").split(" ");
+      let l1="",l2="";
+      for(const w of words){if((l1+" "+w).trim().length<=20)l1=(l1+" "+w).trim();else l2=(l2+" "+w).trim();}
+      const hasTit=d.titular&&d.titular.trim();
+      const lines=l2?[l1,l2]:[l1];
+      const lh=12,sy2=NH/2-(lines.length+(hasTit?1:0))*lh/2+lh*0.85;
+      lines.forEach((l,i)=>g2.append("text").attr("x",NW/2).attr("y",sy2+i*lh)
+        .attr("text-anchor","middle").attr("font-size",9.5).attr("font-weight",600)
+        .attr("fill","#fff").attr("font-family","Inter,sans-serif").text(l));
+      if(hasTit)g2.append("text").attr("x",NW/2).attr("y",sy2+lines.length*lh+1.5)
+        .attr("text-anchor","middle").attr("font-size",8).attr("fill","rgba(255,255,255,0.7)")
+        .attr("font-family","Inter,sans-serif").text(d.titular.length>24?d.titular.slice(0,24)+"…":d.titular);
+    });
+
+    // ── Resize handle: esquina inferior derecha (encima de todo) ──
     const RHANDLE=10;
     ng.append("rect")
       .attr("class","resize-handle")
       .attr("width",RHANDLE).attr("height",RHANDLE).attr("rx",2)
-      .attr("fill","#336ACC").attr("opacity",0.8)
+      .attr("fill","#336ACC").attr("opacity",0.85)
       .attr("x",d=>(edPositions[d.id]?.w||NW)-RHANDLE/2)
       .attr("y",d=>(edPositions[d.id]?.h||NH)-RHANDLE/2)
       .attr("cursor","se-resize")
@@ -1017,27 +1037,6 @@ window.__findNode = findNode;
         })
         .on("end",()=>{savePosForArea();showSaved();})
       );
-
-    ng.append("rect").attr("width",NW).attr("height",NH).attr("rx",7)
-      .attr("fill",d=>getColor(d))
-      .attr("stroke",d=>d.dashed?"rgba(255,255,255,0.4)":"none")
-      .attr("stroke-width",1.5).attr("stroke-dasharray",d=>d.dashed?"5,3":"none");
-
-    ng.each(function(d){
-      const g2=d3.select(this);
-      const words=(d.nombre||"").split(" ");
-      let l1="",l2="";
-      for(const w of words){if((l1+" "+w).trim().length<=20)l1=(l1+" "+w).trim();else l2=(l2+" "+w).trim();}
-      const hasTit=d.titular&&d.titular.trim();
-      const lines=l2?[l1,l2]:[l1];
-      const lh=12,sy2=NH/2-(lines.length+(hasTit?1:0))*lh/2+lh*0.85;
-      lines.forEach((l,i)=>g2.append("text").attr("x",NW/2).attr("y",sy2+i*lh)
-        .attr("text-anchor","middle").attr("font-size",9.5).attr("font-weight",600)
-        .attr("fill","#fff").attr("font-family","Inter,sans-serif").text(l));
-      if(hasTit)g2.append("text").attr("x",NW/2).attr("y",sy2+lines.length*lh+1.5)
-        .attr("text-anchor","middle").attr("font-size",8).attr("fill","rgba(255,255,255,0.7)")
-        .attr("font-family","Inter,sans-serif").text(d.titular.length>24?d.titular.slice(0,24)+"…":d.titular);
-    });
 
     svg.on("click",()=>{edSelectedIds.clear();d3.selectAll(".c-node").classed("sel",false);renderInspector(null);document.getElementById("ed-actions").style.display="none";});
 
