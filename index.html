@@ -168,8 +168,8 @@ function wrapTxt(t,max){
     else c=(c+test).trim();
   }
   if(c)ls.push(c);
-  // máximo 3 líneas
-  if(ls.length>3){const last=ls.splice(2).join(" ");ls[2]=last.length>max?last.slice(0,max-1)+"…":last;}
+  // máximo 5 líneas — si hay más, solo truncar la última con "…"
+  if(ls.length>5){const last=ls.splice(4).join(" ");ls[4]=last.length>max?last.slice(0,max-1)+"…":last;}
   return ls;
 }
 
@@ -1100,6 +1100,18 @@ window.__dlSVG    = dlSVG;
                     .attr("stroke","#A0AEC0").attr("stroke-width",1).attr("stroke-dasharray","8,4").attr("opacity",0.9);
                 }
               }
+
+              // ── Snap vertical (mismo X = líneas verticales alineadas) ──
+              links.filter(lk2=>lk2.tid!==sid&&!(edWaypoints[lk2.sid+"-"+lk2.tid]?.length>0)).forEach(lk2=>{
+                const tp2=edPositions[lk2.tid];if(!tp2)return;
+                if(Math.abs(sp.x-tp2.x)<SNAP){
+                  sp.x=tp2.x;
+                  guideG.append("line").attr("class","snap-guide v")
+                    .attr("x1",tp2.x).attr("y1",-9999).attr("x2",tp2.x).attr("y2",9999)
+                    .attr("stroke","#A0AEC0").attr("stroke-width",1)
+                    .attr("stroke-dasharray","8,4").attr("opacity",0.7);
+                }
+              });
             });
           });
         });
