@@ -1039,13 +1039,13 @@ window.__dlSVG    = dlSVG;
           const handleEl=this;
 
           function onMove(ev){
-            const par=d3.select(document.querySelector(`.c-node[data-id="${nodeId}"]`)||handleEl.parentNode);
+            const liveEl=document.querySelector(`.c-node[data-id="${nodeId}"]`)||handleEl.parentNode;
+            const par=d3.select(liveEl);
             ev.stopPropagation();
-            const dx=(ev.clientX-startX)/edTransform.k;
-            const dy=(ev.clientY-startY)/edTransform.k;
-            p.w=Math.max(80,Math.min(600,startW+dx));
-            p.h=Math.max(28,Math.min(300,startH+dy));
-            console.log("resize",p.w.toFixed(0),"x",p.h.toFixed(0));
+            const dx=(ev.clientX-startX);
+            const dy=(ev.clientY-startY);
+            p.w=Math.max(60,Math.min(800,startW+dx));
+            p.h=Math.max(24,Math.min(400,startH+dy));
             par.select("rect:not(.resize-handle)").attr("width",p.w).attr("height",p.h);
             d3.select(handleEl).attr("x",p.w-RHANDLE/2).attr("y",p.h-RHANDLE/2);
             // Calculate lines FIRST, then font size
@@ -1060,20 +1060,28 @@ window.__dlSVG    = dlSVG;
             const sy=(p.h-blockH)/2+_fs;
             // Keep node centered on p.x
             par.attr("transform",`translate(${p.x-p.w/2},${p.y})`);
-            par.selectAll("text").remove();
-            lines.forEach((l,_i)=>par.append("text")
-              .attr("x",p.w/2).attr("y",sy+_i*_lh)
-              .attr("text-anchor","middle").attr("dominant-baseline","auto")
-              .style("font-size",_fs+"px").attr("font-weight",600)
-              .attr("fill","#fff").attr("font-family","Open Sans,sans-serif").text(l));
-            if(hasTit)par.append("text")
-              .attr("x",p.w/2).attr("y",sy+lines.length*_lh+1.5)
-              .attr("text-anchor","middle")
-              .style("font-size",Math.max(6,_fs-1.5)+"px")
-              .attr("fill","rgba(255,255,255,0.75)")
-              .attr("font-family","Open Sans,sans-serif")
-              .text(d.titular.length>28?d.titular.slice(0,26)+"…":d.titular);
-            // Re-append handle on top after text
+            // Update texts in place
+            const allTexts=par.selectAll("text").nodes();
+            const allLinesData=[...lines,...(hasTit?[d.titular.length>28?d.titular.slice(0,26)+"…":d.titular]:[])];
+            allTexts.forEach((t,_i)=>{
+              if(_i>=allLinesData.length){d3.select(t).remove();return;}
+              d3.select(t)
+                .attr("x",p.w/2)
+                .attr("y",_i<lines.length?sy+_i*_lh:sy+lines.length*_lh+1.5)
+                .style("font-size",(_i<lines.length?_fs:Math.max(6,_fs-1.5))+"px")
+                .text(allLinesData[_i]);
+            });
+            // If more lines than existing texts, append new ones
+            for(let _i=allTexts.length;_i<allLinesData.length;_i++){
+              par.append("text")
+                .attr("x",p.w/2).attr("y",_i<lines.length?sy+_i*_lh:sy+lines.length*_lh+1.5)
+                .attr("text-anchor","middle")
+                .style("font-size",(_i<lines.length?_fs:Math.max(6,_fs-1.5))+"px")
+                .attr("font-weight",_i<lines.length?600:400)
+                .attr("fill",_i<lines.length?"#fff":"rgba(255,255,255,0.75)")
+                .attr("font-family","Open Sans,sans-serif")
+                .text(allLinesData[_i]);
+            }
             par.select(".resize-handle").raise();
             par.attr("transform",`translate(${p.x-p.w/2},${p.y})`);
             drawLinks();drawWPs();
