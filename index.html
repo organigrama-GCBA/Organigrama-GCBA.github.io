@@ -963,6 +963,7 @@ window.__dlSVG    = dlSVG;
     const nodeG=g.append("g");
     const ng=nodeG.selectAll("g.c-node").data(nodes,d=>d.id).enter()
       .append("g").attr("class",d=>"c-node"+(edSelectedIds.has(d.id)?" sel":""))
+      .attr("data-id",d=>d.id)
       .attr("transform",d=>{const p=edPositions[d.id]||{x:0,y:0};return`translate(${p.x-(p.w||NW)/2},${p.y})`;})
       .style("cursor","pointer")
       .on("click",(e,d)=>{
@@ -1034,10 +1035,11 @@ window.__dlSVG    = dlSVG;
           const p=edPositions[d.id];if(!p)return;
           const startX=e2.clientX,startY=e2.clientY;
           const startW=p.w||NW,startH=p.h||NH;
+          const nodeId=d.id;
           const handleEl=this;
-          const par=d3.select(this.parentNode);
 
           function onMove(ev){
+            const par=d3.select(document.querySelector(`.c-node[data-id="${nodeId}"]`)||handleEl.parentNode);
             ev.stopPropagation();
             const dx=(ev.clientX-startX)/edTransform.k;
             const dy=(ev.clientY-startY)/edTransform.k;
