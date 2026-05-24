@@ -1361,7 +1361,25 @@ window.__dlSVG    = dlSVG;
     else if(e.key==="ArrowUp"){e.preventDefault();nudge(0,-step);}
     else if(e.key==="ArrowDown"){e.preventDefault();nudge(0,step);}
   });
-  window.switchTab=switchTab;window.nudge=nudge;window.selectAllNodes=selectAllNodes;
+  function updateAlignBar(){
+    const bar=document.getElementById("ed-align-bar");
+    if(bar){
+      if(edSelectedIds.size>=2){
+        bar.classList.add("visible");
+        const cnt=document.getElementById("ed-sel-count");
+        if(cnt)cnt.textContent=edSelectedIds.size;
+      }else{bar.classList.remove("visible");}
+    }
+    updateToolsSelInfo();
+  }
+  function updateToolsSelInfo(){
+    const info=document.getElementById("tools-sel-info");
+    const cnt=document.getElementById("tools-sel-count");
+    if(!info||!cnt)return;
+    if(edSelectedIds.size>0){info.style.display="block";cnt.textContent=edSelectedIds.size;}
+    else{info.style.display="none";}
+  }
+    window.switchTab=switchTab;window.nudge=nudge;window.selectAllNodes=selectAllNodes;
   window.clearSelection=clearSelection;window.selectFrom=selectFrom;
   window.resizeAll=resizeAll;window.resizeAllExact=resizeAllExact;
   window.copyFormat=copyFormat;window.pasteFormat=pasteFormat;
