@@ -1031,31 +1031,7 @@ window.__dlSVG    = dlSVG;
           const p=edPositions[d.id];if(!p)return;
           p.w=Math.max(80,Math.min(400,(p.w||NW)+e2.dx/edTransform.k));
           p.h=Math.max(28,Math.min(150,(p.h||NH)+e2.dy/edTransform.k));
-          const self=d3.select(this);
-          const parent=d3.select(this.parentNode);
-          parent.attr("transform",`translate(${p.x-p.w/2},${p.y})`);
-          parent.select("rect:not(.resize-handle)")
-            .attr("width",p.w).attr("height",p.h);
-          self.attr("x",p.w-RHANDLE/2).attr("y",p.h-RHANDLE/2);
-          // Re-render text at new center
-          const _nw2=p.w,_nh2=p.h;
-          const _fs2=Math.max(7,Math.min(13,_nw2/11));
-          const _lh2=_fs2+2;
-          parent.selectAll("text").remove();
-          const words2=(d.nombre||"").split(" ");
-          let l1_2="",l2_2="";
-          for(const w of words2){if((l1_2+" "+w).trim().length<=20)l1_2=(l1_2+" "+w).trim();else l2_2=(l2_2+" "+w).trim();}
-          const hasTit2=d.titular&&d.titular.trim();
-          const lines2=l2_2?[l1_2,l2_2]:[l1_2];
-          const sy2_2=_nh2/2-(lines2.length+(hasTit2?1:0))*_lh2/2+_lh2*0.85;
-          lines2.forEach((l,i)=>parent.append("text").attr("x",_nw2/2).attr("y",sy2_2+i*_lh2)
-            .attr("text-anchor","middle").attr("font-size",_fs2).attr("font-weight",600)
-            .attr("fill","#fff").attr("font-family","Open Sans,Inter,sans-serif").text(l));
-          if(hasTit2)parent.append("text").attr("x",_nw2/2).attr("y",sy2_2+lines2.length*_lh2+1.5)
-            .attr("text-anchor","middle").attr("font-size",Math.max(6,_fs2-1.5))
-            .attr("fill","rgba(255,255,255,0.7)").attr("font-family","Open Sans,Inter,sans-serif")
-            .text(d.titular.length>22?d.titular.slice(0,20)+"…":d.titular);
-          drawLinks();drawWPs();
+          renderCanvas();
         })
         .on("end",()=>{savePosForArea();showSaved();})
       );
