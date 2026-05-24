@@ -69,12 +69,14 @@ body{margin:0;font-family:'Open Sans','Inter',-apple-system,sans-serif;backgroun
   --ed-accent:#336ACC;
 }
 .app-layout{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+.app-wrap{display:flex;flex-direction:column;height:100vh;overflow:hidden;background:#F3F6F9;}
+.sidebar{display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0;}
 .app-header{height:52px;background:linear-gradient(135deg,#101E37 0%,#005E7A 100%);display:flex;align-items:center;padding:0 16px;gap:12px;flex-shrink:0;font-family:'Nunito','Open Sans',sans-serif;}
 .app-tabs{display:flex;gap:2px;margin-left:20px;}
 .app-tab{background:transparent;border:none;color:rgba(255,255,255,.65);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all .15s;}
 .app-tab:hover{background:rgba(255,255,255,.1);color:#fff;}
 .app-tab.active{background:rgba(255,255,255,.2);color:#fff;}
-.app-body{flex:1;display:flex;overflow:hidden;}
+.app-body{flex:1;display:flex;overflow:hidden;min-height:0;}
 .app-sidebar{width:280px;flex-shrink:0;background:#fff;border-right:1px solid var(--gris-borde);display:flex;flex-direction:column;overflow:hidden;}
 .app-content{flex:1;overflow:auto;background:var(--gris-bg);display:flex;flex-direction:column;}
 .btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:7px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;border:1px solid transparent;transition:all .15s;}
@@ -2353,7 +2355,7 @@ function App(){
       <div className="app-body">
         {/* Vista completa */}
         {activeTab==="arbol"&&(
-          <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+          <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:"#F3F6F9"}}>
             <OrgChart data={data} search={search} selectedId={selected?.id}/>
           </div>
         )}
