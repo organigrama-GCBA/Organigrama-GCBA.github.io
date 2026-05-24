@@ -1001,8 +1001,10 @@ window.__dlSVG    = dlSVG;
       const _nw=edPositions[d.id]?.w||NW;
       const _nh=edPositions[d.id]?.h||NH;
       const _fs=Math.max(7,Math.min(13,_nw/11));
-      const _lh=_fs+2;
-      const sy2=_nh/2-(lines.length+(hasTit?1:0))*_lh/2+_lh*0.85;
+      const _lh=_fs+2.5;
+      const totalLines=lines.length+(hasTit?1:0);
+      const blockH=totalLines*_lh;
+      const sy2=(_nh-blockH)/2+_fs;
       lines.forEach((l,i)=>g2.append("text").attr("x",_nw/2).attr("y",sy2+i*_lh)
         .attr("text-anchor","middle").attr("font-size",_fs).attr("font-weight",600)
         .attr("fill","#fff").attr("font-family","Open Sans,Inter,sans-serif").text(l));
