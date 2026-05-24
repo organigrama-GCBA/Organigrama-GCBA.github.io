@@ -137,6 +137,7 @@ body{margin:0;font-family:'Open Sans','Inter',-apple-system,sans-serif;backgroun
 #tab-inspector,#tab-tools{min-height:0;flex:1;overflow:hidden;}
 #tab-tools{overflow-y:auto;}
 .c-node.sel rect{stroke:#FFD500;stroke-width:3;filter:drop-shadow(0 0 6px rgba(255,213,0,0.8));}
+.snap-guide{stroke:#00D9FF;stroke-width:1;stroke-dasharray:4,3;opacity:0.85;}
 .main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}</style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -234,7 +235,9 @@ function genSVGA3(root,pn=1,tot=1){
     })(root,0);
     const visIds=new Set(visible.map(n=>n.id));
 
-    nodes=visible.map(n=>({x:savedPos[n.id]?.x??0,y:savedPos[n.id]?.y??0,w:savedPos[n.id]?.w||ED_NW,h:savedPos[n.id]?.h||ED_NH,data:n}));
+    nodes=visible.filter(n=>savedPos[n.id]!=null).map(n=>({x:savedPos[n.id].x,y:savedPos[n.id].y,w:savedPos[n.id].w||ED_NW,h:savedPos[n.id].h||ED_NH,data:n}));
+    // If some nodes missing from savedPos, fall back to auto layout
+    if(nodes.length<visible.length*0.5){nodes=[];} // too many missing → auto layout
 
     // Links
     (function walk(node,depth){
@@ -246,7 +249,30 @@ function genSVGA3(root,pn=1,tot=1){
       });
     })(root,0);
 
-    // Las posiciones ya están en coordenadas A3 (el editor usa el mismo sistema)
+    // Normalizar posiciones del editor para que quepan en el A3
+    if(nodes.length>0){
+      // Usar percentil 5-95 para ignorar outliers extremos
+      const xs=nodes.map(n=>n.x).sort((a,b)=>a-b);
+      const ys=nodes.map(n=>n.y).sort((a,b)=>a-b);
+      const p5=Math.floor(xs.length*0.05),p95=Math.ceil(xs.length*0.95)-1;
+      const minX=xs[p5]-(ED_NW/2)-20;
+      const maxX=xs[p95]+(ED_NW/2)+20;
+      const minY=ys[p5]-20;
+      const maxY=ys[Math.min(p95,ys.length-1)]+(ED_NH)+20;
+      const scX=AW/(maxX-minX||1);
+      const scY=AH/(maxY-minY||1);
+      const sc=Math.min(scX,scY,3)*0.92;
+      const cxContent=(minX+maxX)/2;
+      const cyContent=(minY+maxY)/2;
+      const offX=MAR+AW/2-cxContent*sc;
+      const offY=HH+AH/2-cyContent*sc;
+      nodes.forEach(n=>{
+        n.x=n.x*sc+offX;
+        n.y=n.y*sc+offY;
+        n.w=(n.w||ED_NW)*sc;
+        n.h=(n.h||ED_NH)*sc;
+      });
+    }
     NW=ED_NW; NH=ED_NH;
 
   }else{
@@ -467,26 +493,12 @@ window.__dlSVG    = dlSVG;
       <button class="ed-zb" id="ed-btn-back" style="width:auto;padding:0 12px;font-size:11px;background:var(--ed-accent);color:#fff;border-color:var(--ed-accent);">← Volver</button>
     </div>
   </div>
-  <!-- Barra de alineación -->
+  <!-- Barra de selección info (sin botones de alineación — usar snap guides al arrastrar) -->
   <div id="ed-align-bar">
-    <span style="font-size:9px;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.06em;margin-right:4px;">✦ <span id="ed-sel-count">0</span> sel —</span>
-    <span style="font-size:9px;color:var(--ed-text3);margin-right:2px;">Alinear:</span>
-    <button class="ed-zb ed-aln" id="al-left" title="Alinear izquierda">◧</button>
-    <button class="ed-zb ed-aln" id="al-center" title="Centrar H">⊞</button>
-    <button class="ed-zb ed-aln" id="al-right" title="Alinear derecha">◨</button>
-    <div style="width:1px;height:18px;background:var(--ed-border2);margin:0 3px;"></div>
-    <button class="ed-zb ed-aln" id="al-top" title="Alinear arriba">⬆</button>
-    <button class="ed-zb ed-aln" id="al-middle" title="Centrar V">⊟</button>
-    <button class="ed-zb ed-aln" id="al-bottom" title="Alinear abajo">⬇</button>
-    <div style="width:1px;height:18px;background:var(--ed-border2);margin:0 3px;"></div>
-    <button class="ed-zb ed-aln" id="al-dist-h" title="Distribuir H">⇿H</button>
-    <button class="ed-zb ed-aln" id="al-dist-v" title="Distribuir V">↕V</button>
-    <div style="width:1px;height:18px;background:var(--ed-border2);margin:0 3px;"></div>
-    <button class="ed-zb ed-aln" id="al-same-w" title="Mismo ancho">=W</button>
-    <button class="ed-zb ed-aln" id="al-same-h" title="Misma altura">=H</button>
-    <div style="width:1px;height:18px;background:var(--ed-border2);margin:0 3px;"></div>
-    <button class="ed-zb ed-aln" id="al-group-h" title="Fila H">▭→</button>
-    <button class="ed-zb ed-aln" id="al-group-v" title="Columna V">↓▭</button>
+    <span style="font-size:9px;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.06em;margin-right:4px;">✦ <span id="ed-sel-count">0</span> nodos seleccionados</span>
+    <span style="font-size:9px;color:var(--ed-text2);margin-left:8px;opacity:.6;">— arrastrá para alinear con guías automáticas</span>
+    <!-- Hidden buttons needed by wire() -->
+    <span style="display:none"><button id="al-left"></button><button id="al-center"></button><button id="al-right"></button><button id="al-top"></button><button id="al-middle"></button><button id="al-bottom"></button><button id="al-dist-h"></button><button id="al-dist-v"></button><button id="al-same-w"></button><button id="al-same-h"></button><button id="al-group-h"></button><button id="al-group-v"></button></span>
   </div>
   <div id="ed-body">
     <div class="ed-sidebar">
@@ -501,24 +513,11 @@ window.__dlSVG    = dlSVG;
         <button class="ed-zb" id="ed-zo" title="Zoom -">−</button>
       </div>
     </div>
-    <div class="ed-inspector" style="width:300px;">
-      <div style="display:flex;border-bottom:1px solid var(--ed-border);flex-shrink:0;">
-        <button id="tab-btn-inspector" onclick="switchTab('inspector')"
-          style="flex:1;padding:8px 4px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer;background:var(--ed-accent);border:none;color:#fff;letter-spacing:.04em;">🔍 NODO</button>
-        <button id="tab-btn-tools" onclick="switchTab('tools')"
-          style="flex:1;padding:8px 4px;font-size:10px;font-weight:600;font-family:inherit;cursor:pointer;background:var(--ed-surface);border:none;color:var(--ed-text3);border-left:1px solid var(--ed-border);letter-spacing:.04em;">🔧 HERRAMIENTAS</button>
-      </div>
-      <div id="tab-inspector" style="display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0;">
-        <div class="ed-ins-body" id="ed-ins-body">
-          <div class="ed-ins-empty"><div class="ico">⬡</div><p>Clic en un nodo para editarlo</p></div>
-        </div>
-        <div class="ed-actions" id="ed-actions" style="display:none;">
-          <button class="ed-btn primary" id="ed-btn-node-save">✓ Guardar cambios</button>
-          <button class="ed-btn" id="ed-btn-move">↕ Mover a otro padre</button>
-          <button class="ed-btn danger" id="ed-btn-delete">✕ Eliminar nodo</button>
-        </div>
-      </div>
-      <div id="tab-tools" style="display:none;flex-direction:column;flex:1;overflow-y:auto;min-height:0;padding:10px;gap:0;">
+    <div class="ed-inspector" style="width:260px;">
+      <div style="padding:8px;border-bottom:1px solid var(--ed-border);font-size:10px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.06em;flex-shrink:0;">🔧 Herramientas</div>
+      <!-- Hidden elements needed by renderInspector -->
+      <div id="tab-inspector" style="display:none;"><div id="ed-ins-body"></div><div id="ed-actions" style="display:none;"><button id="ed-btn-node-save"></button><button id="ed-btn-move"></button><button id="ed-btn-delete"></button></div></div>
+      <div id="tab-tools" style="display:flex;flex-direction:column;flex:1;overflow-y:auto;min-height:0;padding:10px;gap:0;">
         <div id="tools-sel-info" style="display:none;background:var(--ed-surface2);border-radius:6px;padding:8px 10px;margin-bottom:10px;font-size:10px;color:var(--ed-text3);text-align:center;">
           <span id="tools-sel-count" style="font-size:16px;font-weight:700;color:var(--ed-accent);display:block;"></span>nodos seleccionados
         </div>
@@ -532,43 +531,8 @@ window.__dlSVG    = dlSVG;
         </div>
         <div style="height:1px;background:var(--ed-border);margin:0 0 10px;"></div>
         <div style="margin-bottom:10px;">
-          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Alinear</div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;">
-            <button class="ed-tool-btn" id="al-left2" onclick="document.getElementById('al-left').click()">◧ Izq.</button>
-            <button class="ed-tool-btn" id="al-center2" onclick="document.getElementById('al-center').click()">⊞ Cen.H</button>
-            <button class="ed-tool-btn" id="al-right2" onclick="document.getElementById('al-right').click()">◨ Der.</button>
-            <button class="ed-tool-btn" id="al-top2" onclick="document.getElementById('al-top').click()">⬆ Arr.</button>
-            <button class="ed-tool-btn" id="al-middle2" onclick="document.getElementById('al-middle').click()">⊟ Cen.V</button>
-            <button class="ed-tool-btn" id="al-bottom2" onclick="document.getElementById('al-bottom').click()">⬇ Ab.</button>
-          </div>
-        </div>
-        <div style="margin-bottom:10px;">
-          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Distribuir</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-            <button class="ed-tool-btn" onclick="document.getElementById('al-dist-h').click()">⇿ H</button>
-            <button class="ed-tool-btn" onclick="document.getElementById('al-dist-v').click()">↕ V</button>
-          </div>
-        </div>
-        <div style="margin-bottom:10px;">
-          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Redimensionar</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;">
-            <button class="ed-tool-btn" onclick="resizeAll('w',10)">↔ +W</button>
-            <button class="ed-tool-btn" onclick="resizeAll('w',-10)">↔ -W</button>
-            <button class="ed-tool-btn" onclick="resizeAll('h',6)">↕ +H</button>
-            <button class="ed-tool-btn" onclick="resizeAll('h',-6)">↕ -H</button>
-          </div>
-          <div style="display:flex;gap:4px;align-items:center;margin-bottom:4px;">
-            <span style="font-size:9px;color:var(--ed-text3);width:32px;flex-shrink:0;">Ancho</span>
-            <input id="resize-w-input" type="number" min="60" max="400" placeholder="px"
-              style="flex:1;border:1px solid var(--ed-border2);border-radius:4px;padding:4px 6px;font-size:11px;font-family:inherit;background:var(--ed-surface2);color:var(--ed-text1);"
-              onchange="resizeAllExact('w',+this.value)"/>
-          </div>
-          <div style="display:flex;gap:4px;align-items:center;">
-            <span style="font-size:9px;color:var(--ed-text3);width:32px;flex-shrink:0;">Alto</span>
-            <input id="resize-h-input" type="number" min="30" max="200" placeholder="px"
-              style="flex:1;border:1px solid var(--ed-border2);border-radius:4px;padding:4px 6px;font-size:11px;font-family:inherit;background:var(--ed-surface2);color:var(--ed-text1);"
-              onchange="resizeAllExact('h',+this.value)"/>
-          </div>
+          <div style="font-size:9px;font-weight:700;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;display:flex;align-items:center;gap:6px;"><span style="width:8px;height:8px;border-radius:50%;background:#00D9FF;flex-shrink:0;display:inline-block;"></span>Guías automáticas al arrastrar</div>
+          <p style="font-size:10px;color:var(--ed-text3);line-height:1.5;margin:0;">Líneas cyan aparecen cuando el nodo se alinea con el centro o borde de otro. Soltá ahí para quedar alineado.</p>
         </div>
         <div style="height:1px;background:var(--ed-border);margin:0 0 10px;"></div>
         <div style="margin-bottom:10px;">
@@ -811,26 +775,99 @@ window.__dlSVG    = dlSVG;
     svg.call(edZoom.transform,edTransform);
     g.attr("transform",edTransform);
 
-    // Pan with right-click drag
-    let panStart=null;
-    svgEl.addEventListener("mousedown",function(e){
-      if(e.button!==1&&e.button!==2)return;
-      e.preventDefault();
-      panStart={cx:e.clientX,cy:e.clientY,tx:edTransform.x,ty:edTransform.y};
-    },{passive:false});
-    svgEl.addEventListener("mousemove",function(e){
-      if(!panStart)return;
-      const t=d3.zoomIdentity.translate(panStart.tx+(e.clientX-panStart.cx),panStart.ty+(e.clientY-panStart.cy)).scale(edTransform.k);
-      edTransform=t;svg.call(edZoom.transform,t);
-    });
-    svgEl.addEventListener("mouseup",function(e){if(e.button===1||e.button===2)panStart=null;});
-    svgEl.addEventListener("contextmenu",function(e){if(panStart!==null)e.preventDefault();});
+    // Pan handled by window listeners (set once outside renderCanvas)
 
     // Canvas background
     g.append("rect")
       .attr("x",-2000).attr("y",-2000)
       .attr("width",10000).attr("height",10000)
       .attr("fill","#1e2130");
+
+    // ── Marco A3 — escala relativa a los nodos actuales ─────
+    // Calculamos el bounding box de los nodos para escalar el marco
+    {
+      const allP=Object.values(edPositions).filter(p=>p&&p.x!=null);
+      if(allP.length>0){
+        const A3_RATIO=1587/1123; // aspecto A3 landscape
+        const A3_MAR_FRAC=40/1587, A3_HH_FRAC=68/1123, A3_FH_FRAC=34/1123;
+
+        // Bounding box de nodos (percentil 5-95 para ignorar outliers)
+        const xs=allP.map(p=>p.x).sort((a,b)=>a-b);
+        const ys=allP.map(p=>p.y).sort((a,b)=>a-b);
+        const p5=Math.max(0,Math.floor(xs.length*0.05));
+        const p95=Math.min(xs.length-1,Math.ceil(xs.length*0.95));
+        const pad=Math.max(80,(xs[p95]-xs[p5])*0.15);
+        const nx0=xs[p5]-pad, nx1=xs[p95]+pad;
+        const ny0=ys[p5]-pad, ny1=ys[p95]+pad;
+        const nW=nx1-nx0, nH=ny1-ny0;
+
+        // Escalar A3 para que el área útil contenga exactamente el bounding box
+        // Área útil A3 = (1507/1587)*PW x (981/1123)*PH
+        const usableWfrac=(1587-80)/1587, usableHfrac=(1123-68-34-40)/1123;
+        const scFromW=nW/usableWfrac;
+        const scFromH=nH/usableHfrac;
+        const frameScale=Math.max(scFromW/A3_RATIO, scFromH); // escala en px canvas por px A3
+
+        const FW=frameScale*A3_RATIO; // ancho total A3 en canvas px
+        const FH=frameScale;          // alto total A3 en canvas px
+        const marginPx=FW*A3_MAR_FRAC;
+        const headerPx=FH*A3_HH_FRAC;
+        const footerPx=FH*A3_FH_FRAC;
+        const usableW=FW-marginPx*2;
+        const usableH=FH-headerPx-footerPx-marginPx;
+
+        // Centrar el marco sobre el bounding box de nodos
+        const cx=(nx0+nx1)/2, cy=(ny0+ny1)/2;
+        const fx=cx-FW/2, fy=cy-FH/2;
+        const ux=fx+marginPx, uy=fy+headerPx;
+
+        // Fondo tenue del A3 completo
+        g.append("rect")
+          .attr("x",fx).attr("y",fy).attr("width",FW).attr("height",FH)
+          .attr("fill","rgba(255,255,255,0.02)")
+          .attr("stroke","rgba(255,255,255,0.08)").attr("stroke-width",1);
+
+        // Header
+        g.append("rect")
+          .attr("x",fx).attr("y",fy).attr("width",FW).attr("height",headerPx)
+          .attr("fill","rgba(255,165,0,0.05)").attr("stroke","none");
+        g.append("text")
+          .attr("x",fx+FW/2).attr("y",fy+headerPx*0.6)
+          .attr("text-anchor","middle").attr("font-size",Math.max(8,headerPx*0.18))
+          .attr("fill","rgba(255,165,0,0.35)").attr("font-family","Open Sans,sans-serif")
+          .text("encabezado A3 — título del área");
+
+        // Área útil
+        g.append("rect")
+          .attr("x",ux).attr("y",uy).attr("width",usableW).attr("height",usableH)
+          .attr("fill","none")
+          .attr("stroke","rgba(0,217,255,0.3)").attr("stroke-width",1.5)
+          .attr("stroke-dasharray","10,6").attr("rx",4);
+
+        // Etiqueta área útil
+        g.append("text")
+          .attr("x",ux+6).attr("y",uy+Math.max(10,usableH*0.025))
+          .attr("font-size",Math.max(7,usableH*0.012))
+          .attr("fill","rgba(0,217,255,0.4)").attr("font-family","Open Sans,sans-serif")
+          .text("↖ área útil A3");
+        g.append("text")
+          .attr("x",ux+usableW-6).attr("y",uy+usableH-4)
+          .attr("text-anchor","end")
+          .attr("font-size",Math.max(7,usableH*0.012))
+          .attr("fill","rgba(0,217,255,0.4)").attr("font-family","Open Sans,sans-serif")
+          .text("↘ fin área útil");
+
+        // Footer
+        g.append("text")
+          .attr("x",fx+FW/2).attr("y",fy+FH-footerPx*0.3)
+          .attr("text-anchor","middle").attr("font-size",Math.max(6,footerPx*0.25))
+          .attr("fill","rgba(255,255,255,0.15)").attr("font-family","Open Sans,sans-serif")
+          .text("pie de página A3");
+      }
+    }
+
+    // Guide layer (snap lines) — on top of links, below nodes
+    const guideG=g.append("g").attr("class","guide-layer").style("pointer-events","none");
 
     // Links
     const linkG=g.append("g");
@@ -854,6 +891,27 @@ window.__dlSVG    = dlSVG;
     }
 
     function drawLinks(){
+      // ── Dibujar barras compartidas entre waypoints con mismo Y ──
+      linkG.selectAll(".shared-bus").remove();
+      // Agrupar waypoints por Y redondeado
+      const busMap={};
+      Object.entries(edWaypoints).forEach(([key,wps])=>{
+        wps.forEach(wp=>{
+          const ry=Math.round(wp.y);
+          if(!busMap[ry])busMap[ry]=[];
+          busMap[ry].push({x:wp.x,key});
+        });
+      });
+      // Dibujar barra donde hay 2+ waypoints en el mismo Y
+      Object.entries(busMap).forEach(([ry,pts])=>{
+        if(pts.length<2)return;
+        pts.sort((a,b)=>a.x-b.x);
+        linkG.append("line").attr("class","shared-bus")
+          .attr("x1",pts[0].x).attr("y1",+ry)
+          .attr("x2",pts[pts.length-1].x).attr("y2",+ry)
+          .attr("stroke","#FFD500").attr("stroke-width",2.5).attr("opacity",0.7);
+      });
+
       linkG.selectAll("path.lpath").data(links).join("path")
         .attr("class",d=>"lpath c-link"+(d.dashed?" dashed-link":""))
         .attr("d",d=>linkPath(d.sid,d.tid))
@@ -893,10 +951,34 @@ window.__dlSVG    = dlSVG;
           c.call(d3.drag()
             .on("drag",function(e){
               wp.x+=e.dx/edTransform.k;wp.y+=e.dy/edTransform.k;
+
+              // ── Snap waypoint a otros waypoints (mismo Y) ──────
+              const SNAP_WP=10;
+              let snapY=null;
+              Object.entries(edWaypoints).forEach(([key,wps])=>{
+                if(key===lk.sid+"-"+lk.tid)return;
+                wps.forEach(other=>{
+                  if(Math.abs(wp.y-other.y)<SNAP_WP){
+                    snapY=other.y;
+                  }
+                });
+              });
+              if(snapY!==null){
+                wp.y=snapY;
+                // Mostrar guía horizontal
+                guideG.selectAll(".wp-snap").remove();
+                guideG.append("line").attr("class","snap-guide wp-snap")
+                  .attr("x1",-9999).attr("y1",snapY).attr("x2",9999).attr("y2",snapY)
+                  .attr("stroke","#FFD500").attr("stroke-width",1.5)
+                  .attr("stroke-dasharray","6,3");
+              } else {
+                guideG.selectAll(".wp-snap").remove();
+              }
+
               d3.select(this).attr("cx",wp.x).attr("cy",wp.y);
-              drawLinks();
+              drawLinks();drawWPs();
             })
-            .on("end",()=>{saveWPForArea();showSaved();})
+            .on("end",()=>{guideG.selectAll(".wp-snap").remove();saveWPForArea();showSaved();})
           );
           c.on("contextmenu",function(e){
             e.preventDefault();e.stopPropagation();
@@ -985,11 +1067,86 @@ window.__dlSVG    = dlSVG;
       .on("drag",function(e,d){
         const dx=e.dx/edTransform.k,dy=e.dy/edTransform.k;
         edSelectedIds.forEach(id=>{if(edPositions[id]){edPositions[id].x+=dx;edPositions[id].y+=dy;}});
+
+        // ── Snap guides — nodos y vértices de líneas ─────────
+        guideG.selectAll("*").remove();
+        const SNAP=8; // píxeles canvas para activar snap+guía
+
+        // ── Snap de vértice de línea (midY) ─────────────────
+        // Para cada nodo seleccionado, calcular el midY de sus links entrantes
+        // y hacer snap al midY de otros links
+        edSelectedIds.forEach(sid=>{
+          const sp=edPositions[sid];if(!sp)return;
+          // Links que llegan a este nodo (sid es el target)
+          links.filter(lk=>lk.tid===sid&&!(edWaypoints[lk.sid+"-"+lk.tid]?.length>0)).forEach(lk=>{
+            const pp=edPositions[lk.sid];if(!pp)return;
+            const sy_p=pp.y+(pp.h||NH);
+            const myA=sy_p+(sp.y-sy_p)/2; // midY de este link
+            // Comparar con midY de todos los otros links
+            links.filter(lk2=>lk2.tid!==sid&&lk2.sid!==sid&&!(edWaypoints[lk2.sid+"-"+lk2.tid]?.length>0)).forEach(lk2=>{
+              const sp2=edPositions[lk2.sid];const tp2=edPositions[lk2.tid];
+              if(!sp2||!tp2)return;
+              const sy2=sp2.y+(sp2.h||NH);
+              const myB=sy2+(tp2.y-sy2)/2;
+              if(Math.abs(myA-myB)<SNAP){
+                // Snap: ajustar y del nodo para que su midY coincida con myB
+                // midY = sy_p + (newY - sy_p)/2 = myB
+                // newY = 2*myB - sy_p
+                const newY=2*myB-sy_p;
+                if(Math.abs(newY-sp.y)<SNAP*3){
+                  sp.y=newY;
+                  guideG.append("line").attr("class","snap-guide h mid-snap")
+                    .attr("x1",-9999).attr("y1",myB).attr("x2",9999).attr("y2",myB)
+                    .attr("stroke","#A0AEC0").attr("stroke-width",1).attr("stroke-dasharray","8,4").attr("opacity",0.9);
+                }
+              }
+            });
+          });
+        });
+        const targets=Object.entries(edPositions).filter(([id])=>!edSelectedIds.has(id));
+        edSelectedIds.forEach(sid=>{
+          const sp=edPositions[sid]; if(!sp)return;
+          const scx=sp.x, scy=sp.y+(sp.h||NH)/2, sTop=sp.y, sBot=sp.y+(sp.h||NH);
+          targets.forEach(([,tp])=>{
+            const tcx=tp.x, tcy=tp.y+(tp.h||NH)/2, tTop=tp.y, tBot=tp.y+(tp.h||NH);
+            // Alineación horizontal de centros (mismo Y)
+            if(Math.abs(scy-tcy)<SNAP){
+              sp.y=tcy-(sp.h||NH)/2;
+              guideG.append("line").attr("class","snap-guide h")
+                .attr("x1",-9999).attr("y1",tcy).attr("x2",9999).attr("y2",tcy);
+            }
+            // Alineación de bordes top
+            if(Math.abs(sTop-tTop)<SNAP){
+              sp.y=tTop;
+              guideG.append("line").attr("class","snap-guide h")
+                .attr("x1",-9999).attr("y1",tTop).attr("x2",9999).attr("y2",tTop);
+            }
+            // Alineación de bordes bottom
+            if(Math.abs(sBot-tBot)<SNAP){
+              sp.y=tBot-(sp.h||NH);
+              guideG.append("line").attr("class","snap-guide h")
+                .attr("x1",-9999).attr("y1",tBot).attr("x2",9999).attr("y2",tBot);
+            }
+            // Alineación vertical de centros (mismo X)
+            if(Math.abs(scx-tcx)<SNAP){
+              sp.x=tcx;
+              guideG.append("line").attr("class","snap-guide v")
+                .attr("x1",tcx).attr("y1",-9999).attr("x2",tcx).attr("y2",9999);
+            }
+            // Alineación de bordes left
+            if(Math.abs(sp.x-(sp.w||NW)/2-(tp.x-(tp.w||NW)/2))<SNAP){
+              sp.x=(tp.x-(tp.w||NW)/2)+(sp.w||NW)/2;
+              guideG.append("line").attr("class","snap-guide v")
+                .attr("x1",tp.x-(tp.w||NW)/2).attr("y1",-9999).attr("x2",tp.x-(tp.w||NW)/2).attr("y2",9999);
+            }
+          });
+        });
+
         d3.selectAll(".c-node").filter(n=>edSelectedIds.has(n.id))
           .attr("transform",n=>{const p=edPositions[n.id]||{x:0,y:0};return`translate(${p.x-(p.w||NW)/2},${p.y})`;});
         drawLinks();drawWPs();
       })
-      .on("end",()=>{savePosForArea();showSaved();})
+      .on("end",()=>{guideG.selectAll("*").remove();savePosForArea();showSaved();})
     );
 
     ng.append("rect").attr("width",d=>(edPositions[d.id]?.w||NW)).attr("height",d=>(edPositions[d.id]?.h||NH)).attr("rx",7)
@@ -1248,6 +1405,160 @@ window.__dlSVG    = dlSVG;
   wire("ed-btn-move",()=>showMoveModal());
   wire("ed-btn-delete",()=>deleteNode());
 
+  // ── Align bar buttons ──────────────────────────────────────
+  function getSelPos(){return[...edSelectedIds].map(id=>edPositions[id]).filter(Boolean);}
+  wire("al-left",()=>{
+    const ps=getSelPos();if(ps.length<2)return;
+    const minX=Math.min(...ps.map(p=>p.x-(p.w||NW)/2));
+    ps.forEach(p=>{p.x=minX+(p.w||NW)/2;});
+    savePosForArea();renderCanvas();showSaved();
+  });
+  wire("al-center",()=>{
+    const ps=getSelPos();if(ps.length<2)return;
+    const minX=Math.min(...ps.map(p=>p.x-(p.w||NW)/2));
+    const maxX=Math.max(...ps.map(p=>p.x+(p.w||NW)/2));
+    const cx=(minX+maxX)/2;
+    ps.forEach(p=>{p.x=cx;});
+    savePosForArea();renderCanvas();showSaved();
+  });
+  wire("al-right",()=>{
+    const ps=getSelPos();if(ps.length<2)return;
+    const maxX=Math.max(...ps.map(p=>p.x+(p.w||NW)/2));
+    ps.forEach(p=>{p.x=maxX-(p.w||NW)/2;});
+    savePosForArea();renderCanvas();showSaved();
+  });
+  wire("al-top",()=>{
+    const ps=getSelPos();if(ps.length<2)return;
+    const minY=Math.min(...ps.map(p=>p.y));
+    ps.forEach(p=>{p.y=minY;});
+    savePosForArea();renderCanvas();showSaved();
+  });
+  wire("al-middle",()=>{
+    const ps=getSelPos();if(ps.length<2)return;
+    const minY=Math.min(...ps.map(p=>p.y));
+    const maxY=Math.max(...ps.map(p=>p.y+(p.h||NH)));
+    const cy=(minY+maxY)/2;
+    ps.forEach(p=>{p.y=cy-(p.h||NH)/2;});
+    savePosForArea();renderCanvas();showSaved();
+  });
+  wire("al-bottom",()=>{
+    const ps=getSelPos();if(ps.length<2)return;
+    const maxY=Math.max(...ps.map(p=>p.y+(p.h||NH)));
+    ps.forEach(p=>{p.y=maxY-(p.h||NH);});
+    savePosForArea();renderCanvas();showSaved();
+  });
+  wire("al-dist-h",()=>{
+    const ids=[...edSelectedIds].filter(id=>edPositions[id]);
+    if(ids.length<3)return;
+    ids.sort((a,b)=>edPositions[a].x-edPositions[b].x);
+    const ps=ids.map(id=>edPositions[id]);
+    const minX=ps[0].x-(ps[0].w||NW)/2;
+    const maxX=ps[ps.length-1].x+(ps[ps.length-1].w||NW)/2;
+    const totalW=ps.reduce((s,p)=>s+(p.w||NW),0);
+    const gap=(maxX-minX-totalW)/(ps.length-1);
+    let cx=minX+(ps[0].w||NW)/2;
+    ps.forEach(p=>{p.x=cx;cx+=( p.w||NW)+gap;});
+    savePosForArea();renderCanvas();showSaved();
+  });
+  wire("al-dist-v",()=>{
+    const ids=[...edSelectedIds].filter(id=>edPositions[id]);
+    if(ids.length<3)return;
+    ids.sort((a,b)=>edPositions[a].y-edPositions[b].y);
+    const ps=ids.map(id=>edPositions[id]);
+    const minY=ps[0].y;
+    const maxY=ps[ps.length-1].y+(ps[ps.length-1].h||NH);
+    const totalH=ps.reduce((s,p)=>s+(p.h||NH),0);
+    const gap=(maxY-minY-totalH)/(ps.length-1);
+    let cy=minY;
+    ps.forEach(p=>{p.y=cy;cy+=(p.h||NH)+gap;});
+    savePosForArea();renderCanvas();showSaved();
+  });
+  wire("al-same-w",()=>{
+    const ps=getSelPos();if(ps.length<2)return;
+    const w=ps[0].w||NW;
+    ps.forEach(p=>{p.w=w;});
+    savePosForArea();renderCanvas();showSaved();
+  });
+  wire("al-same-h",()=>{
+    const ps=getSelPos();if(ps.length<2)return;
+    const h=ps[0].h||NH;
+    ps.forEach(p=>{p.h=h;});
+    savePosForArea();renderCanvas();showSaved();
+  });
+  wire("al-group-h",()=>{
+    const ids=[...edSelectedIds].filter(id=>edPositions[id]);
+    if(ids.length<2)return;
+    ids.sort((a,b)=>edPositions[a].x-edPositions[b].x);
+    const ps=ids.map(id=>edPositions[id]);
+    const avgY=ps.reduce((s,p)=>s+p.y,0)/ps.length;
+    const GAP=20;
+    let cx=ps[0].x;
+    ps.forEach(p=>{p.x=cx;p.y=avgY;cx+=(p.w||NW)+GAP;});
+    savePosForArea();renderCanvas();showSaved();
+  });
+  wire("al-group-v",()=>{
+    const ids=[...edSelectedIds].filter(id=>edPositions[id]);
+    if(ids.length<2)return;
+    ids.sort((a,b)=>edPositions[a].y-edPositions[b].y);
+    const ps=ids.map(id=>edPositions[id]);
+    const avgX=ps.reduce((s,p)=>s+p.x,0)/ps.length;
+    const GAP=20;
+    let cy=ps[0].y;
+    ps.forEach(p=>{p.y=cy;p.x=avgX;cy+=(p.h||NH)+GAP;});
+    savePosForArea();renderCanvas();showSaved();
+  });
+
+  // ── Pan con clic derecho/medio O espacio+clic izquierdo ────
+  let _panStart=null;
+  let _spaceDown=false;
+  const _edCanvas=document.getElementById("ed-canvas");
+  const _edSvg=document.getElementById("ed-svg");
+
+  // Tecla espacio activa modo pan
+  window.addEventListener("keydown",function(e){
+    if(e.code==="Space"&&document.getElementById("ed-pane").classList.contains("visible")){
+      if(!_spaceDown){_spaceDown=true;_edCanvas.style.cursor="grab";}
+      e.preventDefault();
+    }
+  });
+  window.addEventListener("keyup",function(e){
+    if(e.code==="Space"){_spaceDown=false;if(!_panStart)_edCanvas.style.cursor="";}
+  });
+
+  _edSvg.addEventListener("mousedown",function(e){
+    // Pan con: clic derecho, clic medio, o espacio+clic izquierdo
+    const isPan=e.button===1||e.button===2||(e.button===0&&_spaceDown);
+    // También pan con clic izquierdo en el fondo (no en nodos/handles)
+    const onBackground=e.button===0&&!_spaceDown&&
+      e.target===_edSvg||e.target.closest&&!e.target.closest(".c-node")&&
+      !e.target.closest(".wp-dot")&&!e.target.closest(".resize-handle")&&
+      e.target.tagName==="rect"&&e.target.getAttribute("fill")==="#1e2130";
+    if(!isPan&&!onBackground)return;
+    e.preventDefault();e.stopPropagation();
+    _panStart={cx:e.clientX,cy:e.clientY,tx:edTransform.x,ty:edTransform.y};
+    _edCanvas.style.cursor="grabbing";
+  },{passive:false});
+
+  window.addEventListener("mousemove",function(e){
+    if(!_panStart)return;
+    if(!document.getElementById("ed-pane").classList.contains("visible")){_panStart=null;return;}
+    const t=d3.zoomIdentity.translate(
+      _panStart.tx+(e.clientX-_panStart.cx),
+      _panStart.ty+(e.clientY-_panStart.cy)
+    ).scale(edTransform.k);
+    edTransform=t;
+    if(edZoom)d3.select("#ed-svg").call(edZoom.transform,t);
+  });
+
+  window.addEventListener("mouseup",function(e){
+    if(_panStart){
+      _panStart=null;
+      _edCanvas.style.cursor=_spaceDown?"grab":"";
+    }
+  });
+
+  _edSvg.addEventListener("contextmenu",function(e){e.preventDefault();});
+
   document.getElementById("ed-area-sel").onchange=function(){
     edViewId=this.value;edSelectedIds.clear();edFitted=false;edTransform=d3.zoomIdentity;
     renderSidebar();renderCanvas();renderInspector(null);
@@ -1282,16 +1593,9 @@ window.__dlSVG    = dlSVG;
 
 
   function switchTab(tab){
-    const tabs=["inspector","tools"];
-    tabs.forEach(t=>{
-      const panel=document.getElementById("tab-"+t);
-      const btn=document.getElementById("tab-btn-"+t);
-      if(!panel||!btn)return;
-      const active=t===tab;
-      panel.style.display=active?"flex":"none";
-      btn.style.background=active?"var(--ed-accent)":"var(--ed-surface)";
-      btn.style.color=active?"#fff":"var(--ed-text3)";
-    });
+    // Only tools tab now visible
+    const toolsPanel=document.getElementById("tab-tools");
+    if(toolsPanel)toolsPanel.style.display="flex";
   }
   function nudge(dx,dy){
     if(!edSelectedIds.size)return;
@@ -1332,7 +1636,7 @@ window.__dlSVG    = dlSVG;
       if(dim==="w")p.w=Math.max(60,Math.min(400,(p.w||NW)+delta));
       if(dim==="h")p.h=Math.max(30,Math.min(200,(p.h||NH)+delta));
     });
-    renderCanvas();savePosForArea();showSaved();
+    savePosForArea();renderCanvas();showSaved();
     setTimeout(()=>{const ids=[...edSelectedIds];edSelectedIds.clear();ids.forEach(id=>edSelectedIds.add(id));
       d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));updateAlignBar();updateToolsSelInfo();},50);
   }
@@ -1342,7 +1646,7 @@ window.__dlSVG    = dlSVG;
       if(dim==="w")p.w=Math.max(60,Math.min(400,val));
       if(dim==="h")p.h=Math.max(30,Math.min(200,val));
     });
-    renderCanvas();savePosForArea();showSaved();
+    savePosForArea();renderCanvas();showSaved();
     setTimeout(()=>{const ids=[...edSelectedIds];edSelectedIds.clear();ids.forEach(id=>edSelectedIds.add(id));
       d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));updateAlignBar();updateToolsSelInfo();},50);
   }
@@ -1356,7 +1660,7 @@ window.__dlSVG    = dlSVG;
   function pasteFormat(){
     if(!_formatClipboard){alert("Primero copiá el tamaño.");return;}
     edSelectedIds.forEach(id=>{const p=edPositions[id];if(!p)return;p.w=_formatClipboard.w;p.h=_formatClipboard.h;});
-    renderCanvas();savePosForArea();showSaved();
+    savePosForArea();renderCanvas();showSaved();
     setTimeout(()=>{const ids=[...edSelectedIds];edSelectedIds.clear();ids.forEach(id=>edSelectedIds.add(id));
       d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));updateAlignBar();updateToolsSelInfo();},50);
   }
@@ -1817,13 +2121,20 @@ function loadData(){
       return INITIAL;
     }
     const s=localStorage.getItem(STORAGE_KEY);
-    return s?JSON.parse(s):INITIAL;
+    if(s){
+      try{
+        const parsed=JSON.parse(s);
+        function sanitize(n){if(!n)return null;if(n.children)n.children=n.children.filter(Boolean).map(sanitize).filter(Boolean);return n;}
+        return sanitize(parsed)||INITIAL;
+      }catch(e){return INITIAL;}
+    }
+    return INITIAL;
   }catch{return INITIAL;}
 }
 function saveData(d){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}catch{}}
 
 // ── Utilidades de árbol ──────────────────────────────────
-function flatList(t,a=[]){a.push(t);(t.children||[]).forEach(c=>flatList(c,a));return a;}
+function flatList(t,a=[]){if(!t||typeof t!=="object")return a;a.push(t);(t.children||[]).filter(Boolean).forEach(c=>flatList(c,a));return a;}
 function findNode(t,id){if(!t)return null;if(t.id===id)return t;for(const c of(t.children||[])){const f=findNode(c,id);if(f)return f;}return null;}
 function updateNode(t,id,fn){if(t.id===id)return fn(t);return{...t,children:(t.children||[]).map(c=>updateNode(c,id,fn))};}
 function removeNode(t,id){return{...t,children:(t.children||[]).filter(c=>c.id!==id).map(c=>removeNode(c,id))};}
@@ -1979,6 +2290,7 @@ function EmpresaPanelItem({emp}){
 }
 
 function PanelItem({node,onSelect,selectedId,depth=0}){
+  if(!node) return null;
   if(node._isEmpresa) return <EmpresaPanelItem emp={node}/>;
   const isSelected=node.id===selectedId;
   const color=getColor(node);
@@ -2361,7 +2673,7 @@ function App(){
   const[addForm,setAddForm]=useState({nombre:"",titular:"",tipo:"DG",tipoLabel:"",dashed:false,parentId:""});
   const[activeTab,setActiveTab]=useState("organigrama");
 
-  const allNodes=useMemo(()=>flatList(data),[data]);
+  const allNodes=useMemo(()=>data?flatList(data):[],[data]);
 
   // Sincronizar datos con el editor D3
   useEffect(()=>{
@@ -2493,25 +2805,47 @@ function App(){
   return(
     <div className="app-wrap">
       {/* Header */}
-      <div className="app-header">
-        {/* Logo SGCBA — izquierda */}
-        <img src="data:image/png;base64,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" alt="SGCBA"
-          style={{height:38,flexShrink:0}}/>
-        {/* Título */}
-        <div style={{marginLeft:8}}>
-          <div style={{fontSize:14,fontWeight:700,color:"#fff",lineHeight:1.2}}>Organigrama de Gobierno</div>
-          <div style={{fontSize:10,color:"rgba(255,255,255,.65)"}}>Ciudad Autónoma de Buenos Aires</div>
+      <div className="app-header" style={{display:"flex",alignItems:"center",padding:"0 16px",gap:0}}>
+        {/* LEFT — Logo + título */}
+        <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+          <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACUAAAAoCAYAAAB5ADPdAAAOyUlEQVR42p1Ye1iVVbr/vWt934aNgFw2pIgKluGgkmlaeduYZpQ3BD8u3ibTsHvN05k50zmd2TFnmk411TSV51j6mHUygcp7qVmApWKWeUUEUcEboCBy3/v7vvWeP2Ar+mg25/1nf/tZz3rX772u37sINxGPxyMAIDc3VwFAenp6kq7L2cz8IIAEIUQAEUEpBWauBWg3s/r89Omza3bu3NkMAG63WysuLrYBMH6F0C8tGoYhCwoKbADIyMh4SAj8O4BhAB9XiouVwk9E9mmlhCmECgfE7URilBB0FzNrAK3xen1vrV27tvJaff8fUMTMICKeMWPGsKAg53sAD2fmT7xe8501a9bsv5kxSqmJui4XE9FoAGvb2y+8uHbtN/VdwNQveY1+yTuZmcZLmqa9aNuqoL294w/r1q075Q9pKaA1R9xNdyc57dwJEywAcHtWBEbjpCrIzfX59aWlpQ10OPQXiWiMZdmvFhQUfHAzr9H1AE2ePDkiIiJ8nRCUaJr2nIKCgs3+3EByMopzc63u++78qPa20KaTLcVP3V0DAEY+SxRkAAC6hX+kEPQ2s2pobW1/eOPGjRe6cs26ocvdbrcGAFOnTh2UnZ1VO3t25ncTJ06M7LZGYCYAMAA54vOW4cM38AtjN3uL53x33Dt9a/XJxHX89PiPD48DAHcha11Gk193l/f/lJFhVKalpU3qfu4NAc2cOXPknDnZ3qysjBXXrhn5+RIAJq0ouWdyYUvpgu8P8TtlBbyj8lG+VNGLDxx9kN8q+4zn7jhu3ZnX+hgAgFmgq3o9Ho/wV3J6evq4jAyjMiNj1nP+CF0VNf+hqampo2bPzubMTOOta5WAmYx8lvf87g3n/VsayoqrnmNveYDNFTC5HBaXQ/FRKD4Gs+roHerJn4/yyHXev7P/IL8eACNGjNABIDt7qssw0n+aNSvt3esCmzZt2m2zZ2eZhpH+3lXh8gPvDAXuzG95d1n5h8zH4LMrnOw7NYl99a+x1baTzbrfs+/4IOajUK0VEdZfj2zjezZZm92epS4AyFm6VDfyWXYDAMMwpGGk7cjIMD66Ks8Nw+iXlZVxMTMz4wu/JZ5ulvkVDV3ZOGnxD2XsrQg1zco+bHUcYsVXRDGzbdax7/R05jIwH4P5UcUSvn9LQ9k9b2yOuNKNWXQHlpKSEpCZaZiZmcZmwzAcACATEwctIqLmvLyCbMMwxJgxY5S/exuGIRNfMvjkybiecWMTv3o5dkFolDpCputD0nq4QbDAygYzQxCBRA+IkCyYdjO4fZe4U24y63omRx/0jfcOm5XVo6/x3IgTT7kOGvksC3Iz7BE5Ofp3eXm+hIRB5HQGOrzejoHDh8cduG7iz5s3L7J7xxi91fxw1bH3uGMfzLbTi694R13xVXt7Ozc1Xbr837rwAtvlAVxz7A77wLEHeX/FQzxtN/N9qytSAQBdEQBAfq9Nnz49xjCMCPLnUHJysiotLQ0D+GNd1yYz6LivYl9a81+L+oZV7v4qZOcHVmuHqWkOF4YPH4bMzGzExMSgpuYcli9fhiNHjkApRkREOObNnYvQ0CAs+ccfwVYr+sd68Wz6Hvt7Rw69UvOPxh5r/5wXUlOe3M5y0ed5ebs8Hg8VFRUJf8+SABAXFydWrlxpDx78m986nc7ftbS0PagJ7uUdNK7DUXvi1aAf8sMeGHeCUrP/lQbcOhJbt2xC3779ERUVhWeeeQa2bWHRohxMmDABDQ0XsXPXTsT2HYDNX+/DnAV/QOEuHSfOtIo5ozfQnpYpzubDp0aG+i5EeU0VWlpaWgBAdgEiAKQBQHJysiouLiYitcu27Y7AoCBj9apV2Wn/W/yw/HbdgDlTS6wHMu/VEDgDAJDywCQAQF7ealiWiTff/Dt0XQcAJCXdAdM0UVp6GLpmIrZ3GKIiFfre0ggVIDjmzJc4UXG0odnZ/oWmORdMnz49Zv369Wc9Ho/w5/JlWuLxeCg/f81+0/SmOnS5KGvWzGL75OFJDruRkwbWk6lGY9/B43jjjVewYsVy5OWtRknJLgwdmgRd1+Hz+WBZFkzThK7rsG0FpYDX//YmysqOQ0onhM0cdGQb2VFxTYMK1j8GZTcEBOg5AFBUVHS54i9/+FHm53+x5fSFhlgwx/VoqZtzvj2Y95WFSz3oVkipwzRt7N27FwUF+ejTpw8qKipgWRYcDgc0TesCZENKCSLC8uXL8fKfZuDjTX3x8944sb/ChTCtJf7IvHmlRCKaiOYZhiG7+BYBgPTAI5LdkMVVVZwxa9YLQ5OGLnM4xPdoaxkl+w6Mjb9d8TcbSEDEo3//vujXLw7btxdj/Hg3Hn74EaxZ8wVKSkoQERGOxsZ6fLpqFdasXYP4uP7Yvn07IsKd+HnPWjQ0WvD5iMtqB1iICNuK+nM7bNJ2Bzj0h2zbd7C0tKzU43ZrxVVVfBVLmJaVntSDtI+IaAh7W081zHqt/3+NfIFri/aIVcVJsKyeIBIYN24MFixYiICAAFRXV+P995fgxMmzYHIiNCQA8+dmIzwiGu8tWQbbdxaSa5CZcpz3HeiJLeKZ2vr/mD+4hKihsxembVAK5z/7fOgiolwFBvBpRMrkDRFT+gDQGSkBALBw4TO35OTk6BM21r278EAdX6rq7+Nj4POHxnJHx8XLPbx7n2q6dJIvnvlUMZ+xmVmZvmr2NX7IVtWdzFVgroL19o//bT5Q2Oqb9sGXSW6PR8tZulQHgKdTOs8FELix55RwfBOePniva87nF6OePborKjudwSQAgAQIwLj1jR8v2lfDDeUxPq4E22emsWW1MyubWXlZMbOvdQ9zVW+bj4PN6njm6j7MlbC4AiYfg11fdov65PArPG0v88SVuzK7s45CeDQA+Dpy5sgLkY/V7HFlZRMAfOWa2fsu9C6xYdX2uvD+KIZHKzBKOSM/n5mIk79s+Wxo37q0vzjutnrivGYGZ0KL+QQECbNlI/SaaXY1DZdvnH1dNVsBp37j2B0+sndlaJU9DOdbQ7C/YwxONPfZHd508L1zW5es/mnpUgtEzDAkocBe0dMdl6YPOdrCvq2z6z+YiXx0tvjHew4NPxP56P7KyIfz/BdModujgZl+zIE+bmPLtucPHuK28p4mHwX7ap9i38UPmMthHjhpcHrR2aOhS3kkUjgAf+Heg9fy/BHr+eV++Xzf6Pyae6/l3YXopEyv97g3utH1xJka1+IfAGiMrjxndLICd//+gVWRC4tOuh4pNGJjnQCQn+hxgJk8TyQGj/2yfee/HSphX7nTVOVgroD57YnnefLXzdt7vN4c7TfmutMI0WXGwV0heydydEyj68mqetcT+6ZHJoQIEDy4wlDggUf4lVW7Fv3P6chFlT9FZyUBwI85S3UG0+OvPB4+dqu99z8PbmPvsWBvQeVbPOZLczXcKwKpG80BM7kLCzV3IWtGPkt//jBAfkAbwqcMaXQ9deG86/Hd0yMTQro75yrp2iQA4Ejk/MU1kYvrTkQufN5PGBgeMefNpb3v39Za9kTpaXZ/ce5vXU64zJNuJP5wAcChiPmzLkU9rc64ctYBcNwQ0NXgOq0pDM8YUhO5+Kca1+IdJa7ZI/xxmbtkw5D78s8u7uRsLPwDxfWMLIRbE10bjaio4FORjy7riHqOyyMXvNx5pVwTsl+akAvh1iagk0pURj6S24McTyqozUdk0ysTa1cf7rykCKzyJHCYAKAIQPIVFYrQeXUBwIGI+QtiRMhrxLCO8IXfjm3I29rpnVymawZTuonHBPASE4i33GLED1bhr+pKPGQJLmnQ1bJN7Se++uPFbZdutH9Z5KSY8RRrhHPgs4JEfCN7335ErH+x+Pz5FoZHI+Ra//RbwhVwnf0EAL4Jm3lHgub6FweLVAEii9RhL6x9XrZPCMhGgEN10EAH5EhJMomY2n1kr9xhnns949KGEwCQD0Nm4MZvCr8KlL86X0Ip+cF5IkaFzpWJDziVPpWAuzTQLcwIVAQvwGcZ9EOL8G36vdr19fr6o81+44ACRb/y9eVXC8MjGPnyBsv69ffkS8/NqusmXuv+SzdYJ8MwZCHcGsOjXVvOncCN7sDJ021S7qa7+/fV502ZMiW8+yzWXfwT7T8rHo9HZGenDUq5wgB+laSkpARQWlrqswB8lqUO+3y+M04nvKapNXi9XgoODp5smmarEGJXQIAKDwqKrGtoaOgJIARA/NmzZ4sGDBhAdXV1QSEhIRoRyaampvro6Ghh2+bjDkdgfUdHR5uu61+1tbXFbtq0qXLGjBmDHQ5HdWNjoxUSEuJqa2ur0TQtXkrZIYSwhBAjyDDSFto2bGaulhL9laIoQDXbNrdLSX1M074kpbSY+Tyz2aFpgXfZtmkKIQJ0Xazzen29pNTH2La1V0ptCCD2K6UOAhjb0tKyNiQkaAaRcAkhIk3TbJJSKmZuJSIXM+tEZDJzLTN1SEkJQmg1wrK4g0hZACYQaaFE9K2UuiCiYGYql5LCiCgKwDkhtGFErBFJHeA62+ahgBglpV5GpF0QQkQQcZ9Tp05VE1E/l8vlllIbIYToTYR6IgpkjYqIiAFEA+I8M1vM9CMR9QHYQUQuSk1NHSWljHY6nYVer7e3z+fzhoSENLS2tsYDGG/b9iFN06qI7Hjbplpdp/6Whf22bYcKIQYSUS2Rs05Ks00INdCy4NM07WJra6sZFhaW2NzcXNLWFmKGhjbf4fXa5dFCeOuJJBFFCsGJgDwgpWy0LCtO02zTsmSTTEi47R6lENjR0dovOJjKTZPHtbe3xAqhVRLZtpR6fUdHx+1EZgWzTCSSgbbt6wWIcE3TOlpaWko1TaWapjWwvd1bFhgoddM0Fwohq2pra2s1TRsbEOCNZZYSQHgrcwKR3Xvdug0/JiQkzGK2Lvp81nDADjVNBAOI1YQQ/Zg5BCBhmnYJM90KaBHMfEQp1VtKdkpJQ4gcSUJQC2A7iUQfIjQopXYGBenxSqkwIvSTUtYJIc4x25eIeGRoaHAvAKFKUYXDIeuZ7Rgpha0UAlJTp1wkolpmbRyz94IQerRSSgqBHv8HhX2hKrF6ZMsAAAAASUVORK5CYII=" alt="SGCBA" style={{height:36,flexShrink:0}}/>
+          <div>
+            <div style={{fontSize:13,fontWeight:700,color:"#fff",lineHeight:1.2,fontFamily:"'Nunito',sans-serif"}}>Organigrama de Gobierno</div>
+            <div style={{fontSize:10,color:"rgba(255,255,255,.55)"}}>Ciudad Autónoma de Buenos Aires</div>
+          </div>
         </div>
-        {/* Tabs — editor oculto, acceso por botón de administración */}
-        <div className="app-tabs">
+
+        {/* CENTER — Tabs */}
+        <div style={{flex:1,display:"flex",justifyContent:"center",alignItems:"center",gap:6}}>
           {[["organigrama","📋 Organigrama"],["arbol","🌐 Árbol"]].map(([id,label])=>(
-            <button key={id} className={`app-tab${activeTab===id?" active":""}`}
-              onClick={()=>setActiveTab(id)}>{label}</button>
+            <button key={id}
+              onClick={()=>setActiveTab(id)}
+              style={{
+                background:activeTab===id?"rgba(255,255,255,0.2)":"rgba(255,255,255,0.06)",
+                border:activeTab===id?"1px solid rgba(255,255,255,0.35)":"1px solid rgba(255,255,255,0.12)",
+                color:activeTab===id?"#fff":"rgba(255,255,255,0.65)",
+                borderRadius:8,padding:"7px 20px",cursor:"pointer",
+                fontSize:13,fontWeight:600,fontFamily:"'Nunito','Open Sans',sans-serif",
+                letterSpacing:".02em",transition:"all .18s",
+              }}
+              onMouseEnter={e=>{if(activeTab!==id){e.currentTarget.style.background="rgba(255,255,255,0.12)";e.currentTarget.style.color="#fff";}}}
+              onMouseLeave={e=>{if(activeTab!==id){e.currentTarget.style.background="rgba(255,255,255,0.06)";e.currentTarget.style.color="rgba(255,255,255,0.65)";}}}
+            >{label}</button>
           ))}
         </div>
-        {/* Botón de acceso admin — discreto, a la derecha */}
-        <button
-          onClick={async()=>{
+
+        {/* RIGHT — Descargar + Admin */}
+        <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+          <button onClick={dlAll}
+            style={{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.25)",
+              color:"rgba(255,255,255,0.85)",borderRadius:7,padding:"6px 14px",cursor:"pointer",
+              fontSize:12,fontWeight:600,fontFamily:"inherit",transition:"all .15s"}}
+            onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.2)";}}
+            onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.1)";}}>
+            ⬇ Descargar A3
+          </button>
+          <button
+            onClick={async()=>{
             if(window._gcbaEditorAuth===true){setActiveTab("editor");return;}
             const pwd=prompt("Contraseña de administración:");
             if(!pwd)return;
@@ -2523,18 +2857,13 @@ function App(){
               alert("Contraseña incorrecta");
             }
           }}
-          style={{marginLeft:8,padding:"4px 10px",fontSize:10,fontWeight:600,
-            background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.2)",
-            color:"rgba(255,255,255,0.4)",borderRadius:5,cursor:"pointer",
-            fontFamily:"inherit",letterSpacing:".05em",transition:"all .2s"}}
-          onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.15)";e.currentTarget.style.color="rgba(255,255,255,0.8)";}}
-          onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.08)";e.currentTarget.style.color="rgba(255,255,255,0.4)";}}>
-          ⚙
-        </button>
-        {/* Botones derecha */}
-        <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
-          <Btn variant="ghost" onClick={dlAll} small>⬇ Descargar todo A3</Btn>
-          <Btn variant="ghost" onClick={withAuth(reset)} small>↺ Restablecer</Btn>
+            style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",
+              color:"rgba(255,255,255,0.35)",borderRadius:7,padding:"6px 10px",cursor:"pointer",
+              fontSize:12,fontWeight:600,fontFamily:"inherit",transition:"all .2s"}}
+            onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.15)";e.currentTarget.style.color="rgba(255,255,255,0.8)";}}
+            onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.06)";e.currentTarget.style.color="rgba(255,255,255,0.35)";}}>
+            ⚙
+          </button>
         </div>
       </div>
       {/* Body */}
@@ -2564,7 +2893,7 @@ function App(){
           <div style={{flex:1,overflow:"auto",overflowX:"hidden"}}>
             {filtered
               ?(<>
-                {filtered.filter(n=>!n._isEmpresa).map(n=><PanelItem key={n.id} node={n} onSelect={setSelected} selectedId={selected?.id} depth={0}/>)}
+                {filtered.filter(n=>n&&!n._isEmpresa).map(n=><PanelItem key={n.id} node={n} onSelect={setSelected} selectedId={selected?.id} depth={0}/>)}
                 {filtered.some(n=>n._isEmpresa)&&<>
                   <div style={{padding:"6px 12px 4px",fontSize:9,fontWeight:700,color:"#9AABB8",textTransform:"uppercase",letterSpacing:".07em",borderTop:"1px solid #F0F4F8",marginTop:4}}>Empresas del Estado</div>
                   {filtered.filter(n=>n._isEmpresa).map(n=><PanelItem key={n.id} node={n} onSelect={setSelected} selectedId={selected?.id} depth={0}/>)}
