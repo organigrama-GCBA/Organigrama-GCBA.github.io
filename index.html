@@ -1043,6 +1043,7 @@ window.__dlSVG    = dlSVG;
             const dy=(ev.clientY-startY)/edTransform.k;
             p.w=Math.max(80,Math.min(600,startW+dx));
             p.h=Math.max(28,Math.min(300,startH+dy));
+            console.log("resize",p.w.toFixed(0),"x",p.h.toFixed(0));
             par.select("rect:not(.resize-handle)").attr("width",p.w).attr("height",p.h);
             d3.select(handleEl).attr("x",p.w-RHANDLE/2).attr("y",p.h-RHANDLE/2);
             // Calculate lines FIRST, then font size
