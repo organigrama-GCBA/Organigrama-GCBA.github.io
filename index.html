@@ -561,57 +561,67 @@ function genSVGA3(root,pn=1,tot=1){
       links=[...mn.map(t=>({s:rn,t})),...sn.map(t=>({s:rn,t})),...dn.map(t=>({s:rn,t}))];
 
     } else {
-      // D3 tree para áreas con jerarquía profunda (SS, DG, etc.)
-      function toHier(node){
-        const kids=(node.children||[]).filter(c=>!c.dashed);
-        return{...node,_k:kids.map(c=>toHier(c)),children:undefined};
+      // ── Layout compacto: llena la página A3 al máximo ──────────────
+      // Recopila todos los nodos no-dashed en orden BFS para mantener jerarquía
+      const allNonDashed=[];
+      (function bfs(n){
+        allNonDashed.push(n);
+        (n.children||[]).filter(c=>!c.dashed).forEach(c=>bfs(c));
+      })(root);
+
+      const total=allNonDashed.length;
+
+      // Calcular grilla óptima que llena el A3
+      // Objetivo: NW/NH ratio ~2.8:1 (nodos horizontales)
+      // Encontrar cols que maximice tamaño de nodo
+      let bestNW=0,bestNH=0,bestCols=1;
+      for(let cols=1;cols<=total;cols++){
+        const rows=Math.ceil(total/cols);
+        const nwTry=Math.floor((AW-(cols-1)*HGAP)/cols);
+        const nhTry=Math.floor((AH-(rows-1)*VGAP)/rows);
+        // Mantener ratio razonable (no demasiado alto ni ancho)
+        const ratio=nwTry/nhTry;
+        if(ratio<1.5||ratio>5)continue;
+        const area=nwTry*nhTry;
+        if(area>bestNW*bestNH){bestNW=nwTry;bestNH=nhTry;bestCols=cols;}
       }
-      const hier=d3.hierarchy(toHier(root),d=>d._k.length?d._k:null);
+      NW=Math.max(80,Math.min(280,bestNW));
+      NH=Math.max(34,Math.min(100,bestNH));
+      const cols=bestCols;
+      const HPAD=Math.max(HGAP,Math.floor((AW-NW*cols)/(cols+1)));
+      const rows=Math.ceil(total/cols);
+      const VPAD=Math.max(VGAP,Math.floor((AH-NH*rows)/(rows+1)));
 
-      // Contar hojas reales (no spanX de coordenadas D3)
-      const leafCount=hier.leaves().length||1;
-      const depthCount=(hier.height||1)+1;
+      // Posicionar en grilla manteniendo padre encima de sus hijos
+      // Usar posición BFS: cada nodo ocupa la siguiente celda disponible
+      allNonDashed.forEach((n,idx)=>{
+        const col=idx%cols;
+        const row=Math.floor(idx/cols);
+        const x=HPAD+col*(NW+HPAD)+NW/2;
+        const y=row*(NH+VPAD);
+        nodes.push({x,y,data:n,depth:0});
+      });
 
-      // NW basado en cantidad de hojas, NH basado en profundidad
-      NW=Math.max(80,Math.floor((AW-(leafCount-1)*HGAP)/leafCount));
-      NW=Math.min(NW,280);
-      // NH: usar el espacio vertical completo
-      NH=Math.min(Math.floor((AH-(depthCount-1)*VGAP)/depthCount), Math.round(NW/2.6));
-      NH=Math.max(NH,36);
+      // Links: conectar cada nodo con su padre
+      const nodeById={};
+      nodes.forEach(n=>nodeById[n.data.id]=n);
+      allNonDashed.forEach(n=>{
+        (n.children||[]).filter(c=>!c.dashed).forEach(c=>{
+          const s=nodeById[n.id],t=nodeById[c.id];
+          if(s&&t)links.push({s,t});
+        });
+      });
 
-      const HPAD=Math.max(HGAP,Math.round((AW-NW*leafCount)/(leafCount+1)));
-      const VPAD=Math.max(VGAP,Math.round((AH-NH*depthCount)/(depthCount+1)));
-
-      d3.tree().nodeSize([NW+HPAD,NH+VPAD])(hier);
-      nodes=hier.descendants().map(n=>({x:n.x,y:n.y,data:n.data,depth:n.depth}));
-      links=hier.links().map(l=>({
-        s:nodes.find(n=>n.data.id===l.source.data.id),
-        t:nodes.find(n=>n.data.id===l.target.data.id)
-      })).filter(l=>l.s&&l.t);
-
-      // Normalizar a (0,0)
-      const mnX=d3.min(nodes,n=>n.x)-NW/2,mnY=d3.min(nodes,n=>n.y);
-      nodes.forEach(n=>{n.x-=mnX;n.y-=mnY;});
-
-      // Escalar para llenar el A3 ajustando NW y NH proporcionalmente
-      const tW=d3.max(nodes,n=>n.x+NW/2),tH=d3.max(nodes,n=>n.y+NH);
-      const scX=AW/tW,scY=AH/tH;
-      const sc=Math.min(scX,scY)*0.96;
-      nodes.forEach(n=>{n.x*=sc;n.y*=sc;});
-      NW*=sc;NH*=sc;
-
-      // Agregar nodos dashed (fuera de nivel) debajo del árbol
+      // Nodos dashed al pie
       const dashedChD=(root.children||[]).filter(c=>c.dashed);
       if(dashedChD.length>0){
-        const maxY=d3.max(nodes,n=>n.y)+NH;
-        const dashedY=maxY+VGAP*1.5;
+        const maxY=rows*(NH+VPAD);
         const dashedTotalW=dashedChD.length*(NW+HGAP)-HGAP;
         let dx=(AW-dashedTotalW)/2+NW/2;
-        const rootNode=nodes.find(n=>n.data.id===root.id);
+        const rootNode=nodeById[root.id];
         dashedChD.forEach(c=>{
-          const dn={x:dx,y:dashedY,data:c,depth:1};
-          nodes.push(dn);
-          if(rootNode)links.push({s:rootNode,t:dn});
+          const dn={x:dx,y:maxY+VGAP,data:c,depth:1};
+          nodes.push(dn);if(rootNode)links.push({s:rootNode,t:dn});
           dx+=NW+HGAP;
         });
       }
@@ -2566,13 +2576,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
           if(edPositions[id]){edPositions[id].x+=dx;edPositions[id].y+=dy;}
         });
 
-        // ── Snap to other nodes ──────────────────────────────────────────
-        // Collect candidate snap targets (non-selected nodes)
-        const targets=nodes.filter(n=>!edSelectedIds.has(n.id)&&edPositions[n.id]);
-        const snapDist=SNAP_DIST/edTransform.k;
+        // ── Snap desactivado durante arrastre para no trabar el movimiento ──
         clearGuides();
-
-        if(targets.length>0){
+        if(false&&nodes.length>0){  // snap only on drop now
           // Get bounding box of the dragged group
           const selNodes=[...edSelectedIds].map(id=>edPositions[id]).filter(Boolean);
           const gMinX=Math.min(...selNodes.map(p=>p.x-(p.w||NW)/2));
@@ -2633,7 +2639,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
           .attr("transform",n=>{const p=edPositions[n.id]||{x:0,y:0};return`translate(${p.x-(p.w||NW)/2},${p.y})`;});
         drawLinks();drawWPs();
       })
-      .on("end",()=>{clearGuides();savePosForArea();recalcNodeSize();renderCanvas();showSaved();})
+      .on("end",()=>{savePosForArea();recalcNodeSize();renderCanvas();showSaved();})
     );
 
     ng.append("rect")
@@ -2756,7 +2762,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     if(!edFitted){
       edFitted=true;
       const padding=30;
-      const sc=Math.min((W-padding*2)/PW,(H-padding*2)/PH)*0.95;
+      const sc=Math.min((W-padding*2)/PW,(H-padding*2)/PH)*1.4;  // más zoom inicial
       const tx=(W-PW*sc)/2;
       const ty=(H-PH*sc)/2;
       edTransform=d3.zoomIdentity.translate(tx,ty).scale(sc);
