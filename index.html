@@ -10792,12 +10792,6 @@ ReactDOM.createRoot(document.getElementById("root")).render( /*#__PURE__*/React.
         edPositions[n.id]={...(d3pos[n.id]||{x:0,y:0}),w:NW,h:NH};
       }
     });
-    // Si agregamos nodos nuevos sobre un layout manual, persistir su ubicación
-    // jerárquica para que quede firme y no se recalcule en cada render.
-    if(hasSaved){
-      const nuevos=nodes.some(n=>!saved[n.id]);
-      if(nuevos){try{savePosForArea();}catch(e){}}
-    }
     edWaypoints=loadWPForArea(edViewId);
 
     const g=svg.append("g").attr("class","canvas-root");
@@ -11586,7 +11580,15 @@ ReactDOM.createRoot(document.getElementById("root")).render( /*#__PURE__*/React.
   function resetLayout(){
     if(!edViewId)return;
     if(!confirm("¿Restablecer el layout automático para esta área?"))return;
-    clearArea(edViewId);edFitted=false;edTransform=d3.zoomIdentity;
+    // Borrar posiciones/waypoints guardados de esta área…
+    clearArea(edViewId);
+    // …y también el estado en memoria, para que nada del layout viejo
+    // pueda volver al modificar un nodo después del reset.
+    edPositions={};edWaypoints={};
+    undoStack=[];redoStack=[];_dirty=false;
+    clearTimeout(_autosaveT);
+    edFitted=false;edTransform=d3.zoomIdentity;
+    if(typeof updateUndoButtons==="function")updateUndoButtons();
     renderCanvas();showSaved();
   }
 
