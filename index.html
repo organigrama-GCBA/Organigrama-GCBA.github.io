@@ -138,7 +138,20 @@ body{margin:0;font-family:'Open Sans','Inter',-apple-system,sans-serif;backgroun
 #tab-tools{overflow-y:auto;}
 .c-node.sel rect{stroke:#FFD500;stroke-width:4;filter:drop-shadow(0 0 8px rgba(255,213,0,0.7));}
 .snap-guide{stroke:#00D9FF;stroke-width:1;stroke-dasharray:4,3;opacity:0.85;}
-.main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}</style>
+.main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+
+/* ── Mobile ─────────────────────────────── */
+@media(max-width:640px){
+  .app-body{flex-direction:column!important;}
+  .app-sidebar{width:100%!important;max-height:38vh!important;border-right:none!important;border-bottom:1px solid #E2E8F0!important;}
+  .children-grid{grid-template-columns:1fr!important;}
+  .node-card h2{font-size:16px;}
+  .node-card{padding:12px;}
+}
+@media(max-width:480px){
+  .app-header{padding:0 8px!important;gap:4px!important;}
+}
+</style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -175,39 +188,51 @@ function wrapTxt(t,max){
 
 function svgBox(x,y,node,W,H,dashed,fsN,fsT){
   const fill=getColorSVG(node);
-  // Calcular cuántos chars caben por línea según ancho real del nodo
-  const charsPerLineN=Math.max(8,Math.floor(W/(fsN*0.52)));
-  const charsPerLineT=Math.max(8,Math.floor(W/(fsT*0.52)));
-  const nl=wrapTxt(node.nombre,charsPerLineN);
-  const tl=wrapTxt(node.titular||"",charsPerLineT);
-  const lhN=fsN*1.35,lhT=fsT*1.28,gap=tl.length?fsN*0.4:0;
-  const blockH=nl.length*lhN+gap+tl.length*lhT;
-  // Si el texto no entra, reducir fuente dinámicamente
-  let actualFsN=fsN,actualFsT=fsT,actualLhN=lhN,actualLhT=lhT,actualGap=gap,actualBlock=blockH;
-  if(blockH>H*0.88){
-    const shrink=(H*0.88)/blockH;
-    actualFsN=fsN*shrink;actualFsT=fsT*shrink;
-    actualLhN=actualFsN*1.35;actualLhT=actualFsT*1.28;
-    actualGap=tl.length?actualFsN*0.4:0;
-    actualBlock=nl.length*actualLhN+actualGap+tl.length*actualLhT;
-  }
-  let yt=y+(H-actualBlock)/2+actualLhN*0.85;
+  const hasTit=node.titular&&node.titular.trim();
+  const stripH=hasTit?Math.max(14,H*0.28):0;
+  const mainH=H-stripH;
+
+  // Font for name area
+  const charsPerLine=Math.max(8,Math.floor(W/(fsN*0.52)));
+  const nl=wrapTxt(node.nombre,charsPerLine);
+  // Shrink if needed
+  let aFsN=fsN;
+  const blockN=nl.length*fsN*1.3;
+  if(blockN>mainH*0.85) aFsN=fsN*(mainH*0.85/blockN);
+  aFsN=Math.max(6,aFsN);
+  const lhN=aFsN*1.32;
+
   const da=dashed?`stroke="rgba(255,255,255,0.5)" stroke-width="1.5" stroke-dasharray="5,3"`:"";
-  // Color de texto según luminosidad del fondo
   const lightBg=["#FCD307","#E4E9ED","#FEA82D"];
   const isLight=lightBg.some(c=>fill.toUpperCase()===c.toUpperCase());
   const txtMain=isLight?"#1A202C":"#fff";
-  const txtSub=isLight?"rgba(30,32,40,0.75)":"rgba(255,255,255,0.85)";
-  let s=`<rect x="${fv(x)}" y="${fv(y)}" width="${fv(W)}" height="${fv(H)}" rx="${fv(Math.max(4,H*0.1))}" fill="${fill}" ${da}/>`;
-  nl.forEach(l=>{s+=`<text x="${fv(x+W/2)}" y="${fv(yt)}" text-anchor="middle" font-size="${fv(actualFsN)}" font-weight="600" fill="${txtMain}" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=actualLhN;});
-  yt+=actualGap;
-  tl.forEach(l=>{s+=`<text x="${fv(x+W/2)}" y="${fv(yt)}" text-anchor="middle" font-size="${fv(actualFsT)}" fill="${txtSub}" font-family="Inter,Arial,sans-serif">${l}</text>`;yt+=actualLhT;});
+
+  let s=`<rect x="${fv(x)}" y="${fv(y)}" width="${fv(W)}" height="${fv(H)}" rx="${fv(Math.max(4,H*0.08))}" fill="${fill}" ${da}/>`;
+
+  // Dark strip for titular
+  if(hasTit){
+    s+=`<rect x="${fv(x)}" y="${fv(y+mainH)}" width="${fv(W)}" height="${fv(stripH)}" rx="0" fill="rgba(0,0,0,0.25)"/>`;
+  }
+
+  // Name centered in main area
+  const blockH=nl.length*lhN;
+  let yt=y+(mainH-blockH)/2+aFsN*0.88;
+  nl.forEach(l=>{
+    s+=`<text x="${fv(x+W/2)}" y="${fv(yt)}" text-anchor="middle" font-size="${fv(aFsN)}" font-weight="700" fill="${txtMain}" font-family="Open Sans,Inter,Arial,sans-serif">${l}</text>`;
+    yt+=lhN;
+  });
+
+  // Titular in strip
+  if(hasTit){
+    const fsTit=Math.max(6,Math.min(aFsN*0.78,stripH*0.62));
+    const titTxt=node.titular.length>30?node.titular.slice(0,28)+"…":node.titular;
+    const yTit=y+mainH+stripH/2+fsTit*0.38;
+    s+=`<text x="${fv(x+W/2)}" y="${fv(yTit)}" text-anchor="middle" font-size="${fv(fsTit)}" font-weight="400" fill="rgba(255,255,255,0.88)" font-family="Open Sans,Inter,Arial,sans-serif">${titTxt}</text>`;
+  }
   return s;
 }
 
-// Genera SVG A3 — el árbol siempre llena el A3 completo.
-// Si hay posiciones del editor guardadas: las usa y escala al A3.
-// Si no: calcula layout D3 y ajusta tamaño de nodo para llenar el A3.
+
 function genSVGA3(root,pn=1,tot=1){
   const PW=1587,PH=1123,MAR=40,HH=68,FH=34;
   const AW=PW-MAR*2,AH=PH-HH-FH-MAR;
@@ -398,19 +423,31 @@ function genSVGA3(root,pn=1,tot=1){
 
   // Líneas
   function lPath(s,t,wps){
-    const sh=s.h||NH,th=t.h||NH;
+    const sh=s.h||NH;
     const sx=s.x,sy=s.y+sh,tx=t.x,ty=t.y;
+    const isDashed=s.data?.dashed||t.data?.dashed;
+    const stroke="#2D3748";
+    const strokeW=isDashed?Math.max(0.5,sw*0.7):Math.max(0.8,sw);
+    const dash=isDashed?`stroke-dasharray="7,4" opacity="0.65"`:`opacity="0.82"`;
+    const R=Math.max(4,NW*0.04);
     if(wps?.length){
-      const scWP=NW/158;
-      const pts=[{x:sx,y:sy},...wps.map(p=>({x:p.x*scWP,y:p.y*scWP})),{x:tx,y:ty}];
+      const pts=[{x:sx,y:sy},...wps,{x:tx,y:ty}];
       let d=`M${fv(pts[0].x)},${fv(pts[0].y)}`;
-      for(let i=1;i<pts.length;i++){d+=`L${fv(pts[i].x)},${fv(pts[i-1].y)}L${fv(pts[i].x)},${fv(pts[i].y)}`;}
-      return`<path d="${d}" fill="none" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
+      for(let i=1;i<pts.length;i++){
+        const px=pts[i-1].x,py=pts[i-1].y,cx=pts[i].x,cy=pts[i].y;
+        const my=py+(cy-py)*0.5;
+        const dx=cx>px?R:-R;
+        d+=`L${fv(px)},${fv(my-R)}Q${fv(px)},${fv(my)} ${fv(px+dx)},${fv(my)}L${fv(cx-dx)},${fv(my)}Q${fv(cx)},${fv(my)} ${fv(cx)},${fv(my+R)}L${fv(cx)},${fv(cy)}`;
+      }
+      return`<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${fv(strokeW)}" ${dash}/>`;
     }
-    const my=sy+(ty-sy)/2;
-    return`<line x1="${fv(sx)}" y1="${fv(sy)}" x2="${fv(sx)}" y2="${fv(my)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>` +
-           `<line x1="${fv(sx)}" y1="${fv(my)}" x2="${fv(tx)}" y2="${fv(my)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>` +
-           `<line x1="${fv(tx)}" y1="${fv(my)}" x2="${fv(tx)}" y2="${fv(ty)}" stroke="#CBD5E0" stroke-width="${fv(sw)}"/>`;
+    const my=sy+(ty-sy)*0.45;
+    if(Math.abs(sx-tx)<1){
+      return`<path d="M${fv(sx)},${fv(sy)}L${fv(tx)},${fv(ty)}" fill="none" stroke="${stroke}" stroke-width="${fv(strokeW)}" ${dash}/>`;
+    }
+    const dx=tx>sx?R:-R;
+    const d=`M${fv(sx)},${fv(sy)}L${fv(sx)},${fv(my-R)}Q${fv(sx)},${fv(my)} ${fv(sx+dx)},${fv(my)}L${fv(tx-dx)},${fv(my)}Q${fv(tx)},${fv(my)} ${fv(tx)},${fv(my+R)}L${fv(tx)},${fv(ty)}`;
+    return`<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${fv(strokeW)}" ${dash}/>`;
   }
 
   let linesSVG="",nodesSVG="";
@@ -865,12 +902,29 @@ window.__dlSVG    = dlSVG;
         const pts=[{x:sx,y:sy},...wps,{x:tx,y:ty}];
         let d=`M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
         for(let i=1;i<pts.length;i++){
-          d+=`L${pts[i].x.toFixed(1)},${pts[i-1].y.toFixed(1)}L${pts[i].x.toFixed(1)},${pts[i].y.toFixed(1)}`;
+          const R=8; // radio de esquina
+          const px=pts[i-1].x,py=pts[i-1].y;
+          const cx=pts[i].x,cy=pts[i].y;
+          // L-path con esquinas redondeadas
+          const midY=py+(cy-py)*0.5;
+          d+=`L${px.toFixed(1)},${(midY-R).toFixed(1)}Q${px.toFixed(1)},${midY.toFixed(1)} ${(px+(cx-px>0?R:-R)).toFixed(1)},${midY.toFixed(1)}L${(cx+(cx-px>0?-R:R)).toFixed(1)},${midY.toFixed(1)}Q${cx.toFixed(1)},${midY.toFixed(1)} ${cx.toFixed(1)},${(midY+R).toFixed(1)}L${cx.toFixed(1)},${cy.toFixed(1)}`;
         }
         return d;
       }
-      const my=sy+(ty-sy)/2;
-      return`M${sx.toFixed(1)},${sy.toFixed(1)}L${sx.toFixed(1)},${my.toFixed(1)}L${tx.toFixed(1)},${my.toFixed(1)}L${tx.toFixed(1)},${ty.toFixed(1)}`;
+      // Estilo B: barra horizontal compartida con esquinas redondeadas
+      const my=sy+(ty-sy)*0.45;
+      const R=6;
+      if(Math.abs(sx-tx)<2){
+        // Línea vertical directa
+        return`M${sx.toFixed(1)},${sy.toFixed(1)}L${tx.toFixed(1)},${ty.toFixed(1)}`;
+      }
+      const dx=tx>sx?R:-R;
+      return`M${sx.toFixed(1)},${sy.toFixed(1)}`+
+        `L${sx.toFixed(1)},${(my-R).toFixed(1)}`+
+        `Q${sx.toFixed(1)},${my.toFixed(1)} ${(sx+dx).toFixed(1)},${my.toFixed(1)}`+
+        `L${(tx-dx).toFixed(1)},${my.toFixed(1)}`+
+        `Q${tx.toFixed(1)},${my.toFixed(1)} ${tx.toFixed(1)},${(my+R).toFixed(1)}`+
+        `L${tx.toFixed(1)},${ty.toFixed(1)}`;
     }
 
     function drawLinks(){
@@ -892,16 +946,17 @@ window.__dlSVG    = dlSVG;
         linkG.append("line").attr("class","shared-bus")
           .attr("x1",pts[0].x).attr("y1",+ry)
           .attr("x2",pts[pts.length-1].x).attr("y2",+ry)
-          .attr("stroke","#FFD500").attr("stroke-width",3.5).attr("opacity",0.7);
+          .attr("stroke","#2D3748").attr("stroke-width",3.5).attr("opacity",0.7);
       });
 
       linkG.selectAll("path.lpath").data(links).join("path")
         .attr("class",d=>"lpath c-link"+(d.dashed?" dashed-link":""))
         .attr("d",d=>linkPath(d.sid,d.tid))
         .attr("fill","none")
-        .attr("stroke",d=>d.dashed?"rgba(120,140,165,0.85)":"#7A8FA6")
-        .attr("stroke-width",3.5)
-        .attr("stroke-dasharray",d=>d.dashed?"7,4":"none");
+        .attr("stroke","#2D3748")
+        .attr("stroke-width",d=>d.dashed?2:3)
+        .attr("stroke-dasharray",d=>d.dashed?"8,5":"none")
+        .attr("opacity",d=>d.dashed?0.65:0.8);
       linkG.selectAll("path.lhit").data(links).join("path")
         .attr("class","lhit")
         .attr("d",d=>linkPath(d.sid,d.tid))
@@ -952,7 +1007,7 @@ window.__dlSVG    = dlSVG;
                 guideG.selectAll(".wp-snap").remove();
                 guideG.append("line").attr("class","snap-guide wp-snap")
                   .attr("x1",-9999).attr("y1",snapY).attr("x2",9999).attr("y2",snapY)
-                  .attr("stroke","#FFD500").attr("stroke-width",1.5)
+                  .attr("stroke","#2D3748").attr("stroke-width",1.5)
                   .attr("stroke-dasharray","6,3");
               } else {
                 guideG.selectAll(".wp-snap").remove();
@@ -1153,25 +1208,39 @@ window.__dlSVG    = dlSVG;
 
     ng.each(function(d){
       const g2=d3.select(this);
+      const _nw=edPositions[d.id]?.w||NW;
+      const _nh=edPositions[d.id]?.h||NH;
+      const hasTit=d.titular&&d.titular.trim();
+      const stripH=hasTit?Math.max(18,_nh*0.28):0;
+      const mainH=_nh-stripH;
+      // Franja oscura para el titular
+      if(hasTit){
+        g2.append("rect")
+          .attr("x",0).attr("y",mainH).attr("width",_nw).attr("height",stripH)
+          .attr("fill","rgba(0,0,0,0.25)");
+      }
+      // Nombre centrado en zona principal
       const words=(d.nombre||"").split(" ");
       let l1="",l2="";
       for(const w of words){if((l1+" "+w).trim().length<=20)l1=(l1+" "+w).trim();else l2=(l2+" "+w).trim();}
-      const hasTit=d.titular&&d.titular.trim();
       const lines=l2?[l1,l2]:[l1];
-      const _nw=edPositions[d.id]?.w||NW;
-      const _nh=edPositions[d.id]?.h||NH;
-      const _fs=Math.max(8,Math.min(60,Math.min(_nw/5, _nh/(lines.length+(hasTit?1:0)+0.8)*0.75)));
+      const _fs=Math.max(8,Math.min(60,Math.min(_nw/5,mainH/(lines.length+0.8)*0.72)));
       const _lh=_fs+3;
-      const totalLines=lines.length+(hasTit?1:0);
-      const blockH=totalLines*_lh;
-      const sy2=(_nh-blockH)/2+_fs;
+      const blockH=lines.length*_lh;
+      const sy2=(mainH-blockH)/2+_fs;
       lines.forEach((l,i)=>g2.append("text").attr("x",_nw/2).attr("y",sy2+i*_lh)
-        .attr("text-anchor","middle").attr("font-size",_fs).attr("font-weight",600)
+        .attr("text-anchor","middle").attr("font-size",_fs).attr("font-weight",700)
         .attr("fill","#fff").attr("font-family","Open Sans,Inter,sans-serif").text(l));
-      if(hasTit)g2.append("text").attr("x",_nw/2).attr("y",sy2+lines.length*_lh+1.5)
-        .attr("text-anchor","middle").attr("font-size",Math.max(6,_fs-1.5)).attr("fill","rgba(255,255,255,0.7)")
-        .attr("font-family","Inter,sans-serif").text(d.titular.length>24?d.titular.slice(0,24)+"…":d.titular);
-    });
+      // Titular en franja oscura
+      if(hasTit){
+        const fsTit=Math.max(6,Math.min(_fs*0.78,stripH*0.62));
+        g2.append("text").attr("x",_nw/2).attr("y",mainH+stripH/2+fsTit*0.38)
+          .attr("text-anchor","middle").attr("font-size",fsTit).attr("font-weight",400)
+          .attr("fill","rgba(255,255,255,0.88)")
+          .attr("font-family","Open Sans,Inter,sans-serif")
+          .text(d.titular.length>28?d.titular.slice(0,26)+"…":d.titular);
+      }
+    });;
 
     // ── Resize handle: esquina inferior derecha (encima de todo) ──
     const RHANDLE=18;
@@ -1202,39 +1271,43 @@ window.__dlSVG    = dlSVG;
             p.h=Math.max(24,Math.min(400,startH+dy));
             par.select("rect:not(.resize-handle)").attr("width",p.w).attr("height",p.h);
             d3.select(handleEl).attr("x",p.w-RHANDLE/2).attr("y",p.h-RHANDLE/2);
-            // Calculate lines FIRST, then font size
+            // Style B: calculate strips and redraw
             const words=(d.nombre||"").split(" ");
             let l1="",l2="";
             for(const w of words){if((l1+" "+w).trim().length<=20)l1=(l1+" "+w).trim();else l2=(l2+" "+w).trim();}
             const hasTit=d.titular&&d.titular.trim();
             const lines=l2?[l1,l2]:[l1];
-            const _fs=Math.max(8,Math.min(60,Math.min(p.w/5, p.h/(lines.length+(hasTit?1:0)+0.8)*0.75)));
+            const stripH=hasTit?Math.max(18,p.h*0.28):0;
+            const mainH=p.h-stripH;
+            const _fs=Math.max(8,Math.min(60,Math.min(p.w/5,mainH/(lines.length+0.8)*0.72)));
             const _lh=_fs+3;
-            const blockH=(lines.length+(hasTit?1:0))*_lh;
-            const sy=(p.h-blockH)/2+_fs;
             // Keep node centered on p.x
             par.attr("transform",`translate(${p.x-p.w/2},${p.y})`);
-            // Update texts in place
-            const allTexts=par.selectAll("text").nodes();
-            const allLinesData=[...lines,...(hasTit?[d.titular.length>28?d.titular.slice(0,26)+"…":d.titular]:[])];
-            allTexts.forEach((t,_i)=>{
-              if(_i>=allLinesData.length){d3.select(t).remove();return;}
-              d3.select(t)
-                .attr("x",p.w/2)
-                .attr("y",_i<lines.length?sy+_i*_lh:sy+lines.length*_lh+1.5)
-                .style("font-size",(_i<lines.length?_fs:Math.max(6,_fs-1.5))+"px")
-                .text(allLinesData[_i]);
-            });
-            // If more lines than existing texts, append new ones
-            for(let _i=allTexts.length;_i<allLinesData.length;_i++){
+            // Redraw strip
+            par.selectAll(".tit-strip").remove();
+            if(hasTit){
+              par.insert("rect",".resize-handle").attr("class","tit-strip")
+                .attr("x",0).attr("y",mainH).attr("width",p.w).attr("height",stripH)
+                .attr("fill","rgba(0,0,0,0.25)");
+            }
+            // Redraw texts
+            par.selectAll("text").remove();
+            const blockH2=lines.length*_lh;
+            const sy2=(mainH-blockH2)/2+_fs;
+            lines.forEach((l,_i)=>par.append("text")
+              .attr("x",p.w/2).attr("y",sy2+_i*_lh)
+              .attr("text-anchor","middle")
+              .style("font-size",_fs+"px").attr("font-weight",700)
+              .attr("fill","#fff").attr("font-family","Open Sans,sans-serif").text(l));
+            if(hasTit){
+              const fsTit=Math.max(6,Math.min(_fs*0.78,stripH*0.62));
               par.append("text")
-                .attr("x",p.w/2).attr("y",_i<lines.length?sy+_i*_lh:sy+lines.length*_lh+1.5)
+                .attr("x",p.w/2).attr("y",mainH+stripH/2+fsTit*0.38)
                 .attr("text-anchor","middle")
-                .style("font-size",(_i<lines.length?_fs:Math.max(6,_fs-1.5))+"px")
-                .attr("font-weight",_i<lines.length?600:400)
-                .attr("fill",_i<lines.length?"#fff":"rgba(255,255,255,0.75)")
+                .style("font-size",fsTit+"px").attr("font-weight",400)
+                .attr("fill","rgba(255,255,255,0.88)")
                 .attr("font-family","Open Sans,sans-serif")
-                .text(allLinesData[_i]);
+                .text(d.titular.length>28?d.titular.slice(0,26)+"…":d.titular);
             }
             par.select(".resize-handle").raise();
             par.attr("transform",`translate(${p.x-p.w/2},${p.y})`);
@@ -2832,6 +2905,12 @@ function App(){
   const[editForm,setEditForm]=useState({});
   const[addForm,setAddForm]=useState({nombre:"",titular:"",tipo:"DG",tipoLabel:"",dashed:false,parentId:""});
   const[activeTab,setActiveTab]=useState("organigrama");
+  const[isMobile,setIsMobile]=useState(window.innerWidth<640);
+  useEffect(()=>{
+    const fn=()=>setIsMobile(window.innerWidth<640);
+    window.addEventListener("resize",fn);
+    return()=>window.removeEventListener("resize",fn);
+  },[]);
 
   const allNodes=useMemo(()=>data?flatList(data):[],[data]);
 
@@ -3036,7 +3115,7 @@ function App(){
         )}
         {/* Sidebar — solo en pestaña organigrama */}
         {activeTab!=="arbol"&&<>
-        <div className="sidebar" style={{flexShrink:0,width:280,minWidth:280,maxWidth:280,overflow:"hidden"}}>
+        <div className="sidebar" style={{flexShrink:0,width:isMobile?"100%":280,minWidth:isMobile?"100%":280,maxWidth:isMobile?"100%":280,maxHeight:isMobile?"40vh":"none",overflow:"hidden",borderRight:isMobile?"none":"1px solid #E2E8F0",borderBottom:isMobile?"1px solid #E2E8F0":"none"}}>
           <div style={{padding:"12px 14px",borderBottom:"1px solid #E2E8F0",background:"#F3F6F9"}}>
             <div style={{fontSize:10,fontWeight:700,color:"#9AABB8",textTransform:"uppercase",letterSpacing:".07em",marginBottom:8}}>Organismos</div>
             <div style={{position:"relative"}}>
