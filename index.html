@@ -190,7 +190,7 @@ function svgBox(x,y,node,W,H,dashed,fsN,fsT){
   const fill=getColorSVG(node);
   const hasTit=node.titular&&node.titular.trim();
   // Envolver titular (máx 3 líneas) y dimensionar la franja según eso
-  const fsTitBase=Math.max(6,Math.min(fsN*0.78,H*0.16));
+  const fsTitBase=Math.max(6,H*0.15);
   const titCharsPerLine=Math.max(8,Math.floor(W/(fsTitBase*0.55)));
   let titLines=hasTit?wrapTxt(node.titular,titCharsPerLine):[];
   if(titLines.length>3){const last=titLines.slice(2).join(" ");titLines=titLines.slice(0,2);titLines.push(last.length>titCharsPerLine?last.slice(0,titCharsPerLine-1)+"…":last);}
@@ -230,7 +230,7 @@ function svgBox(x,y,node,W,H,dashed,fsN,fsT){
 
   // Titular in strip — multilínea
   if(hasTit){
-    const fsTit=Math.max(6,Math.min(fsTitBase,aFsN*0.82));
+    const fsTit=Math.max(6,Math.min(aFsN*0.72,stripH/titLines.length*0.7));
     const titBlockH=titLines.length*titLineH;
     let yTit=y+mainH+(stripH-titBlockH)/2+fsTit*0.85;
     titLines.forEach(l=>{
@@ -534,11 +534,6 @@ window.__dlSVG    = dlSVG;
     <span style="font-size:10px;font-weight:600;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.06em;">Área:</span>
     <select id="ed-area-sel" style="min-width:240px;flex:1;max-width:380px;"></select>
     <span style="font-size:10px;color:var(--ed-text3);margin-left:8px;">· clic = seleccionar · flechas = mover · clic der. en línea = quiebre</span>
-    <span style="font-size:10px;color:var(--ed-text3);margin-left:12px;">Nodo:</span>
-    <span style="font-size:10px;color:var(--ed-text3);">Texto</span>
-    <input id="ed-fs" type="number" min="6" max="20" step="0.5" value="9.5"
-        style="width:52px;background:var(--ed-surface2);border:1px solid var(--ed-border2);border-radius:5px;padding:3px 6px;font-size:11px;color:var(--ed-text1);font-family:inherit;"/>
-    <button id="ed-btn-apply-size" style="background:var(--ed-accent);border:none;color:#fff;padding:3px 8px;border-radius:5px;cursor:pointer;font-size:11px;font-family:inherit;">✓</button>
     <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
       <span class="ed-saved" id="ed-saved-msg">✓ Guardado</span>
       <button class="ed-zb" id="ed-btn-undo" title="Deshacer (Ctrl+Z)" style="width:auto;padding:0 10px;font-size:11px;opacity:0.4;pointer-events:none;">↩ Deshacer</button>
@@ -1293,9 +1288,9 @@ window.__dlSVG    = dlSVG;
         return ls;
       }
       const titLines=hasTit?wrapTit(d.titular,3):[];
-      // Altura del titular según nº de líneas (mín 28% como antes para 1 línea)
-      const fsTitBase=Math.max(7,Math.min(13,_nh*0.16));
-      const titLineH=fsTitBase+2;
+      // Tamaño base del titular: escala con el nodo (proporción del alto), sin tope rígido bajo
+      const fsTitBase=Math.max(7,_nh*0.15);
+      const titLineH=fsTitBase*1.25;
       const stripH=hasTit?Math.max(_nh*0.28,titLines.length*titLineH+6):0;
       const mainH=_nh-stripH;
       // Franja oscura para el titular
@@ -1316,9 +1311,9 @@ window.__dlSVG    = dlSVG;
       lines.forEach((l,i)=>g2.append("text").attr("x",_nw/2).attr("y",sy2+i*_lh)
         .attr("text-anchor","middle").attr("font-size",_fs).attr("font-weight",700)
         .attr("fill","#fff").attr("font-family","Open Sans,Inter,sans-serif").text(l));
-      // Titular en franja oscura — multilínea
+      // Titular en franja oscura — multilínea, atado a la proporción del nombre
       if(hasTit){
-        const fsTit=Math.max(6,Math.min(fsTitBase,_fs*0.82));
+        const fsTit=Math.max(7,Math.min(_fs*0.72,stripH/titLines.length*0.7));
         const titBlockH=titLines.length*titLineH;
         const ty0=mainH+(stripH-titBlockH)/2+fsTit*0.85;
         titLines.forEach((l,i)=>g2.append("text").attr("x",_nw/2).attr("y",ty0+i*titLineH)
@@ -1348,6 +1343,10 @@ window.__dlSVG    = dlSVG;
           const startW=p.w||NW,startH=p.h||NH;
           const nodeId=d.id;
           const handleEl=this;
+          // Si hay varios nodos seleccionados (incluido este), escalarlos todos en proporción
+          const multi=edSelectedIds.has(nodeId)&&edSelectedIds.size>1;
+          const startSizes={};
+          if(multi){edSelectedIds.forEach(id=>{const pp=edPositions[id];if(pp)startSizes[id]={w:pp.w||NW,h:pp.h||NH};});}
 
           function onMove(ev){
             const liveEl=document.querySelector(`.c-node[data-id="${nodeId}"]`)||handleEl.parentNode;
@@ -1359,6 +1358,22 @@ window.__dlSVG    = dlSVG;
             p.h=Math.max(24,Math.min(400,startH+dy));
             par.select("rect:not(.resize-handle)").attr("width",p.w).attr("height",p.h);
             d3.select(handleEl).attr("x",p.w-RHANDLE/2).attr("y",p.h-RHANDLE/2);
+            // Escala proporcional al resto de seleccionados (preview ligero en vivo)
+            if(multi){
+              const fw=p.w/startW, fh=p.h/startH;
+              edSelectedIds.forEach(id=>{
+                if(id===nodeId)return;
+                const pp=edPositions[id],s0=startSizes[id];if(!pp||!s0)return;
+                pp.w=Math.max(60,Math.min(800,s0.w*fw));
+                pp.h=Math.max(24,Math.min(400,s0.h*fh));
+                const el=document.querySelector(`.c-node[data-id="${id}"]`);
+                if(el){const sel=d3.select(el);
+                  sel.select("rect:not(.resize-handle)").attr("width",pp.w).attr("height",pp.h);
+                  sel.select(".resize-handle").attr("x",pp.w-RHANDLE/2).attr("y",pp.h-RHANDLE/2);
+                  sel.attr("transform",`translate(${pp.x-pp.w/2},${pp.y})`);
+                }
+              });
+            }
             // Style B: calculate strips and redraw
             const words=(d.nombre||"").split(" ");
             let l1="",l2="";
@@ -1381,8 +1396,8 @@ window.__dlSVG    = dlSVG;
               return ls;
             }
             const titLinesR=hasTit?wrapTitR(d.titular,3):[];
-            const fsTitBaseR=Math.max(7,Math.min(13,p.h*0.16));
-            const titLineHR=fsTitBaseR+2;
+            const fsTitBaseR=Math.max(7,p.h*0.15);
+            const titLineHR=fsTitBaseR*1.25;
             const stripH=hasTit?Math.max(p.h*0.28,titLinesR.length*titLineHR+6):0;
             const mainH=p.h-stripH;
             const _fs=Math.max(8,Math.min(60,Math.min(p.w/5,mainH/(lines.length+0.8)*0.72)));
@@ -1406,7 +1421,7 @@ window.__dlSVG    = dlSVG;
               .style("font-size",_fs+"px").attr("font-weight",700)
               .attr("fill","#fff").attr("font-family","Open Sans,sans-serif").text(l));
             if(hasTit){
-              const fsTit=Math.max(6,Math.min(fsTitBaseR,_fs*0.82));
+              const fsTit=Math.max(7,Math.min(_fs*0.72,stripH/titLinesR.length*0.7));
               const titBlockH=titLinesR.length*titLineHR;
               let ty0=mainH+(stripH-titBlockH)/2+fsTit*0.85;
               titLinesR.forEach(l=>{par.append("text")
