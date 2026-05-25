@@ -10373,7 +10373,7 @@ ReactDOM.createRoot(document.getElementById("root")).render( /*#__PURE__*/React.
 </head>
 <body>
 <!-- EDITOR VISUAL D3 (oculto hasta que se active) -->
-<div id="ed-pane" class="visible">
+<div id="ed-pane">
   <div id="ed-toolbar">
     <span style="font-size:10px;font-weight:600;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.06em;">Área:</span>
     <select id="ed-area-sel" style="min-width:240px;flex:1;max-width:380px;"><option value="JG">[Jefatura] Jefe de Gobierno</option><option value="VJG">　[Vicejefatura] Vicejefatura de Gobierno</option><option value="MJGGC">　[Ministerio] Jefatura de Gabinete de Ministros</option><option value="MHFGC">　[Ministerio] Ministerio de Hacienda y Finanzas</option><option value="MJGC">　[Ministerio] Ministerio de Justicia</option><option value="MSEGC">　[Ministerio] Ministerio de Seguridad</option><option value="MSGC">　[Ministerio] Ministerio de Salud</option><option value="MEDGC">　[Ministerio] Ministerio de Educación</option><option value="MDECGC">　[Ministerio] Ministerio de Desarrollo Económico</option><option value="MCGC">　[Ministerio] Ministerio de Cultura</option><option value="MDHYHGC">　[Ministerio] Ministerio de Desarrollo Humano y Hábitat</option><option value="MEPHUGC">　[Ministerio] Ministerio de Espacio Público e Higiene Urbana</option><option value="MMIGC">　[Ministerio] Ministerio de Movilidad e Infraestructura</option><option value="SECGE">　[Secretaría] Secretaría General</option><option value="SECLYT">　[Secretaría] Secretaría Legal y Técnica</option><option value="SECCO">　[Secretaría] Secretaría de Comunicación</option><option value="SECAE">　[Secretaría] Secretaría de Asuntos Estratégicos</option><option value="SECGVC">　[Secretaría] Secretaría de Gobierno y Vínculo Ciudadano</option><option value="SECME">　[Secretaría] Secretaría de Medios</option><option value="UPEEI">[Organismo] UPE Ecoparque Interactivo CABA</option><option value="APRA">[Organismo] Agencia de Protección Ambiental</option><option value="COPIDIS">[Organismo] COPIDIS</option><option value="ASINF">[Organismo] Agencia de Sistemas de Información</option><option value="AGIP">[Organismo] Adm. Gubernamental de Ingresos Públicos</option><option value="AGC">[Organismo] Agencia Gubernamental de Control</option><option value="ENTUR">[Organismo] Ente de Turismo</option><option value="PG">[Organismo] Procuración General de la Ciudad</option><option value="n_1779680028284">[PG. Adjunta Dictámenes] PG. Adjunta Dictámenes</option><option value="SGCBA">[Organismo] Sindicatura General de la Ciudad de Buenos Aires</option><option value="CDNNYA">[Organismo] Consejo Derechos Niñas, Niños y Adolescentes</option><option value="URFVI">[Organismo] Unidad Relaciones Federales y Vinculación Interjurisdiccional</option></select>
@@ -10488,6 +10488,14 @@ ReactDOM.createRoot(document.getElementById("root")).render( /*#__PURE__*/React.
 <script>
 (function(){
   sessionStorage.removeItem("gcba_editor_auth");
+  // Mostrar el splash al cargar (arranca oculto en el HTML)
+  var splashEl=document.getElementById('splash');
+  if(splashEl){
+    splashEl.style.display='flex';
+    // forzar reflow para que la transición de opacidad se aplique
+    void splashEl.offsetWidth;
+    splashEl.style.opacity='1';
+  }
   requestAnimationFrame(function(){
     var bar=document.getElementById('splash-bar');
     if(bar)bar.style.width='100%';
