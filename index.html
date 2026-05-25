@@ -278,6 +278,32 @@ function genSVGA3(root,pn=1,tot=1){
     nodes=visible.filter(n=>savedPos[n.id]!=null).map(n=>({x:savedPos[n.id].x,y:savedPos[n.id].y,w:savedPos[n.id].w||ED_NW,h:savedPos[n.id].h||ED_NH,data:n}));
     // If some nodes missing from savedPos, fall back to auto layout
     if(nodes.length<visible.length*0.5){nodes=[];} // too many missing → auto layout
+    // Nodos visibles SIN posición guardada (ej: recién agregados): ubicarlos
+    // colgando de su padre para que NO desaparezcan de la vista.
+    else if(nodes.length<visible.length){
+      const posById={};nodes.forEach(n=>{posById[n.data.id]=n;});
+      const parentOf={},nodeById={};
+      (function mapP(node){nodeById[node.id]=node;(node.children||[]).forEach(ch=>{parentOf[ch.id]=node.id;mapP(ch);});})(root);
+      visible.forEach(n=>{
+        if(posById[n.id]||savedPos[n.id]!=null)return;
+        const pid=parentOf[n.id];
+        const pp=pid?posById[pid]:null;
+        let nx,ny;
+        if(pp){
+          // hermanos ya colocados
+          const sibs=((nodeById[pid]?.children)||[]).map(c=>posById[c.id]).filter(Boolean);
+          if(sibs.length){
+            let right=sibs[0];sibs.forEach(s=>{if(s.x>right.x)right=s;});
+            nx=right.x+(ED_NW+24);ny=right.y;
+          }else{ nx=pp.x; ny=pp.y+(ED_NH+50); }
+        }else{
+          const mx=Math.max(...nodes.map(n2=>n2.x),0);
+          nx=mx+(ED_NW+24);ny=0;
+        }
+        const nn={x:nx,y:ny,w:ED_NW,h:ED_NH,data:n};
+        nodes.push(nn);posById[n.id]=nn;
+      });
+    }
 
     // Links
     (function walk(node,depth){
