@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -136,7 +137,7 @@ body{margin:0;font-family:'Open Sans','Inter',-apple-system,sans-serif;backgroun
 .ed-tool-btn:hover{background:var(--ed-accent);color:#fff;border-color:var(--ed-accent);}
 #tab-inspector,#tab-tools{min-height:0;flex:1;overflow:hidden;}
 #tab-tools{overflow-y:auto;}
-.c-node.sel rect{stroke:#FFD500;stroke-width:4;filter:drop-shadow(0 0 8px rgba(255,213,0,0.7));}
+.c-node.sel rect{stroke:#FFD500;stroke-width:3;filter:drop-shadow(0 0 6px rgba(255,213,0,0.6));}
 .snap-guide{stroke:#00D9FF;stroke-width:1;stroke-dasharray:4,3;opacity:0.85;}
 .main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}</style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
@@ -891,7 +892,7 @@ window.__dlSVG    = dlSVG;
         linkG.append("line").attr("class","shared-bus")
           .attr("x1",pts[0].x).attr("y1",+ry)
           .attr("x2",pts[pts.length-1].x).attr("y2",+ry)
-          .attr("stroke","#FFD500").attr("stroke-width",3.5).attr("opacity",0.7);
+          .attr("stroke","#FFD500").attr("stroke-width",2.5).attr("opacity",0.7);
       });
 
       linkG.selectAll("path.lpath").data(links).join("path")
@@ -899,7 +900,7 @@ window.__dlSVG    = dlSVG;
         .attr("d",d=>linkPath(d.sid,d.tid))
         .attr("fill","none")
         .attr("stroke",d=>d.dashed?"rgba(120,140,165,0.85)":"#7A8FA6")
-        .attr("stroke-width",3.5)
+        .attr("stroke-width",2.5)
         .attr("stroke-dasharray",d=>d.dashed?"7,4":"none");
       linkG.selectAll("path.lhit").data(links).join("path")
         .attr("class","lhit")
@@ -927,8 +928,8 @@ window.__dlSVG    = dlSVG;
         const wps=edWaypoints[lk.sid+"-"+lk.tid]||[];
         wps.forEach((wp,i)=>{
           const c=wpG.append("circle")
-            .attr("cx",wp.x).attr("cy",wp.y).attr("r",10)
-            .attr("fill","#4f7ef8").attr("stroke","#fff").attr("stroke-width",2)
+            .attr("cx",wp.x).attr("cy",wp.y).attr("r",6)
+            .attr("fill","#4f7ef8").attr("stroke","#fff").attr("stroke-width",1.5)
             .style("cursor","grab");
           c.call(d3.drag()
             .on("drag",function(e){
@@ -1173,7 +1174,7 @@ window.__dlSVG    = dlSVG;
     });
 
     // ── Resize handle: esquina inferior derecha (encima de todo) ──
-    const RHANDLE=18;
+    const RHANDLE=10;
     ng.append("rect")
       .attr("class","resize-handle")
       .attr("width",RHANDLE).attr("height",RHANDLE).attr("rx",2)
