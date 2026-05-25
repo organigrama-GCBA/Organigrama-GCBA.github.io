@@ -1365,7 +1365,25 @@ window.__dlSVG    = dlSVG;
             for(const w of words){if((l1+" "+w).trim().length<=20)l1=(l1+" "+w).trim();else l2=(l2+" "+w).trim();}
             const hasTit=d.titular&&d.titular.trim();
             const lines=l2?[l1,l2]:[l1];
-            const stripH=hasTit?Math.max(18,p.h*0.28):0;
+            // Wrapping del titular (mismo criterio que ng.each)
+            function wrapTitR(txt,maxLines){
+              const ws=(txt||"").split(/\s+/).filter(Boolean);
+              const perLine=Math.max(8,Math.floor(p.w/6.5));
+              const ls=[];let cur="";
+              for(const w of ws){
+                if(!cur)cur=w;
+                else if((cur+" "+w).length<=perLine)cur+=" "+w;
+                else{ls.push(cur);cur=w;}
+                if(ls.length>=maxLines-1&&cur.length>perLine)break;
+              }
+              if(cur)ls.push(cur);
+              if(ls.length>maxLines){const keep=ls.slice(0,maxLines);keep[maxLines-1]=keep[maxLines-1].slice(0,perLine-1)+"…";return keep;}
+              return ls;
+            }
+            const titLinesR=hasTit?wrapTitR(d.titular,3):[];
+            const fsTitBaseR=Math.max(7,Math.min(13,p.h*0.16));
+            const titLineHR=fsTitBaseR+2;
+            const stripH=hasTit?Math.max(p.h*0.28,titLinesR.length*titLineHR+6):0;
             const mainH=p.h-stripH;
             const _fs=Math.max(8,Math.min(60,Math.min(p.w/5,mainH/(lines.length+0.8)*0.72)));
             const _lh=_fs+3;
@@ -1388,14 +1406,16 @@ window.__dlSVG    = dlSVG;
               .style("font-size",_fs+"px").attr("font-weight",700)
               .attr("fill","#fff").attr("font-family","Open Sans,sans-serif").text(l));
             if(hasTit){
-              const fsTit=Math.max(6,Math.min(_fs*0.78,stripH*0.62));
-              par.append("text")
-                .attr("x",p.w/2).attr("y",mainH+stripH/2+fsTit*0.38)
+              const fsTit=Math.max(6,Math.min(fsTitBaseR,_fs*0.82));
+              const titBlockH=titLinesR.length*titLineHR;
+              let ty0=mainH+(stripH-titBlockH)/2+fsTit*0.85;
+              titLinesR.forEach(l=>{par.append("text")
+                .attr("x",p.w/2).attr("y",ty0)
                 .attr("text-anchor","middle")
                 .style("font-size",fsTit+"px").attr("font-weight",400)
                 .attr("fill","rgba(255,255,255,0.88)")
                 .attr("font-family","Open Sans,sans-serif")
-                .text(d.titular.length>28?d.titular.slice(0,26)+"…":d.titular);
+                .text(l);ty0+=titLineHR;});
             }
             par.select(".resize-handle").raise();
             par.attr("transform",`translate(${p.x-p.w/2},${p.y})`);
@@ -1404,7 +1424,11 @@ window.__dlSVG    = dlSVG;
           function onUp(){
             window.removeEventListener("mousemove",onMove);
             window.removeEventListener("mouseup",onUp);
-            savePosForArea();showSaved();
+            savePosForArea();
+            renderCanvas(); // redibujar con la lógica de render definitiva (titular multilínea)
+            // mantener selección tras el re-render
+            d3.selectAll(".c-node").classed("sel",n=>edSelectedIds.has(n.id));
+            showSaved();
           }
           window.addEventListener("mousemove",onMove);
           window.addEventListener("mouseup",onUp);
