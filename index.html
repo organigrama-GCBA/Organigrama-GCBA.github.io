@@ -538,6 +538,8 @@ window.__dlSVG    = dlSVG;
       <button class="ed-zb" id="ed-btn-embed" title="Guardar layout en HTML para GitHub" style="width:auto;padding:0 10px;font-size:11px;background:#1a6b3a;color:#fff;border-color:#2a9b5a;">⬇ HTML</button>
       <button class="ed-zb" id="ed-btn-save" title="Guardar" style="width:auto;padding:0 10px;font-size:11px;">💾 Guardar</button>
       <button class="ed-zb" id="ed-btn-export" title="Exportar A3" style="width:auto;padding:0 10px;font-size:11px;">🖨 A3</button>
+      <button class="ed-zb" id="ed-btn-scaleup" title="Agrandar todo el organigrama (cajas y separaciones)" style="width:auto;padding:0 10px;font-size:11px;">⊕ Agrandar</button>
+      <button class="ed-zb" id="ed-btn-scaledown" title="Achicar todo el organigrama (cajas y separaciones)" style="width:auto;padding:0 10px;font-size:11px;">⊖ Achicar</button>
       <button class="ed-zb" id="ed-btn-reset" title="Resetear layout" style="width:auto;padding:0 10px;font-size:11px;">↺ Reset</button>
       <button class="ed-zb" id="ed-btn-back" style="width:auto;padding:0 12px;font-size:11px;background:var(--ed-accent);color:#fff;border-color:var(--ed-accent);">← Volver</button>
     </div>
@@ -1636,6 +1638,37 @@ window.__dlSVG    = dlSVG;
   });
   wire("ed-btn-export",()=>exportAreaA3());
   wire("ed-btn-reset",()=>resetLayout());
+
+  // Escalar TODO el layout del área (cajas + separaciones juntas, manteniendo proporciones)
+  function escalarLayout(factor){
+    if(!edPositions)return;
+    // Centro del conjunto, para que crezca/achique desde el medio y no se vaya de pantalla
+    const ids=Object.keys(edPositions);
+    if(!ids.length)return;
+    let cx=0,cy=0;
+    ids.forEach(id=>{const p=edPositions[id];cx+=p.x;cy+=p.y;});
+    cx/=ids.length;cy/=ids.length;
+    ids.forEach(id=>{
+      const p=edPositions[id];
+      p.x=cx+(p.x-cx)*factor;
+      p.y=cy+(p.y-cy)*factor;
+      p.w=(p.w||NW)*factor;
+      p.h=(p.h||NH)*factor;
+    });
+    // Escalar también los vértices de las líneas para que acompañen
+    if(edWaypoints){
+      Object.keys(edWaypoints).forEach(k=>{
+        const arr=edWaypoints[k];
+        if(Array.isArray(arr))arr.forEach(pt=>{pt.x=cx+(pt.x-cx)*factor;pt.y=cy+(pt.y-cy)*factor;});
+      });
+    }
+    // Guardar las posiciones escaladas para que renderCanvas las use (si no, las pisa)
+    savePosForArea();
+    saveWPForArea();
+    renderCanvas();
+  }
+  wire("ed-btn-scaleup",()=>escalarLayout(1.15));
+  wire("ed-btn-scaledown",()=>escalarLayout(0.87));
   wire("ed-btn-back",()=>{if(window.__goToOrganigrama)window.__goToOrganigrama();});
   wire("ed-btn-node-save",()=>saveNodeChanges());
   wire("ed-btn-move",()=>showMoveModal());
