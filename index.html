@@ -555,7 +555,7 @@ window.__dlSVG    = dlSVG;
     </div>
     <div id="ed-canvas">
       <svg id="ed-svg" style="width:100%;height:100%;"></svg>
-      <div id="ed-global-resize" title="Arrastrá para agrandar o achicar TODOS los nodos juntos" style="position:absolute;bottom:14px;right:14px;width:42px;height:42px;border-radius:9px;background:#336ACC;color:#fff;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:nwse-resize;z-index:60;display:flex;align-items:center;justify-content:center;font-size:20px;user-select:none;">⤢</div>
+      <div id="ed-global-resize" title="Arrastrá para agrandar o achicar TODOS los nodos juntos" style="position:absolute;bottom:14px;right:70px;width:42px;height:42px;border-radius:9px;background:#336ACC;color:#fff;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:nwse-resize;z-index:60;display:flex;align-items:center;justify-content:center;font-size:20px;user-select:none;">⤢</div>
       <button id="ed-btn-embed" title="Guardar layout en HTML para GitHub" style="position:absolute;bottom:10px;left:10px;width:34px;height:34px;padding:0;font-size:14px;border-radius:7px;background:#1a6b3a;color:#fff;border:1px solid #2a9b5a;cursor:pointer;z-index:50;box-shadow:0 2px 6px rgba(0,0,0,0.25);" aria-label="Descargar HTML">⬇</button>
       
       <div class="ed-zoom">
@@ -2690,7 +2690,7 @@ function OrgChart({data,search,selectedId}){
     const label=getLabel(node);
     const kids=(node.children||[]).filter(c=>matchIds?matchIds.has(c.id):true);
     const hasKids=kids.length>0;
-    const isExp=expanded.has(node.id);
+    const isExp=expanded.has(node.id)||(matchIds&&matchIds.has(node.id));
     const dim=matchIds&&!matchIds.has(node.id);
     const LIGHT_BG=["#FCD307","#E4E9ED","#FEA82D"];
     const isLightBg=LIGHT_BG.some(c=>color.toUpperCase()===c.toUpperCase());
@@ -2812,7 +2812,7 @@ function EmpresasPanel(){
   });
   const[adding,setAdding]=React.useState(false);
   const[editing,setEditing]=React.useState(null);
-  const[form,setForm]=React.useState({nombre:"",titular:""});
+  const[form,setForm]=React.useState({nombre:"",titular:"",subtipo:""});
 
   const saveExtras=list=>{setExtras(list);localStorage.setItem("gcba_empresas_extra",JSON.stringify(list));};
   const saveOverrides=ovr=>{setOverrides(ovr);localStorage.setItem("gcba_empresas_overrides",JSON.stringify(ovr));};
@@ -2822,23 +2822,23 @@ function EmpresasPanel(){
 
   const addEmpresa=()=>{
     if(!form.nombre.trim())return;
-    const e={id:"ex_"+Date.now(),nombre:form.nombre.trim(),titular:form.titular.trim(),area:""};
-    saveExtras([...extras,e]);setForm({nombre:"",titular:""});setAdding(false);
+    const e={id:"ex_"+Date.now(),nombre:form.nombre.trim(),titular:form.titular.trim(),area:"",subtipo:form.subtipo||""};
+    saveExtras([...extras,e]);setForm({nombre:"",titular:"",subtipo:""});setAdding(false);
   };
   const startEdit=e=>{
     const r=resolved(e);
-    setEditing(e.id);setForm({nombre:r.nombre,titular:r.titular||""});setAdding(false);
+    setEditing(e.id);setForm({nombre:r.nombre,titular:r.titular||"",subtipo:r.subtipo||""});setAdding(false);
   };
   const saveEdit=()=>{
     if(!form.nombre.trim())return;
     if(editing.startsWith("ex_")){
       // Extra: edit in extras array
-      saveExtras(extras.map(e=>e.id===editing?{...e,nombre:form.nombre.trim(),titular:form.titular.trim()}:e));
+      saveExtras(extras.map(e=>e.id===editing?{...e,nombre:form.nombre.trim(),titular:form.titular.trim(),subtipo:form.subtipo||""}:e));
     } else {
       // Fija: guardar override
-      saveOverrides({...overrides,[editing]:{nombre:form.nombre.trim(),titular:form.titular.trim()}});
+      saveOverrides({...overrides,[editing]:{nombre:form.nombre.trim(),titular:form.titular.trim(),subtipo:form.subtipo||""}});
     }
-    setEditing(null);setForm({nombre:"",titular:""});
+    setEditing(null);setForm({nombre:"",titular:"",subtipo:""});
   };
   const removeExtra=id=>{saveExtras(extras.filter(e=>e.id!==id));if(editing===id)setEditing(null);};
   const resetOverride=id=>{const o={...overrides};delete o[id];saveOverrides(o);};
@@ -2859,7 +2859,17 @@ function EmpresasPanel(){
       <input value={form.titular} onChange={e=>setForm(f=>({...f,titular:e.target.value}))}
         placeholder="Titular (opcional)"
         style={{width:"100%",border:"1px solid #CBD5E0",borderRadius:6,padding:"6px 9px",
-          fontSize:12,fontFamily:"inherit",marginBottom:10,boxSizing:"border-box"}}/>
+          fontSize:12,fontFamily:"inherit",marginBottom:6,boxSizing:"border-box"}}/>
+      <select value={form.subtipo||""} onChange={e=>setForm(f=>({...f,subtipo:e.target.value}))}
+        style={{width:"100%",border:"1px solid #CBD5E0",borderRadius:6,padding:"6px 9px",
+          fontSize:12,fontFamily:"inherit",marginBottom:10,boxSizing:"border-box",background:"#fff"}}>
+        <option value="">— Subtipo (sin clasificar) —</option>
+        <option value="Fideicomisos">Fideicomisos</option>
+        <option value="SA">SA</option>
+        <option value="SAU">SAU</option>
+        <option value="Sociedades del Estado">Sociedades del Estado</option>
+        <option value="Otras entidades">Otras entidades</option>
+      </select>
       <div style={{display:"flex",gap:6}}>
         <button onClick={onSave}
           style={{padding:"5px 14px",borderRadius:6,border:"none",background:"#336ACC",
@@ -2892,7 +2902,7 @@ function EmpresasPanel(){
                 {empresas.map(e=>(
                   <div key={e.id}>
                     {editing===e.id
-                      ? <div style={{minWidth:280}}><EditForm onSave={saveEdit} onCancel={()=>{setEditing(null);setForm({nombre:"",titular:""});}}/></div>
+                      ? <div style={{minWidth:280}}><EditForm onSave={saveEdit} onCancel={()=>{setEditing(null);setForm({nombre:"",titular:"",subtipo:""});}}/></div>
                       : <div style={{background:"#fff",border:"1px solid #E6EBF0",borderLeft:"3px solid #101E37",
                           borderRadius:6,padding:"7px 12px",minWidth:200,maxWidth:280}}>
                           <div style={{fontSize:11,fontWeight:600,color:"#101E37",lineHeight:1.3}}>{e.nombre}</div>
@@ -2900,6 +2910,9 @@ function EmpresasPanel(){
                             ? <div style={{fontSize:10,color:"#718096",marginTop:3}}>{e.titular}</div>
                             : <div style={{fontSize:10,color:"#CBD5E0",marginTop:3,fontStyle:"italic"}}>Sin titular</div>
                           }
+                          {e.subtipo&&<div style={{display:"inline-block",marginTop:5,fontSize:9,fontWeight:700,
+                            color:"#fff",background:({"Fideicomisos":"#8B5CF6","SA":"#2563EB","SAU":"#0891B2","Sociedades del Estado":"#268948","Otras entidades":"#64748B"})[e.subtipo]||"#64748B",
+                            padding:"2px 7px",borderRadius:4,letterSpacing:".02em",textTransform:"uppercase"}}>{e.subtipo}</div>}
                           <div style={{display:"flex",gap:4,marginTop:6}}>
                             <button onClick={()=>startEdit(e)}
                               style={{fontSize:10,padding:"2px 7px",borderRadius:4,border:"1px solid #CBD5E0",
@@ -2921,13 +2934,13 @@ function EmpresasPanel(){
             </div>
           ))}
           {!adding&&!editing&&(
-            <button onClick={()=>{setAdding(true);setForm({nombre:"",titular:""});}}
+            <button onClick={()=>{setAdding(true);setForm({nombre:"",titular:"",subtipo:""});}}
               style={{marginTop:8,padding:"5px 12px",fontSize:11,borderRadius:7,border:"1px dashed #CBD5E0",
                 background:"transparent",cursor:"pointer",color:"#718096",fontFamily:"inherit"}}>
               + Agregar empresa / fideicomiso
             </button>
           )}
-          {adding&&<EditForm onSave={addEmpresa} onCancel={()=>{setAdding(false);setForm({nombre:"",titular:""});}} saveLabel="Agregar"/>}
+          {adding&&<EditForm onSave={addEmpresa} onCancel={()=>{setAdding(false);setForm({nombre:"",titular:"",subtipo:""});}} saveLabel="Agregar"/>}
         </div>
       )}
     </div>
@@ -2974,6 +2987,16 @@ function App(){
   // Navegar a un nodo guardando el anterior en el historial (para el botón Volver)
   const navTo=(node)=>{setNavHist(h=>selected?[...h,selected]:h);setSelected(node);};
   const navBack=()=>{setNavHist(h=>{if(!h.length)return h;const prev=h[h.length-1];setSelected(prev);return h.slice(0,-1);});};
+  // Camino desde la raíz hasta un nodo (para las migas de navegación)
+  const getPath=(targetId)=>{
+    const res=[];
+    (function walk(node,trail){
+      const t=[...trail,node];
+      if(node.id===targetId){res.push(...t);return true;}
+      return (node.children||[]).some(c=>walk(c,t));
+    })(data,[]);
+    return res;
+  };
   const[search,setSearch]=useState("");
   const[modal,setModal]=useState(null); // null | "edit" | "add" | "move"
   const[editForm,setEditForm]=useState({});
@@ -3049,6 +3072,28 @@ function App(){
     setData(d=>{const nd=updateNode(d,selected.id,n=>({...n,nombre,titular,tipo,tipoLabel:tipoLabel||undefined,dashed}));saveData(nd);return nd;});
     setSelected(s=>({...s,nombre,titular,tipo,tipoLabel,dashed}));
     setModal(null);
+  }
+
+  // Reemplazar el nombre de un titular en TODAS las áreas donde aparezca
+  function reemplazarTitular(){
+    const viejo=(prompt("Reemplazar titular — escribí el nombre actual a buscar:")||"").trim();
+    if(!viejo)return;
+    // contar cuántas coincidencias hay
+    let count=0;
+    (function w(n){if((n.titular||"").trim()===viejo)count++;(n.children||[]).forEach(w);})(data);
+    if(count===0){alert(`No encontré ninguna área con el titular "${viejo}".`);return;}
+    const nuevo=prompt(`Encontré ${count} área(s) con "${viejo}".\nEscribí el nuevo nombre del titular:`);
+    if(nuevo===null)return;
+    const nuevoT=nuevo.trim();
+    setData(d=>{
+      function rep(n){
+        const t=((n.titular||"").trim()===viejo)?{...n,titular:nuevoT}:n;
+        return{...t,children:(t.children||[]).map(rep)};
+      }
+      const nd=rep(d);saveData(nd);return nd;
+    });
+    setSelected(s=>s&&(s.titular||"").trim()===viejo?{...s,titular:nuevoT}:s);
+    alert(`✓ Listo: cambié "${viejo}" por "${nuevoT}" en ${count} área(s).`);
   }
   function saveAdd(){
     const{nombre,titular,tipo,tipoLabel,dashed,parentId}=addForm;
@@ -3139,6 +3184,33 @@ function App(){
       img.src=url;
     }
     renderPage(0);
+  }
+
+  // Exportar UNA sola área como PDF A3 (no todo el organigrama)
+  function dlAreaPDF(area){
+    if(!area)return;
+    const PW=1587,PH=1123;
+    const svg=genSVGA3(area,1,1);
+    const jsPDFref=(window.jspdf||{}).jsPDF;
+    if(!jsPDFref){ dlSVG(svg,`organigrama-${area.id}-A3.svg`); return; }
+    const SCALE=2,cw=PW*SCALE,ch=PH*SCALE;
+    const pdf=new jsPDFref({orientation:"landscape",unit:"mm",format:"a3"});
+    const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
+    const blob=new Blob([svg],{type:"image/svg+xml;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const img=new Image();
+    img.onload=function(){
+      const canvas=document.createElement("canvas");
+      canvas.width=cw;canvas.height=ch;
+      const ctx=canvas.getContext("2d");
+      ctx.fillStyle="#ffffff";ctx.fillRect(0,0,cw,ch);
+      ctx.drawImage(img,0,0,cw,ch);
+      URL.revokeObjectURL(url);
+      pdf.addImage(canvas.toDataURL("image/jpeg",0.92),"JPEG",0,0,pw,ph);
+      pdf.save(`organigrama-${area.id}-A3.pdf`);
+    };
+    img.onerror=function(){URL.revokeObjectURL(url);dlSVG(svg,`organigrama-${area.id}-A3.svg`);};
+    img.src=url;
   }
 
   const color=selected?getColor(selected):"#003D6E";
@@ -3264,6 +3336,17 @@ function App(){
                       {selected.nombre.split(" ").filter(w=>w.length>2).slice(0,2).map(w=>w[0]).join("")}
                     </div>
                     <div style={{flex:1,minWidth:0}}>
+                      {(()=>{const path=getPath(selected.id);if(path.length<2)return null;return(
+                        <div style={{display:"flex",flexWrap:"wrap",alignItems:"center",gap:3,marginBottom:6,fontSize:10}}>
+                          {path.slice(0,-1).map((n,i)=>(
+                            <span key={n.id} style={{display:"inline-flex",alignItems:"center",gap:3}}>
+                              <span onClick={()=>navTo(n)} style={{color:"rgba(255,255,255,.75)",cursor:"pointer",textDecoration:"underline",textUnderlineOffset:2}}>{n.nombre}</span>
+                              <span style={{color:"rgba(255,255,255,.4)"}}>›</span>
+                            </span>
+                          ))}
+                          <span style={{color:"rgba(255,255,255,.95)",fontWeight:600}}>{selected.nombre}</span>
+                        </div>
+                      );})()}
                       <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
                         <span style={{fontSize:9,fontWeight:700,background:"rgba(255,255,255,.2)",padding:"2px 7px",borderRadius:20,color:"rgba(255,255,255,.9)",letterSpacing:".05em",textTransform:"uppercase"}}>
                           {getLabel(selected)}{selected.dashed?" · Func.":""}
@@ -3287,11 +3370,12 @@ function App(){
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                     {navHist.length>0&&<Btn variant="secondary" small onClick={navBack}>← Volver</Btn>}
                     <Btn variant="secondary" small onClick={withAuth(()=>openEdit(selected))}>✏️ Editar</Btn>
+                    <Btn variant="secondary" small onClick={withAuth(reemplazarTitular)}>🔁 Reemplazar titular</Btn>
                     {selected.id!=="JG"&&<>
                       <Btn variant="secondary" small onClick={withAuth(openMove)}>↕ Mover</Btn>
                       <Btn variant="danger" small onClick={withAuth(del)}>✕ Eliminar</Btn>
                     </>}
-                    <Btn variant="secondary" small onClick={()=>{dlSVG(genSVGA3(selected,1,1),`organigrama-${selected.id}-A3.svg`);}}>🖨 A3</Btn>
+                    <Btn variant="secondary" small onClick={()=>{dlAreaPDF(selected);}}>🖨 A3 (PDF)</Btn>
                   </div>
                 </div>
               </div>
