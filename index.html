@@ -249,20 +249,27 @@ function genSVGA3(root,pn=1,tot=1){
   
   let nodes=[],links=[],NW,NH;
 
-  if(savedPos&&Object.keys(savedPos).length>0&&!root.dashed){
-    // ── Posiciones del editor ──────────────────────────────
-    // Recopilar nodos visibles (JG: 1 nivel)
-    const visible=[];
+  // Decidir si usar layout guardado o auto-layout.
+  // Si tenemos savedPos pero >50% de nodos visibles no están allí, caer al auto-layout.
+  let useSavedLayout=savedPos&&Object.keys(savedPos).length>0&&!root.dashed;
+  let _visibleCache=null;
+  if(useSavedLayout){
+    _visibleCache=[];
     (function collect(node,depth){
-      visible.push(node);
+      _visibleCache.push(node);
       if(isJG&&depth>=1)return;
       (node.children||[]).forEach(c=>collect(c,depth+1));
     })(root,0);
+    const haveCount=_visibleCache.filter(n=>savedPos[n.id]!=null).length;
+    if(haveCount<_visibleCache.length*0.5)useSavedLayout=false;
+  }
+
+  if(useSavedLayout){
+    // ── Posiciones del editor ──────────────────────────────
+    const visible=_visibleCache;
     const visIds=new Set(visible.map(n=>n.id));
 
     nodes=visible.filter(n=>savedPos[n.id]!=null).map(n=>({x:savedPos[n.id].x,y:savedPos[n.id].y,w:savedPos[n.id].w||ED_NW,h:savedPos[n.id].h||ED_NH,data:n}));
-    // If some nodes missing from savedPos, fall back to auto layout
-    if(nodes.length<visible.length*0.5){nodes=[];} // too many missing → auto layout
 
     // Links
     (function walk(node,depth){
@@ -313,7 +320,8 @@ function genSVGA3(root,pn=1,tot=1){
       const row2=directHier.filter(c=>c.tipo==="SEC");
       // Si no hay row1 (ej: Jefatura de Gabinete que solo tiene SECs), poner todo en row1
       const useRow1=row1.length>0?row1:directHier.filter(c=>c.tipo!=="SEC");
-      const useRow2=row1.length>0?row2:row2;
+      // Si no había MIN/VJG y todo se metió en row1, row2 queda vacía
+      const useRow2=row1.length>0?row2:[];
       const spanX=Math.max(useRow1.length,useRow2.length,1);
       const numRows=(useRow2.length>0?3:2); // JG + fila1 + fila2
       // NW: dividir ancho disponible entre columnas
@@ -333,8 +341,6 @@ function genSVGA3(root,pn=1,tot=1){
       const mn=makeRow(useRow1,NH+VPAD);
       const sn=makeRow(useRow2,NH+VPAD+NH+VPAD);
       // Nodos fuera de nivel (dashed) — fila al pie
-      const dashedDirect=directHier.filter(c=>c.dashed!==false&&(root.children||[]).some(ch=>ch.id===c.id&&ch.dashed));
-      // Re-check: get dashed children of root
       const dashedChildren=(root.children||[]).filter(c=>c.dashed);
       const lastRowY=NH+VPAD+(useRow2.length>0?NH+VPAD:0);
       const dn=dashedChildren.length>0?(()=>{
@@ -509,10 +515,11 @@ function dlSVG(svgStr,fname){
   URL.revokeObjectURL(url);
 }
 
-// genSVGA3, dlSVG, flatList, findNode — disponibles globalmente
+// genSVGA3, dlSVG, wrapTxt — disponibles globalmente
 window.__genSVGA3 = genSVGA3;
 window.genSVGA3   = genSVGA3;
 window.__dlSVG    = dlSVG;
+window.__wrapTxt  = wrapTxt;
 // flatList and findNode are defined in the React JSX block
 
 
@@ -526,7 +533,7 @@ window.__dlSVG    = dlSVG;
   <div id="ed-toolbar">
     <span style="font-size:10px;font-weight:600;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.06em;">Área:</span>
     <select id="ed-area-sel" style="min-width:240px;flex:1;max-width:380px;"></select>
-    <span style="font-size:10px;color:var(--ed-text3);margin-left:8px;">· clic = seleccionar · flechas = mover · clic der. en línea = quiebre</span>
+    <span style="font-size:10px;color:var(--ed-text3);margin-left:8px;">· clic = sel · Ctrl+clic = sumar nodo · Shift+clic = sumar rama · flechas = mover</span>
     <span style="font-size:10px;color:var(--ed-text3);margin-left:12px;">Nodo:</span>
     <span style="font-size:10px;color:var(--ed-text3);">Texto</span>
     <input id="ed-fs" type="number" min="6" max="20" step="0.5" value="9.5"
@@ -537,6 +544,7 @@ window.__dlSVG    = dlSVG;
       <button class="ed-zb" id="ed-btn-undo" title="Deshacer" style="width:auto;padding:0 10px;font-size:11px;">↩ Deshacer</button>
       <button class="ed-zb" id="ed-btn-save" title="Guardar" style="width:auto;padding:0 10px;font-size:11px;">💾 Guardar</button>
       <button class="ed-zb" id="ed-btn-export" title="Exportar A3" style="width:auto;padding:0 10px;font-size:11px;">🖨 A3</button>
+      <button class="ed-zb" id="ed-btn-autolayout" title="Acomodar para A3 — DG apiladas verticalmente bajo su SS/SEC" style="width:auto;padding:0 10px;font-size:11px;">📐 Auto-A3</button>
       <button class="ed-zb" id="ed-btn-reset" title="Resetear layout" style="width:auto;padding:0 10px;font-size:11px;">↺ Reset</button>
       <button class="ed-zb" id="ed-btn-back" style="width:auto;padding:0 12px;font-size:11px;background:var(--ed-accent);color:#fff;border-color:var(--ed-accent);">← Volver</button>
     </div>
@@ -669,6 +677,7 @@ window.__dlSVG    = dlSVG;
   // ── Constantes ──────────────────────────────────────────
   const POS_KEY="gcba_org_positions_v1";
   const WP_KEY="gcba_org_waypoints_v1";
+  const MIDY_KEY="gcba_org_midy_v1";
   const NW=158,NH=50,HPAD=18,VPAD=58;
 
   // ── Estado ──────────────────────────────────────────────
@@ -679,20 +688,29 @@ window.__dlSVG    = dlSVG;
   let edPositions={};         // {nodeId: {x,y}} para el área
   let edA3Frame=null;          // {ux,uy,uw,uh} bounds del marco A3 en canvas coords actual
   let edWaypoints={};         // {"sid-tid": [{x,y},...]}
+  let edLinkMidY={};          // {"sid-tid": Y} — override del bend horizontal de cada link
   let edZoom=null;
   let edTransform=d3.zoomIdentity;
   let edFitted=false;
+  // Estado expuesto por renderCanvas() a las funciones globales (nudge, selectAllNodes, etc.)
+  // Antes referenciaban `nodes`/`drawLinks`/`drawWPs` que vivían en el scope local de renderCanvas.
+  let edRenderState={nodes:[],links:[],drawLinks:()=>{},drawWPs:()=>{}};
+  // Cleanup de listeners registrados en renderCanvas previo (lasso); evita acumular handlers.
+  let edLassoCleanup=null;
 
   // ── LocalStorage helpers ─────────────────────────────────
-  function readLS(key){try{return JSON.parse(localStorage.getItem(key)||"{}");}catch{return{};}}
+  function readLS(key){try{const v=JSON.parse(localStorage.getItem(key)||"{}");return(v&&typeof v==="object"&&!Array.isArray(v))?v:{};}catch{return{};}}
   function writeLS(key,val){try{localStorage.setItem(key,JSON.stringify(val));}catch{}}
   function savePosForArea(){writeLS(POS_KEY,{...readLS(POS_KEY),[edViewId]:edPositions});}
   function saveWPForArea(){writeLS(WP_KEY,{...readLS(WP_KEY),[edViewId]:edWaypoints});}
+  function saveMidYForArea(){writeLS(MIDY_KEY,{...readLS(MIDY_KEY),[edViewId]:edLinkMidY});}
   function loadPosForArea(id){return readLS(POS_KEY)[id]||null;}
   function loadWPForArea(id){return readLS(WP_KEY)[id]||{};}
+  function loadMidYForArea(id){return readLS(MIDY_KEY)[id]||{};}
   function clearArea(id){
     const p=readLS(POS_KEY);delete p[id];writeLS(POS_KEY,p);
     const w=readLS(WP_KEY);delete w[id];writeLS(WP_KEY,w);
+    const m=readLS(MIDY_KEY);delete m[id];writeLS(MIDY_KEY,m);
   }
 
   // ── Árbol helpers ────────────────────────────────────────
@@ -819,6 +837,7 @@ window.__dlSVG    = dlSVG;
       }
     });
     edWaypoints=loadWPForArea(edViewId);
+    edLinkMidY=loadMidYForArea(edViewId);
 
     const g=svg.append("g").attr("class","canvas-root");
     edZoom=d3.zoom().scaleExtent([0.04,3]).on("zoom",e=>{edTransform=e.transform;g.attr("transform",e.transform);});
@@ -931,9 +950,244 @@ window.__dlSVG    = dlSVG;
     }
 
     function drawLinks(){
-      // ── Dibujar barras compartidas entre waypoints con mismo Y ──
-      linkG.selectAll(".shared-bus").remove();
-      // Agrupar waypoints por Y redondeado
+      // Limpiar todo lo dibujado en el render previo
+      linkG.selectAll("*").remove();
+
+      // Escala de grosor según ancho promedio de los nodos visibles (para que las
+      // líneas crezcan junto al organigrama cuando se usa el global-resize).
+      const _ws=Object.values(edPositions).filter(p=>p&&p.w).map(p=>p.w);
+      const _avgW=_ws.length?_ws.reduce((a,b)=>a+b,0)/_ws.length:NW;
+      const _scale=Math.max(0.6,Math.min(4,_avgW/NW));
+
+      const BUS_TOL=10;     // px en coords canvas — líneas con midY a <10px se fusionan
+      const R=6*_scale;     // radio de las esquinas de las L-paths
+      const STROKE="#1a2433";
+      const SW_SOLID=6*_scale, SW_DASHED=3.5*_scale;
+      const HIT_SW=Math.max(14,18*_scale); // hit area más generosa para arrastrar
+
+      // Convierte coordenadas de un MouseEvent a coords canvas (deshace zoom/pan)
+      function clientToCanvas(e){
+        const pt=svgEl.createSVGPoint();
+        pt.x=e.clientX;pt.y=e.clientY;
+        const gp=pt.matrixTransform(svgEl.getScreenCTM().inverse());
+        return {x:(gp.x-edTransform.x)/edTransform.k,y:(gp.y-edTransform.y)/edTransform.k};
+      }
+
+      // Handler de doble-click: crea waypoint donde se hizo clic (atajo explícito)
+      function onLinkDbl(lk){
+        return function(e){
+          e.stopPropagation();
+          const wp=clientToCanvas(e);
+          const k=lk.sid+"-"+lk.tid;
+          if(!edWaypoints[k])edWaypoints[k]=[];
+          edWaypoints[k].push(wp);
+          saveWPForArea();drawLinks();drawWPs();
+        };
+      }
+
+      // Drag directo sobre la línea: mueve verticalmente el bend del bus.
+      // Si la línea pertenece a un cluster (varias líneas con midY similar),
+      // se mueve TODO el cluster junto — la barra horizontal y las verticales
+      // se desplazan como una sola unidad. Si la línea tiene waypoints, en
+      // cambio se delega: el drag agarra/crea un waypoint individual.
+      function onLinkDragStart(lk){
+        return function(e){
+          if(e.button!==0)return;
+          e.stopPropagation();
+          e.preventDefault();
+          const k=lk.sid+"-"+lk.tid;
+          const startScreenX=e.clientX, startScreenY=e.clientY;
+          const hasWPs=(edWaypoints[k]||[]).length>0;
+
+          if(hasWPs){
+            // Modo waypoint: el drag desplaza TODOS los waypoints del link por el
+            // mismo delta — la ruta entera (típica de "fuera de nivel" con
+            // recorrido lateral) se mueve como un bloque, igual que el bus.
+            // Para mover un único waypoint, arrastrar directamente su dot azul.
+            // Para crear un waypoint nuevo: doble-clic en la línea.
+            const startCanvas=clientToCanvas(e);
+            const wps=edWaypoints[k]||[];
+            if(!wps.length)return;
+            // Snapshot de posiciones iniciales para aplicar delta absoluto
+            const startPositions=wps.map(w=>({wp:w,x0:w.x,y0:w.y}));
+            let moved=false;
+            function onMove(ev){
+              const totalDx=Math.abs(ev.clientX-startScreenX);
+              const totalDy=Math.abs(ev.clientY-startScreenY);
+              if(!moved&&totalDx<4&&totalDy<4)return;
+              moved=true;
+              const pos=clientToCanvas(ev);
+              const dx=pos.x-startCanvas.x, dy=pos.y-startCanvas.y;
+              startPositions.forEach(sp=>{
+                sp.wp.x=sp.x0+dx;
+                sp.wp.y=sp.y0+dy;
+              });
+              drawLinks();drawWPs();
+            }
+            function onUp(){
+              window.removeEventListener("mousemove",onMove);
+              window.removeEventListener("mouseup",onUp);
+              if(moved){saveWPForArea();showSaved();}
+            }
+            window.addEventListener("mousemove",onMove);
+            window.addEventListener("mouseup",onUp);
+            return;
+          }
+
+          // Modo bus: identificar el cluster y mover todos sus links juntos.
+          // Calcular midY actual de este link y de todos los otros auto.
+          function midYOf(otherLk){
+            const osp=edPositions[otherLk.sid], otp=edPositions[otherLk.tid];
+            if(!osp||!otp)return null;
+            const ok=otherLk.sid+"-"+otherLk.tid;
+            if((edWaypoints[ok]||[]).length>0)return null; // excluir links con waypoints
+            const customY=edLinkMidY[ok];
+            if(typeof customY==="number")return customY;
+            return (osp.y+(osp.h||NH))+(otp.y-(osp.y+(osp.h||NH)))*0.45;
+          }
+          const myThis=midYOf(lk);
+          if(myThis==null)return;
+          // Snapshot del cluster al iniciar el drag (no cambia durante el movimiento)
+          const cluster=links.filter(other=>{
+            const m=midYOf(other);
+            return m!=null && Math.abs(m-myThis)<BUS_TOL;
+          });
+          const startCanvas=clientToCanvas(e);
+          const yOffset=startCanvas.y-myThis;
+          let moved=false;
+          function onMove(ev){
+            const totalDx=Math.abs(ev.clientX-startScreenX);
+            const totalDy=Math.abs(ev.clientY-startScreenY);
+            if(!moved&&totalDx<4&&totalDy<4)return;
+            moved=true;
+            const pos=clientToCanvas(ev);
+            const newY=pos.y-yOffset;
+            cluster.forEach(clk=>{
+              edLinkMidY[clk.sid+"-"+clk.tid]=newY;
+            });
+            drawLinks();drawWPs();
+          }
+          function onUp(){
+            window.removeEventListener("mousemove",onMove);
+            window.removeEventListener("mouseup",onUp);
+            if(moved){saveMidYForArea();showSaved();}
+          }
+          window.addEventListener("mousemove",onMove);
+          window.addEventListener("mouseup",onUp);
+        };
+      }
+
+      // 1) Particionar: links con waypoints (custom path) vs auto (L-path)
+      const wpLinks=[], autoLinks=[];
+      links.forEach(lk=>{
+        const sp=edPositions[lk.sid], tp=edPositions[lk.tid];
+        if(!sp||!tp)return;
+        const sx=sp.x, sy=sp.y+(sp.h||NH);
+        const tx=tp.x, ty=tp.y;
+        const wps=edWaypoints[lk.sid+"-"+lk.tid];
+        if(wps&&wps.length>0){
+          wpLinks.push({lk,sx,sy,tx,ty});
+        } else {
+          // midY: custom override (drag del bus) o automático (45% del trayecto)
+          const customY=edLinkMidY[lk.sid+"-"+lk.tid];
+          const my=(typeof customY==="number")?customY:(sy+(ty-sy)*0.45);
+          autoLinks.push({lk,sx,sy,tx,ty,my,dashed:!!lk.dashed});
+        }
+      });
+
+      // 2) Clusterizar autoLinks por midY (orden + ventana)
+      autoLinks.sort((a,b)=>a.my-b.my);
+      const clusters=[];
+      for(const s of autoLinks){
+        const last=clusters[clusters.length-1];
+        if(last&&Math.abs(s.my-last.y)<BUS_TOL){
+          last.items.push(s);
+        } else {
+          clusters.push({y:s.my,items:[s]});
+        }
+      }
+
+      // 3) Render por cluster
+      clusters.forEach(c=>{
+        if(c.items.length===1){
+          // Solo: L-path clásica
+          const s=c.items[0], my=c.y, dashed=s.dashed;
+          let d;
+          if(Math.abs(s.sx-s.tx)<2){
+            d=`M${s.sx.toFixed(1)},${s.sy.toFixed(1)}L${s.tx.toFixed(1)},${s.ty.toFixed(1)}`;
+          } else {
+            const dx=s.tx>s.sx?R:-R;
+            d=`M${s.sx.toFixed(1)},${s.sy.toFixed(1)}`+
+              `L${s.sx.toFixed(1)},${(my-R).toFixed(1)}`+
+              `Q${s.sx.toFixed(1)},${my.toFixed(1)} ${(s.sx+dx).toFixed(1)},${my.toFixed(1)}`+
+              `L${(s.tx-dx).toFixed(1)},${my.toFixed(1)}`+
+              `Q${s.tx.toFixed(1)},${my.toFixed(1)} ${s.tx.toFixed(1)},${(my+R).toFixed(1)}`+
+              `L${s.tx.toFixed(1)},${s.ty.toFixed(1)}`;
+          }
+          linkG.append("path").attr("class","lpath c-link"+(dashed?" dashed-link":""))
+            .attr("d",d).attr("fill","none").attr("stroke",STROKE)
+            .attr("stroke-width",dashed?SW_DASHED:SW_SOLID)
+            .attr("stroke-linejoin","round").attr("stroke-linecap","round")
+            .attr("stroke-dasharray",dashed?"9,5":"none")
+            .attr("opacity",dashed?0.75:0.9);
+          linkG.append("path").attr("class","lhit")
+            .attr("d",d).attr("fill","none").attr("stroke","transparent").attr("stroke-width",HIT_SW)
+            .style("cursor","grab").on("dblclick",onLinkDbl(s.lk))
+            .on("mousedown",onLinkDragStart(s.lk));
+        } else {
+          // Múltiples: bus compartida + caídas
+          const y=c.items[0].my; // anclar al primero para que no flote al agregar nodos
+          const xs=c.items.flatMap(s=>[s.sx,s.tx]);
+          const minX=Math.min(...xs), maxX=Math.max(...xs);
+          const allDashed=c.items.every(s=>s.dashed);
+          // Bus horizontal compartida
+          linkG.append("line").attr("class","c-bus")
+            .attr("x1",minX).attr("y1",y).attr("x2",maxX).attr("y2",y)
+            .attr("stroke",STROKE).attr("stroke-width",allDashed?SW_DASHED:SW_SOLID)
+            .attr("stroke-linecap","round")
+            .attr("stroke-dasharray",allDashed?"9,5":"none")
+            .attr("opacity",allDashed?0.75:0.9);
+          // Caídas desde cada origen único (al bus)
+          const seenSrc=new Map();
+          c.items.forEach(s=>{
+            const k=Math.round(s.sx);
+            if(seenSrc.has(k))return;
+            seenSrc.set(k,s);
+            linkG.append("path").attr("class","c-drop")
+              .attr("d",`M${s.sx.toFixed(1)},${s.sy.toFixed(1)}L${s.sx.toFixed(1)},${y.toFixed(1)}`)
+              .attr("fill","none").attr("stroke",STROKE)
+              .attr("stroke-width",s.dashed?SW_DASHED:SW_SOLID)
+              .attr("stroke-linecap","round")
+              .attr("stroke-dasharray",s.dashed?"9,5":"none")
+              .attr("opacity",s.dashed?0.75:0.9);
+          });
+          // Caídas hacia cada destino único (del bus al nodo)
+          const seenTgt=new Map();
+          c.items.forEach(s=>{
+            const k=Math.round(s.tx);
+            if(seenTgt.has(k))return;
+            seenTgt.set(k,s);
+            linkG.append("path").attr("class","c-drop")
+              .attr("d",`M${s.tx.toFixed(1)},${y.toFixed(1)}L${s.tx.toFixed(1)},${s.ty.toFixed(1)}`)
+              .attr("fill","none").attr("stroke",STROKE)
+              .attr("stroke-width",s.dashed?SW_DASHED:SW_SOLID)
+              .attr("stroke-linecap","round")
+              .attr("stroke-dasharray",s.dashed?"9,5":"none")
+              .attr("opacity",s.dashed?0.75:0.9);
+          });
+          // Hit-areas por link (para doble-click → waypoint)
+          c.items.forEach(s=>{
+            const dHit=`M${s.sx.toFixed(1)},${s.sy.toFixed(1)}L${s.sx.toFixed(1)},${y.toFixed(1)}L${s.tx.toFixed(1)},${y.toFixed(1)}L${s.tx.toFixed(1)},${s.ty.toFixed(1)}`;
+            linkG.append("path").attr("class","lhit")
+              .attr("d",dHit).attr("fill","none").attr("stroke","transparent").attr("stroke-width",HIT_SW)
+              .style("cursor","grab").on("dblclick",onLinkDbl(s.lk))
+              .on("mousedown",onLinkDragStart(s.lk));
+          });
+        }
+      });
+
+      // 4) Links con waypoints: render custom + bus de waypoints en mismo Y (legacy)
+      // (mismo comportamiento previo para waypoints — el usuario los posiciona explícitamente)
       const busMap={};
       Object.entries(edWaypoints).forEach(([key,wps])=>{
         wps.forEach(wp=>{
@@ -942,53 +1196,42 @@ window.__dlSVG    = dlSVG;
           busMap[ry].push({x:wp.x,key});
         });
       });
-      // Dibujar barra donde hay 2+ waypoints en el mismo Y
       Object.entries(busMap).forEach(([ry,pts])=>{
         if(pts.length<2)return;
         pts.sort((a,b)=>a.x-b.x);
         linkG.append("line").attr("class","shared-bus")
           .attr("x1",pts[0].x).attr("y1",+ry)
           .attr("x2",pts[pts.length-1].x).attr("y2",+ry)
-          .attr("stroke","#1a2433").attr("stroke-width",6).attr("stroke-linecap","round").attr("opacity",0.9);
+          .attr("stroke",STROKE).attr("stroke-width",SW_SOLID).attr("stroke-linecap","round").attr("opacity",0.9);
       });
-
-      linkG.selectAll("path.lpath").data(links).join("path")
-        .attr("class",d=>"lpath c-link"+(d.dashed?" dashed-link":""))
-        .attr("d",d=>linkPath(d.sid,d.tid))
-        .attr("fill","none")
-        .attr("stroke","#1a2433")
-        .attr("stroke-width",d=>d.dashed?3.5:6)
-        .attr("stroke-linejoin","round")
-        .attr("stroke-linecap","round")
-        .attr("stroke-dasharray",d=>d.dashed?"9,5":"none")
-        .attr("opacity",d=>d.dashed?0.75:0.9);
-      linkG.selectAll("path.lhit").data(links).join("path")
-        .attr("class","lhit")
-        .attr("d",d=>linkPath(d.sid,d.tid))
-        .attr("fill","none").attr("stroke","transparent").attr("stroke-width",14)
-        .style("cursor","crosshair")
-        .on("dblclick",function(e,d){
-          e.stopPropagation();
-          const pt=svgEl.createSVGPoint();
-          pt.x=e.clientX;pt.y=e.clientY;
-          const gp=pt.matrixTransform(svgEl.getScreenCTM().inverse());
-          const p={x:(gp.x-edTransform.x)/edTransform.k,y:(gp.y-edTransform.y)/edTransform.k};
-          // Corrección: dividir por k ya está en gp
-          const wp={x:(gp.x-edTransform.x)/edTransform.k,y:(gp.y-edTransform.y)/edTransform.k};
-          const k=d.sid+"-"+d.tid;
-          if(!edWaypoints[k])edWaypoints[k]=[];
-          edWaypoints[k].push(wp);
-          saveWPForArea();drawLinks();drawWPs();
-        });
+      wpLinks.forEach(s=>{
+        const dashed=!!s.lk.dashed;
+        const d=linkPath(s.lk.sid,s.lk.tid);
+        linkG.append("path").attr("class","lpath c-link"+(dashed?" dashed-link":""))
+          .attr("d",d).attr("fill","none").attr("stroke",STROKE)
+          .attr("stroke-width",dashed?SW_DASHED:SW_SOLID)
+          .attr("stroke-linejoin","round").attr("stroke-linecap","round")
+          .attr("stroke-dasharray",dashed?"9,5":"none")
+          .attr("opacity",dashed?0.75:0.9);
+        linkG.append("path").attr("class","lhit")
+          .attr("d",d).attr("fill","none").attr("stroke","transparent").attr("stroke-width",HIT_SW)
+          .style("cursor","grab").on("dblclick",onLinkDbl(s.lk))
+          .on("mousedown",onLinkDragStart(s.lk));
+      });
     }
 
     function drawWPs(){
       wpG.selectAll("*").remove();
+      // Misma escala que las líneas para que los handles crezcan con el organigrama
+      const _ws=Object.values(edPositions).filter(p=>p&&p.w).map(p=>p.w);
+      const _avgW=_ws.length?_ws.reduce((a,b)=>a+b,0)/_ws.length:NW;
+      const _sc=Math.max(0.6,Math.min(4,_avgW/NW));
+      const wpR=Math.max(8,10*_sc);
       links.forEach(lk=>{
         const wps=edWaypoints[lk.sid+"-"+lk.tid]||[];
         wps.forEach((wp,i)=>{
           const c=wpG.append("circle")
-            .attr("cx",wp.x).attr("cy",wp.y).attr("r",10)
+            .attr("cx",wp.x).attr("cy",wp.y).attr("r",wpR)
             .attr("fill","#4f7ef8").attr("stroke","#fff").attr("stroke-width",2)
             .style("cursor","grab");
           c.call(d3.drag()
@@ -1036,14 +1279,14 @@ window.__dlSVG    = dlSVG;
 
     drawLinks();drawWPs();
 
-    // Lasso selection
+    // Lasso selection — listeners reciclados por renderCanvas previo para no acumular
     let lassoStart=null;
     const lassoRect=svg.append("rect")
       .attr("fill","rgba(77,197,233,0.1)").attr("stroke","#4DC5E9")
       .attr("stroke-width",1.5).attr("stroke-dasharray","5,3")
       .attr("rx",3).style("display","none").style("pointer-events","none");
 
-    svgEl.addEventListener("mousedown",function(e){
+    const onLassoDown=function(e){
       if(e.button!==0)return;
       const tgt=e.target;
       if(tgt.closest&&(tgt.closest(".c-node")||tgt.closest(".lhit")||tgt.closest(".wp-dot")))return;
@@ -1052,15 +1295,15 @@ window.__dlSVG    = dlSVG;
       const cx=(svgX-edTransform.x)/edTransform.k,cy=(svgY-edTransform.y)/edTransform.k;
       lassoStart={cx1:cx,cy1:cy,sx:svgX,sy:svgY,ex:e.clientX,ey:e.clientY};
       lassoRect.style("display",null).attr("x",svgX).attr("y",svgY).attr("width",0).attr("height",0);
-    });
-    svgEl.addEventListener("mousemove",function(e){
+    };
+    const onLassoMove=function(e){
       if(!lassoStart)return;
       const svgR=svgEl.getBoundingClientRect();
       const svgX=e.clientX-svgR.left,svgY=e.clientY-svgR.top;
       const x=Math.min(lassoStart.sx,svgX),y=Math.min(lassoStart.sy,svgY);
       lassoRect.attr("x",x).attr("y",y).attr("width",Math.abs(svgX-lassoStart.sx)).attr("height",Math.abs(svgY-lassoStart.sy));
-    });
-    svgEl.addEventListener("mouseup",function(e){
+    };
+    const onLassoUp=function(e){
       if(e.button!==0||!lassoStart)return;
       lassoRect.style("display","none");
       const svgR=svgEl.getBoundingClientRect();
@@ -1082,7 +1325,17 @@ window.__dlSVG    = dlSVG;
       d3.selectAll(".c-node").classed("sel",d=>edSelectedIds.has(d.id));
       if(edSelectedIds.size>0){document.getElementById("ed-actions").style.display="flex";}
       updateAlignBar();lassoStart=null;
-    });
+    };
+    // Limpiar listeners del renderCanvas anterior antes de registrar los nuevos
+    if(edLassoCleanup)edLassoCleanup();
+    svgEl.addEventListener("mousedown",onLassoDown);
+    svgEl.addEventListener("mousemove",onLassoMove);
+    svgEl.addEventListener("mouseup",onLassoUp);
+    edLassoCleanup=()=>{
+      svgEl.removeEventListener("mousedown",onLassoDown);
+      svgEl.removeEventListener("mousemove",onLassoMove);
+      svgEl.removeEventListener("mouseup",onLassoUp);
+    };
 
     // Nodos
     const nodeG=g.append("g");
@@ -1094,7 +1347,19 @@ window.__dlSVG    = dlSVG;
       .style("cursor","pointer")
       .on("click",(e,d)=>{
         e.stopPropagation();
-        if(e.shiftKey){
+        if(e.ctrlKey||e.metaKey){
+          // Ctrl/Cmd+clic: toggle de ESTE nodo en la selección (sin descendientes).
+          // Permite armar un grupo libre de N nodos para moverlos juntos
+          // (con drag o flechas del teclado).
+          if(edSelectedIds.has(d.id))edSelectedIds.delete(d.id);
+          else edSelectedIds.add(d.id);
+          d3.selectAll(".c-node").classed("sel",n=>edSelectedIds.has(n.id));
+          document.querySelectorAll(".ed-ni").forEach(el=>el.classList.toggle("sel",edSelectedIds.has(el.dataset.id)));
+          renderInspector(edSelectedIds.size===1?findN(edData,[...edSelectedIds][0]):null);
+          document.getElementById("ed-actions").style.display=edSelectedIds.size>0?"flex":"none";
+          updateAlignBar();updateToolsSelInfo();
+        }else if(e.shiftKey){
+          // Shift+clic: toggle del nodo + TODOS sus descendientes
           const desc=flat(findN(edData,d.id)||{children:[]}).map(n=>n.id);
           const allIn=desc.every(id=>edSelectedIds.has(id));
           if(allIn)desc.forEach(id=>edSelectedIds.delete(id));
@@ -1102,6 +1367,7 @@ window.__dlSVG    = dlSVG;
           d3.selectAll(".c-node").classed("sel",n=>edSelectedIds.has(n.id));
           renderInspector(findN(edData,d.id));
           document.getElementById("ed-actions").style.display="flex";
+          updateAlignBar();updateToolsSelInfo();
         }else{selectSingle(d.id);}
       });
 
@@ -1216,7 +1482,9 @@ window.__dlSVG    = dlSVG;
       const _nw=edPositions[d.id]?.w||NW;
       const _nh=edPositions[d.id]?.h||NH;
       const hasTit=d.titular&&d.titular.trim();
-      const stripH=hasTit?Math.max(18,_nh*0.28):0;
+      // Franja del titular: 28% del alto, mínimo 14px. Sin cap superior para que el
+      // texto del titular escale junto con el nodo (fsTit depende de stripH).
+      const stripH=hasTit?Math.max(14,_nh*0.28):0;
       const mainH=_nh-stripH;
       // Franja oscura para el titular
       if(hasTit){
@@ -1224,15 +1492,20 @@ window.__dlSVG    = dlSVG;
           .attr("x",0).attr("y",mainH).attr("width",_nw).attr("height",stripH)
           .attr("fill","rgba(0,0,0,0.25)");
       }
-      // Nombre centrado en zona principal
-      const words=(d.nombre||"").split(" ");
-      let l1="",l2="";
-      for(const w of words){if((l1+" "+w).trim().length<=20)l1=(l1+" "+w).trim();else l2=(l2+" "+w).trim();}
-      const lines=l2?[l1,l2]:[l1];
-      const _fs=Math.max(8,Math.min(200,Math.min(_nw/5,mainH/(lines.length+0.8)*0.72)));
-      const _lh=_fs+3;
+      // Nombre — wrap respetando el ancho real (no más cap fijo de 20 chars)
+      const wrap=window.__wrapTxt||((t)=>[t||""]);
+      let _fs=Math.max(8,Math.min(80,Math.min(_nw/8,mainH*0.5)));
+      const charsPerLine=Math.max(6,Math.floor(_nw/(_fs*0.52)));
+      const lines=wrap(d.nombre||"",charsPerLine);
+      // Si el bloque no cabe en alto, achicar la fuente proporcionalmente
+      const lhEst=_fs*1.3;
+      if(lines.length*lhEst>mainH*0.9){
+        _fs=Math.max(7,_fs*(mainH*0.9/(lines.length*lhEst)));
+      }
+      const _lh=_fs*1.3;
       const blockH=lines.length*_lh;
-      const sy2=(mainH-blockH)/2+_fs;
+      // Baseline de la 1ra línea: top del bloque + 0.85*fs (alpha ascent)
+      const sy2=(mainH-blockH)/2+_fs*0.85;
       lines.forEach((l,i)=>g2.append("text").attr("x",_nw/2).attr("y",sy2+i*_lh)
         .attr("text-anchor","middle").attr("font-size",_fs).attr("font-weight",700)
         .attr("fill","#fff").attr("font-family","Open Sans,Inter,sans-serif").text(l));
@@ -1245,7 +1518,7 @@ window.__dlSVG    = dlSVG;
           .attr("font-family","Open Sans,Inter,sans-serif")
           .text(d.titular.length>28?d.titular.slice(0,26)+"…":d.titular);
       }
-    });;
+    });
 
     // ── Resize handle: esquina inferior derecha (encima de todo) ──
     const RHANDLE=18;
@@ -1276,16 +1549,19 @@ window.__dlSVG    = dlSVG;
             p.h=Math.max(24,Math.min(400,startH+dy));
             par.select("rect:not(.resize-handle)").attr("width",p.w).attr("height",p.h);
             d3.select(handleEl).attr("x",p.w-RHANDLE/2).attr("y",p.h-RHANDLE/2);
-            // Style B: calculate strips and redraw
-            const words=(d.nombre||"").split(" ");
-            let l1="",l2="";
-            for(const w of words){if((l1+" "+w).trim().length<=20)l1=(l1+" "+w).trim();else l2=(l2+" "+w).trim();}
+            // Recalcular strip y wrap del texto en función del nuevo tamaño
             const hasTit=d.titular&&d.titular.trim();
-            const lines=l2?[l1,l2]:[l1];
-            const stripH=hasTit?Math.max(18,p.h*0.28):0;
+            const stripH=hasTit?Math.max(14,p.h*0.28):0;
             const mainH=p.h-stripH;
-            const _fs=Math.max(8,Math.min(200,Math.min(p.w/5,mainH/(lines.length+0.8)*0.72)));
-            const _lh=_fs+3;
+            const wrap=window.__wrapTxt||((t)=>[t||""]);
+            let _fs=Math.max(8,Math.min(80,Math.min(p.w/8,mainH*0.5)));
+            const charsPerLine=Math.max(6,Math.floor(p.w/(_fs*0.52)));
+            const lines=wrap(d.nombre||"",charsPerLine);
+            const lhEst=_fs*1.3;
+            if(lines.length*lhEst>mainH*0.9){
+              _fs=Math.max(7,_fs*(mainH*0.9/(lines.length*lhEst)));
+            }
+            const _lh=_fs*1.3;
             // Keep node centered on p.x
             par.attr("transform",`translate(${p.x-p.w/2},${p.y})`);
             // Redraw strip
@@ -1298,7 +1574,7 @@ window.__dlSVG    = dlSVG;
             // Redraw texts
             par.selectAll("text").remove();
             const blockH2=lines.length*_lh;
-            const sy2=(mainH-blockH2)/2+_fs;
+            const sy2=(mainH-blockH2)/2+_fs*0.85;
             lines.forEach((l,_i)=>par.append("text")
               .attr("x",p.w/2).attr("y",sy2+_i*_lh)
               .attr("text-anchor","middle")
@@ -1346,6 +1622,8 @@ window.__dlSVG    = dlSVG;
       }
     }
 
+    // Publicar estado para que las funciones globales (nudge, selectAllNodes, etc.) lo puedan leer
+    edRenderState={nodes,links,drawLinks,drawWPs};
   }
 
   // ── Selección & Inspector ─────────────────────────────────
@@ -1363,7 +1641,7 @@ window.__dlSVG    = dlSVG;
     const actions=document.getElementById("ed-actions");
     const idEl=document.getElementById("ed-ins-id");
     if(!node){
-      body.innerHTML='<div class="ed-ins-empty"><div class="ico">⬡</div><p>Clic = seleccionar<br>Shift+clic = seleccionar<br>nodo + dependientes</p></div>';
+      body.innerHTML='<div class="ed-ins-empty"><div class="ico">⬡</div><p>Clic = seleccionar uno<br>Ctrl+clic = sumar / quitar nodo<br>Shift+clic = sumar rama entera<br>Arrastre en fondo = lasso</p></div>';
       actions.style.display="none";if(idEl)idEl.textContent="";return;
     }
     if(idEl)idEl.textContent=node.id;
@@ -1494,21 +1772,9 @@ window.__dlSVG    = dlSVG;
       if(parseFloat(r.getAttribute("width"))>500) r.setAttribute("fill","#ffffff");
     });
 
-    // Transformar para centrar en A3
-    // Los nodos están en canvas coords (edPositions)
-    // El canvas-root tiene transform="translate(tx,ty)scale(k)" del editor
-    // Necesitamos: deshacer ese transform, luego aplicar nuestro escalado A3
-    const offX=MAR+(contentW-bW*sc)/2 - bMinX*sc;
-    const offY=HEADER+MAR+(contentH-bH*sc)/2 - bMinY*sc;
-    // Nuevo transform: canvas coords → A3 coords
-    // Primero deshacemos el zoom del editor, luego aplicamos nuestro sc
-    const k=edTransform.k, tx=edTransform.x, ty=edTransform.y;
-    clone.setAttribute("transform",
-      `translate(${offX},${offY}) scale(${sc}) translate(${-tx/k},${-ty/k}) scale(${1/k})`
-    );
-
-    // Use viewBox approach: strip the editor zoom transform from clone
-    // and use viewBox to scale the canvas coordinate space to A3
+    // Estrategia: usar viewBox del SVG para mapear canvas coords → A3.
+    // El clone hereda el transform del zoom del editor; lo quitamos para que
+    // queden en coordenadas canvas crudas y el viewBox haga el escalado.
     clone.removeAttribute("transform");
 
     // viewBox: content area only (nodes), header drawn on canvas after
@@ -1567,6 +1833,162 @@ window.__dlSVG    = dlSVG;
     renderCanvas();showSaved();
   }
 
+  // ── Auto-layout para A3 ──────────────────────────────────
+  // Reordena los nodos del área actual para que entren prolijos en A3.
+  // Estrategia: root arriba; hijos directos (SS/SEC) como columnas; los nietos
+  // (DGs) se apilan verticalmente bajo cada columna. Esto permite caber
+  // muchas DGs sin achicarlas tanto como una grilla horizontal.
+  function autoLayoutA3(){
+    const viewRoot=findN(edData,edViewId)||edData;
+    if(!viewRoot){alert("Esperá que cargue la app.");return;}
+    if(!confirm("¿Recalcular posiciones para que el área entre prolija en A3?\nPisa el layout actual de esta vista."))return;
+
+    // Mismas dimensiones útiles que usa genSVGA3 (A3 horizontal con header/footer/margen)
+    const PW=1587,PH=1123,MAR=40,HH=68,FH=34;
+    const AW=PW-MAR*2;            // ≈1507
+    const AH=PH-HH-FH-MAR;        // ≈981
+    const HGAP=14,VGAP=12;
+
+    const isJG=viewRoot.id===edData.id;
+    const direct=(viewRoot.children||[]).filter(Boolean);
+    const dashed=direct.filter(c=>c.dashed);
+    const regular=direct.filter(c=>!c.dashed);
+
+    const positions={};
+    // helper: poner una fila centrada
+    function layoutRow(items,y,h,minW,maxW){
+      if(!items.length)return;
+      const w=Math.max(minW,Math.min(maxW,Math.floor((AW-HGAP*(items.length-1))/items.length)));
+      const totalW=items.length*w+HGAP*(items.length-1);
+      const startX=(AW-totalW)/2+w/2;
+      items.forEach((n,i)=>{positions[n.id]={x:startX+i*(w+HGAP),y,w,h};});
+      return {w,bottomY:y+h};
+    }
+
+    // helper: hueco abajo para dashed (si los hay)
+    function dashedRowHeight(){return dashed.length>0?60:0;}
+
+    let layoutMode;
+    if(regular.length===0){
+      // Solo root
+      positions[viewRoot.id]={x:AW/2,y:AH/3,w:Math.min(360,AW*0.5),h:70};
+      layoutMode="root-only";
+    } else if(isJG){
+      // ── Vista JG: root + (MIN/VJG) + SEC + otros + dashed ──
+      const minVjg=regular.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
+      const sec=regular.filter(c=>c.tipo==="SEC");
+      const others=regular.filter(c=>c.tipo!=="MIN"&&c.tipo!=="VJG"&&c.tipo!=="SEC");
+      const ROOT_H=60,ROW_H=72;
+      let y=VGAP*2;
+      positions[viewRoot.id]={x:AW/2,y,w:Math.min(380,AW*0.55),h:ROOT_H};
+      y+=ROOT_H+VGAP*3;
+      // MIN/VJG (puede que necesite envolver)
+      const minWrap=Math.min(minVjg.length,Math.max(6,Math.ceil(Math.sqrt(minVjg.length*2))));
+      const minRows=Math.ceil(minVjg.length/minWrap);
+      for(let r=0;r<minRows;r++){
+        const rowItems=minVjg.slice(r*minWrap,(r+1)*minWrap);
+        layoutRow(rowItems,y+r*(ROW_H+VGAP),ROW_H,90,200);
+      }
+      y+=minRows*(ROW_H+VGAP)+VGAP;
+      // SEC (envuelve si son muchas)
+      const secWrap=Math.min(sec.length,Math.max(6,Math.ceil(Math.sqrt(sec.length*2.5))));
+      const secRows=Math.ceil(sec.length/secWrap);
+      for(let r=0;r<secRows;r++){
+        const rowItems=sec.slice(r*secWrap,(r+1)*secWrap);
+        layoutRow(rowItems,y+r*(ROW_H+VGAP),ROW_H,90,180);
+      }
+      y+=secRows*(ROW_H+VGAP);
+      // Otros
+      if(others.length>0){
+        layoutRow(others,y,ROW_H,90,180);
+        y+=ROW_H+VGAP;
+      }
+      // Dashed al pie
+      if(dashed.length>0){
+        const dY=Math.max(y,AH-60-VGAP);
+        layoutRow(dashed,dY,55,80,160);
+      }
+      layoutMode="jg";
+    } else {
+      // ── Vista área (MIN/SEC/etc): root + columnas + apilado vertical ──
+      // Cada hijo regular se vuelve una columna. Sus hijos no-dashed se apilan abajo.
+      const colInfo=regular.map(c=>({
+        parent:c,
+        kids:(c.children||[]).filter(g=>g&&!g.dashed)
+      }));
+      const cols=colInfo.length;
+      // Si hay nietos profundos (bisnietos), los aplanamos al apilado de su abuelo
+      // (capturamos todo el subárbol del SS para apilar bajo la columna)
+      colInfo.forEach(ci=>{
+        const flat=[];
+        (function rec(node){
+          (node.children||[]).filter(g=>g&&!g.dashed).forEach(g=>{flat.push(g);rec(g);});
+        })(ci.parent);
+        ci.kids=flat;
+      });
+      const maxKids=Math.max(...colInfo.map(c=>c.kids.length),0);
+
+      const ROOT_H=60,HDR_H=58;
+      // Si no hay grandkids, layout shallow (root + 1 fila ancha)
+      if(maxKids===0){
+        positions[viewRoot.id]={x:AW/2,y:VGAP*2,w:Math.min(360,AW*0.5),h:ROOT_H};
+        const items=regular;
+        const rows=Math.ceil(items.length/Math.max(8,Math.ceil(Math.sqrt(items.length*2.5))));
+        const perRow=Math.ceil(items.length/rows);
+        const rowH=Math.max(40,Math.min(80,Math.floor((AH-ROOT_H-VGAP*5-dashedRowHeight())/rows)));
+        for(let r=0;r<rows;r++){
+          const slice=items.slice(r*perRow,(r+1)*perRow);
+          layoutRow(slice,VGAP*2+ROOT_H+VGAP*3+r*(rowH+VGAP),rowH,90,260);
+        }
+        if(dashed.length>0){
+          layoutRow(dashed,AH-55-VGAP,55,70,160);
+        }
+        layoutMode="shallow";
+      } else {
+        // Layout en columnas
+        const colW=Math.max(110,Math.min(260,Math.floor((AW-HGAP*(cols-1))/cols)));
+        const totalColsW=cols*colW+HGAP*(cols-1);
+        const startColX=(AW-totalColsW)/2+colW/2;
+
+        positions[viewRoot.id]={x:AW/2,y:VGAP*2,w:Math.min(380,AW*0.55),h:ROOT_H};
+
+        const colHdrY=VGAP*2+ROOT_H+VGAP*3;
+        const kidsAreaTop=colHdrY+HDR_H+VGAP*2;
+        const dashedRoom=dashedRowHeight()+(dashed.length>0?VGAP:0);
+        const kidsAreaH=AH-kidsAreaTop-dashedRoom-VGAP;
+
+        // Altura por DG: cabe el max de hijos en la altura disponible
+        const kidH=Math.max(28,Math.min(60,Math.floor((kidsAreaH-VGAP*(maxKids-1))/Math.max(1,maxKids))));
+
+        colInfo.forEach((ci,i)=>{
+          const colX=startColX+i*(colW+HGAP);
+          // SS/SEC header de la columna
+          positions[ci.parent.id]={x:colX,y:colHdrY,w:colW,h:HDR_H};
+          // Apilar todos los descendientes no-dashed verticalmente
+          ci.kids.forEach((g,j)=>{
+            positions[g.id]={x:colX,y:kidsAreaTop+j*(kidH+VGAP),w:colW,h:kidH};
+          });
+        });
+
+        if(dashed.length>0){
+          const dY=AH-55-VGAP;
+          layoutRow(dashed,dY,55,70,160);
+        }
+        layoutMode="columns";
+      }
+    }
+
+    // Aplicar — pisamos solo las posiciones de los nodos que calculamos
+    Object.entries(positions).forEach(([id,p])=>{edPositions[id]=p;});
+    // Limpiar custom midY y waypoints de esta área (las posiciones cambiaron y ya no aplican)
+    edLinkMidY={};
+    edWaypoints={};
+    saveMidYForArea();saveWPForArea();savePosForArea();
+    edFitted=false;
+    renderCanvas();
+    showSaved();
+  }
+
   // ── Wire buttons ─────────────────────────────────────────
   function wire(id,fn){const el=document.getElementById(id);if(el)el.onclick=fn;}
   wire("ed-zi",()=>{if(edZoom)d3.select("#ed-svg").call(edZoom.scaleBy,1.3);});
@@ -1590,14 +2012,15 @@ window.__dlSVG    = dlSVG;
     edTransform=t;
     if(edZoom)d3.select("#ed-svg").call(edZoom.transform,t);
   });
-  wire("ed-btn-save",()=>{savePosForArea();saveWPForArea();showSaved();});
+  wire("ed-btn-save",()=>{savePosForArea();saveWPForArea();saveMidYForArea();showSaved();});
   wire("ed-btn-embed",()=>{
     // Save current positions first
-    savePosForArea();saveWPForArea();
+    savePosForArea();saveWPForArea();saveMidYForArea();
 
     // Read all saved data from localStorage
     const positions=localStorage.getItem("gcba_org_positions_v1")||"{}";
     const waypoints=localStorage.getItem("gcba_org_waypoints_v1")||"{}";
+    const midys=localStorage.getItem("gcba_org_midy_v1")||"{}";
     const orgData=localStorage.getItem("gcba_org_v2")||"null";
     const version=localStorage.getItem("gcba_org_version")||"";
 
@@ -1610,6 +2033,7 @@ window.__dlSVG    = dlSVG;
   try{
     localStorage.setItem("gcba_org_positions_v1",${JSON.stringify(positions)});
     localStorage.setItem("gcba_org_waypoints_v1",${JSON.stringify(waypoints)});
+    localStorage.setItem("gcba_org_midy_v1",${JSON.stringify(midys)});
     if(${JSON.stringify(orgData)}!=="null")localStorage.setItem("gcba_org_v2",${JSON.stringify(orgData)});
     if(${JSON.stringify(version)})localStorage.setItem("gcba_org_version",${JSON.stringify(version)});
   }catch(e){}
@@ -1638,6 +2062,7 @@ window.__dlSVG    = dlSVG;
     showSaved();
   });
   wire("ed-btn-export",()=>exportAreaA3());
+  wire("ed-btn-autolayout",()=>autoLayoutA3());
   wire("ed-btn-reset",()=>resetLayout());
 
   // Handle fijo (esquina inferior derecha): arrastrar para agrandar/achicar TODOS los nodos.
@@ -1800,14 +2225,10 @@ window.__dlSVG    = dlSVG;
   });
 
   _edSvg.addEventListener("mousedown",function(e){
-    // Pan con: clic derecho, clic medio, o espacio+clic izquierdo
+    // Pan con: clic derecho, clic medio, o espacio+clic izquierdo.
+    // El clic izquierdo sin modificador queda para el lasso (mousedown handler aparte).
     const isPan=e.button===1||e.button===2||(e.button===0&&_spaceDown);
-    // También pan con clic izquierdo en el fondo (no en nodos/handles)
-    const onBackground=e.button===0&&!_spaceDown&&
-      e.target===_edSvg||e.target.closest&&!e.target.closest(".c-node")&&
-      !e.target.closest(".wp-dot")&&!e.target.closest(".resize-handle")&&
-      e.target.tagName==="rect"&&e.target.getAttribute("fill")==="#1e2130";
-    if(!isPan&&!onBackground)return;
+    if(!isPan)return;
     e.preventDefault();e.stopPropagation();
     _panStart={cx:e.clientX,cy:e.clientY,tx:edTransform.x,ty:edTransform.y};
     _edCanvas.style.cursor="grabbing";
@@ -1901,10 +2322,10 @@ window.__dlSVG    = dlSVG;
     edSelectedIds.forEach(id=>{if(edPositions[id]){edPositions[id].x+=dx;edPositions[id].y+=dy;}});
     d3.selectAll(".c-node").filter(n=>edSelectedIds.has(n.id))
       .attr("transform",n=>{const p=edPositions[n.id]||{x:0,y:0};return`translate(${p.x-(p.w||NW)/2},${p.y})`;});
-    drawLinks();drawWPs();savePosForArea();
+    edRenderState.drawLinks();edRenderState.drawWPs();savePosForArea();
   }
   function selectAllNodes(){
-    nodes.forEach(n=>edSelectedIds.add(n.id));
+    edRenderState.nodes.forEach(n=>edSelectedIds.add(n.id));
     d3.selectAll(".c-node").classed("sel",true);
     updateAlignBar();updateToolsSelInfo();
   }
@@ -1917,7 +2338,7 @@ window.__dlSVG    = dlSVG;
     const refId=[...edSelectedIds][0];const refPos=refId?edPositions[refId]:null;
     if(!refPos){alert("Hacé clic en un nodo primero.");return;}
     const ROW_TOLERANCE=30;const rx=refPos.x,ry=refPos.y+(refPos.h||NH)/2;
-    nodes.forEach(n=>{
+    edRenderState.nodes.forEach(n=>{
       if(n.id===refId)return;const p=edPositions[n.id];if(!p)return;
       const nx=p.x,ny=p.y+(p.h||NH)/2;let match=false;
       if(direction==="right")match=nx>rx;if(direction==="left")match=nx<rx;
@@ -2408,6 +2829,14 @@ const INITIAL={
 const STORAGE_KEY="gcba_org_v2";
 const APP_VERSION="20260525"; // Cambia con cada nueva versión del archivo
 const VERSION_KEY="gcba_org_version";
+// Sanitiza el árbol: filtra agujeros (sparse arrays) y nodos nulos/undefined.
+// El literal INITIAL contiene huecos (ej "]},\n  ,\n  {id:...") que generan
+// undefined al spread/iterar — esto los elimina.
+function sanitize(n){
+  if(!n||typeof n!=="object")return null;
+  if(n.children)n.children=n.children.filter(Boolean).map(sanitize).filter(Boolean);
+  return n;
+}
 function loadData(){
   try{
     const savedVersion=localStorage.getItem(VERSION_KEY);
@@ -2416,25 +2845,26 @@ function loadData(){
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem("gcba_org_positions_v1");
       localStorage.removeItem("gcba_org_waypoints_v1");
+      localStorage.removeItem("gcba_org_midy_v1");
       localStorage.setItem(VERSION_KEY,APP_VERSION);
-      return INITIAL;
+      return sanitize(JSON.parse(JSON.stringify(INITIAL)));
     }
     const s=localStorage.getItem(STORAGE_KEY);
     if(s){
       try{
         const parsed=JSON.parse(s);
-        function sanitize(n){if(!n)return null;if(n.children)n.children=n.children.filter(Boolean).map(sanitize).filter(Boolean);return n;}
-        return sanitize(parsed)||INITIAL;
-      }catch(e){return INITIAL;}
+        return sanitize(parsed)||sanitize(JSON.parse(JSON.stringify(INITIAL)));
+      }catch(e){return sanitize(JSON.parse(JSON.stringify(INITIAL)));}
     }
-    return INITIAL;
-  }catch{return INITIAL;}
+    return sanitize(JSON.parse(JSON.stringify(INITIAL)));
+  }catch{return sanitize(JSON.parse(JSON.stringify(INITIAL)));}
 }
 function saveData(d){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}catch{}}
 
 // ── Utilidades de árbol ──────────────────────────────────
 function flatList(t,a=[]){if(!t||typeof t!=="object")return a;a.push(t);(t.children||[]).filter(Boolean).forEach(c=>flatList(c,a));return a;}
-function findNode(t,id){if(!t)return null;if(t.id===id)return t;for(const c of(t.children||[])){const f=findNode(c,id);if(f)return f;}return null;}
+function findNode(t,id){if(!t)return null;if(t.id===id)return t;for(const c of(t.children||[])){if(!c)continue;const f=findNode(c,id);if(f)return f;}return null;}
+function findParentId(t,childId){if(!t||!t.children)return null;for(const c of t.children){if(!c)continue;if(c.id===childId)return t.id;const r=findParentId(c,childId);if(r)return r;}return null;}
 function updateNode(t,id,fn){if(t.id===id)return fn(t);return{...t,children:(t.children||[]).map(c=>updateNode(c,id,fn))};}
 function removeNode(t,id){return{...t,children:(t.children||[]).filter(c=>c.id!==id).map(c=>removeNode(c,id))};}
 function addChild(t,pid,child){return updateNode(t,pid,n=>({...n,children:[...(n.children||[]),child]}));}
@@ -2503,7 +2933,9 @@ function saveCustomTipo(label){
 
 function TipoSelector({tipo,tipoLabel,onChange}){
   const isC=tipo?.startsWith("CUSTOM:");
-  const savedTipos=React.useMemo(()=>loadCustomTipos(),[]);
+  // Sin memo: la lista es chica (JSON.parse trivial) y necesitamos refresh
+  // inmediato cuando saveCustomTipo agrega uno nuevo en el onBlur.
+  const savedTipos=loadCustomTipos();
   return<>
     <Field label="Tipo">
       <select value={isC?"__custom__":tipo} onChange={e=>onChange(e.target.value==="__custom__"?"CUSTOM:":e.target.value,tipoLabel)}
@@ -2831,7 +3263,7 @@ function EmpresasPanel(){
   };
   const saveEdit=()=>{
     if(!form.nombre.trim())return;
-    if(editing.startsWith("ex_")){
+    if(typeof editing==="string"&&editing.startsWith("ex_")){
       // Extra: edit in extras array
       saveExtras(extras.map(e=>e.id===editing?{...e,nombre:form.nombre.trim(),titular:form.titular.trim(),subtipo:form.subtipo||""}:e));
     } else {
@@ -3063,7 +3495,7 @@ function App(){
   },[]);
 
   function openEdit(node){
-    setEditForm({nombre:node.nombre,titular:node.titular||"",tipo:node.tipo,tipoLabel:node.tipoLabel||"",dashed:!!node.dashed,parentId:findNode(data,node.id)?.id});
+    setEditForm({nombre:node.nombre,titular:node.titular||"",tipo:node.tipo,tipoLabel:node.tipoLabel||"",dashed:!!node.dashed,parentId:findParentId(data,node.id)});
     setModal("edit");
   }
   function saveEdit(){
@@ -3124,7 +3556,8 @@ function App(){
     localStorage.removeItem("gcba_org_v2");
     localStorage.removeItem("gcba_org_positions_v1");
     localStorage.removeItem("gcba_org_waypoints_v1");
-    window._gcbaEditorAuth=false;setData(INITIAL);setSelected(null);
+    localStorage.removeItem("gcba_org_midy_v1");
+    window._gcbaEditorAuth=false;setData(sanitize(JSON.parse(JSON.stringify(INITIAL))));setSelected(null);
   }
 
   // Exportar todo A3
@@ -3333,7 +3766,7 @@ function App(){
                   <div style={{display:"flex",alignItems:"flex-start",gap:12}}>
                     {/* Iniciales / avatar */}
                     <div style={{width:42,height:42,borderRadius:10,background:"rgba(255,255,255,.2)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:15,fontWeight:700,color:"#fff"}}>
-                      {selected.nombre.split(" ").filter(w=>w.length>2).slice(0,2).map(w=>w[0]).join("")}
+                      {(()=>{const ini=(selected.nombre||"").split(" ").filter(w=>w.length>2).slice(0,2).map(w=>w[0]).join("");return ini||(selected.nombre||"?").slice(0,2).toUpperCase();})()}
                     </div>
                     <div style={{flex:1,minWidth:0}}>
                       {(()=>{const path=getPath(selected.id);if(path.length<2)return null;return(
@@ -3570,7 +4003,18 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
     if(window._gcbaEditorAuth===true){box.style.display="block";}
     else{box.style.display="none";}
   }
-  setInterval(chequearLogin,600);
+  // Convertir _gcbaEditorAuth en property reactiva (evita polling con setInterval).
+  // Fallback al polling si no se puede redefinir (entorno raro).
+  try{
+    var _auth=window._gcbaEditorAuth;
+    Object.defineProperty(window,"_gcbaEditorAuth",{
+      configurable:true,
+      get:function(){return _auth;},
+      set:function(v){_auth=v;chequearLogin();}
+    });
+  }catch(e){
+    setInterval(chequearLogin,600);
+  }
   chequearLogin();
   btn.addEventListener("click",function(){
     try{
@@ -3582,6 +4026,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
       localStorage.setItem("gcba_org_v2",JSON.stringify(obj));
       localStorage.removeItem("gcba_org_positions_v1");
       localStorage.removeItem("gcba_org_waypoints_v1");
+      localStorage.removeItem("gcba_org_midy_v1");
       var n=0;(function w(x){n++;(x.children||[]).forEach(w);})(obj);
       alert("\u2713 Organigrama recuperado cargado ("+n+" áreas).\nSe guardó un respaldo.\nLa página se va a recargar.");
       location.reload();
