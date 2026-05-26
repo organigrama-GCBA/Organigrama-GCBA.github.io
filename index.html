@@ -463,12 +463,12 @@ function genSVGA3(root,pn=1,tot=1){
     if(ED_FS>0){fsNn=ED_FS;fsTn=ED_FS*0.82;}
     else{
       // Estimación inicial por ancho
-      const fsW=Math.min(60,nw/5);
+      const fsW=Math.min(200,nw/5);
       // Estimar líneas con esa fuente
       const estChars=Math.max(8,Math.floor(nw/(fsW*0.52)));
       const estLines=wrapTxt(n.data.nombre||"",estChars).length+(n.data.titular?1:0);
       // Calcular fuente por alto disponible
-      const fsH=Math.min(60,nh/(estLines+0.8)*0.72);
+      const fsH=Math.min(200,nh/(estLines+0.8)*0.72);
       // Usar el menor de los dos
       fsNn=Math.max(7,Math.min(fsW,fsH));
       fsTn=Math.max(6,fsNn*0.82);
@@ -535,11 +535,8 @@ window.__dlSVG    = dlSVG;
     <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
       <span class="ed-saved" id="ed-saved-msg">✓ Guardado</span>
       <button class="ed-zb" id="ed-btn-undo" title="Deshacer" style="width:auto;padding:0 10px;font-size:11px;">↩ Deshacer</button>
-      <button class="ed-zb" id="ed-btn-embed" title="Guardar layout en HTML para GitHub" style="width:auto;padding:0 10px;font-size:11px;background:#1a6b3a;color:#fff;border-color:#2a9b5a;">⬇ HTML</button>
       <button class="ed-zb" id="ed-btn-save" title="Guardar" style="width:auto;padding:0 10px;font-size:11px;">💾 Guardar</button>
       <button class="ed-zb" id="ed-btn-export" title="Exportar A3" style="width:auto;padding:0 10px;font-size:11px;">🖨 A3</button>
-      <button class="ed-zb" id="ed-btn-scaleup" title="Agrandar todo el organigrama (cajas y separaciones)" style="width:auto;padding:0 10px;font-size:11px;">⊕ Agrandar</button>
-      <button class="ed-zb" id="ed-btn-scaledown" title="Achicar todo el organigrama (cajas y separaciones)" style="width:auto;padding:0 10px;font-size:11px;">⊖ Achicar</button>
       <button class="ed-zb" id="ed-btn-reset" title="Resetear layout" style="width:auto;padding:0 10px;font-size:11px;">↺ Reset</button>
       <button class="ed-zb" id="ed-btn-back" style="width:auto;padding:0 12px;font-size:11px;background:var(--ed-accent);color:#fff;border-color:var(--ed-accent);">← Volver</button>
     </div>
@@ -558,6 +555,12 @@ window.__dlSVG    = dlSVG;
     </div>
     <div id="ed-canvas">
       <svg id="ed-svg" style="width:100%;height:100%;"></svg>
+      <button id="ed-btn-embed" title="Guardar layout en HTML para GitHub" style="position:absolute;bottom:10px;left:10px;width:34px;height:34px;padding:0;font-size:14px;border-radius:7px;background:#1a6b3a;color:#fff;border:1px solid #2a9b5a;cursor:pointer;z-index:50;box-shadow:0 2px 6px rgba(0,0,0,0.25);" aria-label="Descargar HTML">⬇</button>
+      <div style="position:absolute;bottom:10px;left:52px;z-index:50;display:flex;gap:6px;align-items:center;">
+        <span style="font-size:10px;color:var(--ed-text3,#888);background:rgba(255,255,255,0.7);padding:2px 6px;border-radius:5px;">Tamaño nodos:</span>
+        <button id="ed-btn-nodebig" title="Agrandar todos los nodos (caja y texto)" style="width:30px;height:30px;padding:0;font-size:15px;font-weight:700;border-radius:7px;background:#fff;color:#336ACC;border:1px solid #336ACC;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.18);">A+</button>
+        <button id="ed-btn-nodesmall" title="Achicar todos los nodos (caja y texto)" style="width:30px;height:30px;padding:0;font-size:13px;font-weight:700;border-radius:7px;background:#fff;color:#336ACC;border:1px solid #336ACC;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.18);">A−</button>
+      </div>
       <div class="ed-zoom">
         <button class="ed-zb" id="ed-zi" title="Zoom +">+</button>
         <button class="ed-zb" id="ed-zr" title="Zoom reset">⊙</button>
@@ -1229,7 +1232,7 @@ window.__dlSVG    = dlSVG;
       let l1="",l2="";
       for(const w of words){if((l1+" "+w).trim().length<=20)l1=(l1+" "+w).trim();else l2=(l2+" "+w).trim();}
       const lines=l2?[l1,l2]:[l1];
-      const _fs=Math.max(8,Math.min(60,Math.min(_nw/5,mainH/(lines.length+0.8)*0.72)));
+      const _fs=Math.max(8,Math.min(200,Math.min(_nw/5,mainH/(lines.length+0.8)*0.72)));
       const _lh=_fs+3;
       const blockH=lines.length*_lh;
       const sy2=(mainH-blockH)/2+_fs;
@@ -1284,7 +1287,7 @@ window.__dlSVG    = dlSVG;
             const lines=l2?[l1,l2]:[l1];
             const stripH=hasTit?Math.max(18,p.h*0.28):0;
             const mainH=p.h-stripH;
-            const _fs=Math.max(8,Math.min(60,Math.min(p.w/5,mainH/(lines.length+0.8)*0.72)));
+            const _fs=Math.max(8,Math.min(200,Math.min(p.w/5,mainH/(lines.length+0.8)*0.72)));
             const _lh=_fs+3;
             // Keep node centered on p.x
             par.attr("transform",`translate(${p.x-p.w/2},${p.y})`);
@@ -1639,12 +1642,13 @@ window.__dlSVG    = dlSVG;
   wire("ed-btn-export",()=>exportAreaA3());
   wire("ed-btn-reset",()=>resetLayout());
 
-  // Escalar TODO el layout del área (cajas + separaciones juntas, manteniendo proporciones)
-  function escalarLayout(factor){
+  // Agrandar/achicar TODOS los nodos del área: crece la caja Y el texto adentro,
+  // y la separación entre nodos se conserva (escala posición y tamaño por igual).
+  function escalarNodos(factor){
     if(!edPositions)return;
-    // Centro del conjunto, para que crezca/achique desde el medio y no se vaya de pantalla
     const ids=Object.keys(edPositions);
     if(!ids.length)return;
+    // Escalar desde el centro del conjunto para que no se desplace
     let cx=0,cy=0;
     ids.forEach(id=>{const p=edPositions[id];cx+=p.x;cy+=p.y;});
     cx/=ids.length;cy/=ids.length;
@@ -1655,20 +1659,18 @@ window.__dlSVG    = dlSVG;
       p.w=(p.w||NW)*factor;
       p.h=(p.h||NH)*factor;
     });
-    // Escalar también los vértices de las líneas para que acompañen
     if(edWaypoints){
       Object.keys(edWaypoints).forEach(k=>{
         const arr=edWaypoints[k];
         if(Array.isArray(arr))arr.forEach(pt=>{pt.x=cx+(pt.x-cx)*factor;pt.y=cy+(pt.y-cy)*factor;});
       });
     }
-    // Guardar las posiciones escaladas para que renderCanvas las use (si no, las pisa)
-    savePosForArea();
-    saveWPForArea();
+    savePosForArea();saveWPForArea();
     renderCanvas();
   }
-  wire("ed-btn-scaleup",()=>escalarLayout(1.15));
-  wire("ed-btn-scaledown",()=>escalarLayout(0.87));
+  wire("ed-btn-nodebig",()=>escalarNodos(1.15));
+  wire("ed-btn-nodesmall",()=>escalarNodos(0.87));
+
   wire("ed-btn-back",()=>{if(window.__goToOrganigrama)window.__goToOrganigrama();});
   wire("ed-btn-node-save",()=>saveNodeChanges());
   wire("ed-btn-move",()=>showMoveModal());
