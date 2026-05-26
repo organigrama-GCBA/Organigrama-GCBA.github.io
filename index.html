@@ -525,6 +525,7 @@ window.__dlSVG    = dlSVG;
 <div id="ed-pane">
   <div id="ed-toolbar">
     <span style="font-size:10px;font-weight:600;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.06em;">Área:</span>
+    <button id="ed-nav-back" title="Volver al área anterior" style="font-size:13px;padding:4px 10px;margin-right:4px;border-radius:6px;border:1px solid var(--ed-border,#CBD5E0);background:transparent;color:var(--ed-text2,#4A5568);cursor:pointer;opacity:0.5;">← Volver</button>
     <select id="ed-area-sel" style="min-width:240px;flex:1;max-width:380px;"></select>
     <span style="font-size:10px;color:var(--ed-text3);margin-left:8px;">· clic = seleccionar · flechas = mover · clic der. en línea = quiebre</span>
     <span style="font-size:10px;color:var(--ed-text3);margin-left:12px;">Nodo:</span>
@@ -672,6 +673,7 @@ window.__dlSVG    = dlSVG;
   // ── Estado ──────────────────────────────────────────────
   let edData=null;
   let edViewId=null;          // id del área seleccionada
+  let edNavHistory=[];        // historial de áreas visitadas (para botón Volver)
   let edSelectedIds=new Set();
   let edPositions={};         // {nodeId: {x,y}} para el área
   let edA3Frame=null;          // {ux,uy,uw,uh} bounds del marco A3 en canvas coords actual
@@ -1795,10 +1797,35 @@ window.__dlSVG    = dlSVG;
   _edSvg.addEventListener("contextmenu",function(e){e.preventDefault();});
 
   document.getElementById("ed-area-sel").onchange=function(){
+    if(edViewId&&edViewId!==this.value){edNavHistory.push(edViewId);}
     edViewId=this.value;edSelectedIds.clear();edFitted=false;edTransform=d3.zoomIdentity;
     renderSidebar();renderCanvas();renderInspector(null);
     document.getElementById("ed-actions").style.display="none";
+    actualizarBotonVolver();
   };
+
+  function actualizarBotonVolver(){
+    const b=document.getElementById("ed-nav-back");
+    if(!b)return;
+    const hay=edNavHistory.length>0;
+    b.style.opacity=hay?"1":"0.5";
+    b.style.cursor=hay?"pointer":"default";
+    b.disabled=!hay;
+  }
+
+  (function(){
+    const b=document.getElementById("ed-nav-back");
+    if(b)b.onclick=function(){
+      if(!edNavHistory.length)return;
+      const prev=edNavHistory.pop();
+      edViewId=prev;edSelectedIds.clear();edFitted=false;edTransform=d3.zoomIdentity;
+      const sel=document.getElementById("ed-area-sel");
+      if(sel)sel.value=prev;
+      renderSidebar();renderCanvas();renderInspector(null);
+      document.getElementById("ed-actions").style.display="none";
+      actualizarBotonVolver();
+    };
+  })();
 
   window.addEventListener("resize",()=>{
     if(document.getElementById("ed-pane").classList.contains("visible"))renderCanvas();
@@ -2576,13 +2603,9 @@ function DragCanvas({children}){
 function OrgChart({data,search,selectedId}){
   const[expanded,setExpanded]=React.useState(()=>{
     const s=new Set();
-    // Expand JG and all direct children
+    // Mostrar solo el Jefe de Gobierno con sus dependencias directas (ministerios y secretarías).
+    // No desplegar los niveles inferiores: el usuario navega hacia abajo haciendo clic.
     s.add(data.id);
-    (data.children||[]).forEach(c=>{
-      s.add(c.id);
-      // Also expand grandchildren that are MIN/SEC types (ministerios/secretarías)
-      (c.children||[]).forEach(gc=>{ if(gc.tipo==="MIN"||gc.tipo==="SEC"||gc.tipo==="ORG")s.add(gc.id); });
-    });
     return s;
   });
 
@@ -2617,9 +2640,12 @@ function OrgChart({data,search,selectedId}){
     mark(data,[]);return hits;
   },[data,search]);
 
-  const toggle=id=>setExpanded(prev=>{const s=new Set(prev);s.has(id)?s.delete(id):s.add(id);return s;});
-  const expandAll=()=>{const s=new Set();(function a(n){s.add(n.id);(n.children||[]).forEach(a);})(data);setExpanded(s);};
-  const collapseAll=()=>setExpanded(new Set([data.id]));
+  const[history,setHistory]=React.useState([]);
+  const pushHistory=()=>setHistory(h=>[...h,new Set(expanded)]);
+  const toggle=id=>{pushHistory();setExpanded(prev=>{const s=new Set(prev);s.has(id)?s.delete(id):s.add(id);return s;});};
+  const expandAll=()=>{pushHistory();const s=new Set();(function a(n){s.add(n.id);(n.children||[]).forEach(a);})(data);setExpanded(s);};
+  const collapseAll=()=>{pushHistory();setExpanded(new Set([data.id]));};
+  const goBack=()=>{setHistory(h=>{if(!h.length)return h;const prev=h[h.length-1];setExpanded(prev);return h.slice(0,-1);});};
 
   // Render a single node box
   function NodeBox({node}){
@@ -2717,7 +2743,12 @@ function OrgChart({data,search,selectedId}){
           <span key={k} style={{background:v.bg,color:"#fff",fontSize:10,fontWeight:600,
             padding:"3px 8px",borderRadius:5,letterSpacing:".03em"}}>{v.label}</span>
         ))}
-        <button onClick={expandAll} style={{marginLeft:"auto",fontSize:11,padding:"4px 12px",
+        <button onClick={goBack} disabled={history.length===0} style={{marginLeft:"auto",fontSize:11,padding:"4px 12px",
+          borderRadius:6,border:"1px solid #CBD5E0",background:history.length===0?"#F0F0F0":"#fff",
+          cursor:history.length===0?"default":"pointer",color:history.length===0?"#A0AEC0":"#4A5568",opacity:history.length===0?0.6:1}}>
+          ← Volver
+        </button>
+        <button onClick={expandAll} style={{fontSize:11,padding:"4px 12px",
           borderRadius:6,border:"1px solid #CBD5E0",background:"#fff",cursor:"pointer",color:"#4A5568"}}>
           Expandir todo
         </button>
