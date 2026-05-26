@@ -10813,30 +10813,15 @@ ReactDOM.createRoot(document.getElementById("root")).render( /*#__PURE__*/React.
   function renderSidebar(){
     const el=document.getElementById("ed-list");
     if(!el)return;
-    const sInput=document.getElementById("ed-search");
-    const q=sInput?sInput.value.trim():"";
-    const nq=edSearchNorm(q);
     el.innerHTML="";
-    let shown=0;
     visibleNodes().forEach(n=>{
-      if(nq){
-        const hay=edSearchNorm(n.nombre)+" "+edSearchNorm(getLabel(n))+" "+edSearchNorm(n.titular);
-        if(hay.indexOf(nq)<0)return;
-      }
-      shown++;
       const item=document.createElement("div");
       item.className="ed-ni"+(edSelectedIds.has(n.id)?" sel":"");
       item.dataset.id=n.id;
-      item.innerHTML=`<div class="ed-dot" style="background:${getColor(n)}"></div><div class="ed-nm">${edHighlight(n.nombre,q)}</div><div class="ed-tp">${getLabel(n)}</div>`;
+      item.innerHTML=`<div class="ed-dot" style="background:${getColor(n)}"></div><div class="ed-nm">${n.nombre||"—"}</div><div class="ed-tp">${getLabel(n)}</div>`;
       item.addEventListener("click",()=>selectSingle(n.id,true));
       el.appendChild(item);
     });
-    if(nq&&shown===0){
-      const empty=document.createElement("div");
-      empty.className="ed-empty";
-      empty.textContent="Sin coincidencias";
-      el.appendChild(empty);
-    }
   }
 
   // ── Canvas ────────────────────────────────────────────────
@@ -10867,55 +10852,14 @@ ReactDOM.createRoot(document.getElementById("root")).render( /*#__PURE__*/React.
     const mnY=Math.min(...allD3.map(p=>p.y));
     Object.keys(d3pos).forEach(id=>{d3pos[id].x-=mnX;d3pos[id].y-=mnY;});
 
-    // Mezclar: usar posiciones guardadas donde existan.
-    // Para nodos NUEVOS (sin posición guardada) los ubicamos en su lugar
-    // jerárquico: debajo de su padre y a la derecha de los hermanos que ya
-    // tengan posición, en vez de soltarlos con la coord cruda de d3.tree
-    // (que pertenece a otro sistema de coordenadas y los apila/encavalga).
+    // Mezclar: usar posiciones guardadas donde existan, D3 para nodos nuevos
     const saved=loadPosForArea(edViewId)||{};
-    // Mapa id→padre dentro del área visible, para ubicar nuevos nodos
-    const parentOf={};
-    (function mapParents(node){
-      (node.children||[]).forEach(ch=>{parentOf[ch.id]=node.id;mapParents(ch);});
-    })(viewRoot);
     edPositions={};
-    // 1ra pasada: posiciones guardadas
     nodes.forEach(n=>{
       if(saved[n.id]){
         const s=saved[n.id];
         edPositions[n.id]={x:s.x,y:s.y,w:s.w||NW,h:s.h||NH};
-      }
-    });
-    // 2da pasada: nodos nuevos (sin guardar). Si hay layout manual previo,
-    // los colgamos jerárquicamente del padre; si no hay nada guardado, usamos
-    // el layout automático completo de d3.tree.
-    const hasSaved=nodes.some(n=>saved[n.id]);
-    nodes.forEach(n=>{
-      if(edPositions[n.id])return;
-      if(!hasSaved){
-        // Área sin acomodo manual → layout jerárquico automático puro
-        edPositions[n.id]={...(d3pos[n.id]||{x:0,y:0}),w:NW,h:NH};
-        return;
-      }
-      // Hay layout manual: ubicar el nodo nuevo bajo su padre.
-      const pid=parentOf[n.id];
-      const parentPos=pid?edPositions[pid]:null;
-      if(parentPos){
-        // Hermanos que YA tienen posición colocada
-        const sibIds=(findN(edData,pid)?.children||[]).map(c=>c.id)
-          .filter(cid=>cid!==n.id&&edPositions[cid]);
-        if(sibIds.length){
-          // Al lado del hermano más a la derecha, misma fila
-          let rightId=sibIds[0];
-          sibIds.forEach(cid=>{if(edPositions[cid].x>edPositions[rightId].x)rightId=cid;});
-          const r=edPositions[rightId];
-          edPositions[n.id]={x:r.x+(NW+HPAD),y:r.y,w:NW,h:NH};
-        }else{
-          // Primer hijo: centrado bajo el padre, una fila más abajo
-          edPositions[n.id]={x:parentPos.x,y:parentPos.y+(NH+VPAD),w:NW,h:NH};
-        }
-      }else{
-        // Sin padre ubicable → coord automática como último recurso
+      } else {
         edPositions[n.id]={...(d3pos[n.id]||{x:0,y:0}),w:NW,h:NH};
       }
     });
