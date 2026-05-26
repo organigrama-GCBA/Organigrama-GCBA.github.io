@@ -555,12 +555,9 @@ window.__dlSVG    = dlSVG;
     </div>
     <div id="ed-canvas">
       <svg id="ed-svg" style="width:100%;height:100%;"></svg>
+      <div id="ed-global-resize" title="Arrastrá para agrandar o achicar TODOS los nodos juntos" style="position:absolute;bottom:14px;right:14px;width:42px;height:42px;border-radius:9px;background:#336ACC;color:#fff;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:nwse-resize;z-index:60;display:flex;align-items:center;justify-content:center;font-size:20px;user-select:none;">⤢</div>
       <button id="ed-btn-embed" title="Guardar layout en HTML para GitHub" style="position:absolute;bottom:10px;left:10px;width:34px;height:34px;padding:0;font-size:14px;border-radius:7px;background:#1a6b3a;color:#fff;border:1px solid #2a9b5a;cursor:pointer;z-index:50;box-shadow:0 2px 6px rgba(0,0,0,0.25);" aria-label="Descargar HTML">⬇</button>
-      <div style="position:absolute;bottom:10px;left:52px;z-index:50;display:flex;gap:6px;align-items:center;">
-        <span style="font-size:10px;color:var(--ed-text3,#888);background:rgba(255,255,255,0.7);padding:2px 6px;border-radius:5px;">Tamaño nodos:</span>
-        <button id="ed-btn-nodebig" title="Agrandar todos los nodos (caja y texto)" style="width:30px;height:30px;padding:0;font-size:15px;font-weight:700;border-radius:7px;background:#fff;color:#336ACC;border:1px solid #336ACC;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.18);">A+</button>
-        <button id="ed-btn-nodesmall" title="Achicar todos los nodos (caja y texto)" style="width:30px;height:30px;padding:0;font-size:13px;font-weight:700;border-radius:7px;background:#fff;color:#336ACC;border:1px solid #336ACC;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.18);">A−</button>
-      </div>
+      
       <div class="ed-zoom">
         <button class="ed-zb" id="ed-zi" title="Zoom +">+</button>
         <button class="ed-zb" id="ed-zr" title="Zoom reset">⊙</button>
@@ -1348,6 +1345,7 @@ window.__dlSVG    = dlSVG;
         svg.call(edZoom.transform,edTransform);
       }
     }
+
   }
 
   // ── Selección & Inspector ─────────────────────────────────
@@ -1642,37 +1640,39 @@ window.__dlSVG    = dlSVG;
   wire("ed-btn-export",()=>exportAreaA3());
   wire("ed-btn-reset",()=>resetLayout());
 
-  // Agrandar/achicar TODOS los nodos del área: crece la caja Y el texto adentro,
-  // y la separación entre nodos se conserva (escala posición y tamaño por igual).
-  function escalarNodos(factor){
-    if(!edPositions)return;
-    const ids=Object.keys(edPositions);
-    if(!ids.length)return;
-    // Escalar desde el centro del conjunto para que no se desplace
-    let cx=0,cy=0;
-    ids.forEach(id=>{const p=edPositions[id];cx+=p.x;cy+=p.y;});
-    cx/=ids.length;cy/=ids.length;
-    ids.forEach(id=>{
-      const p=edPositions[id];
-      p.x=cx+(p.x-cx)*factor;
-      p.y=cy+(p.y-cy)*factor;
-      p.w=(p.w||NW)*factor;
-      p.h=(p.h||NH)*factor;
+  // Handle fijo (esquina inferior derecha): arrastrar para agrandar/achicar TODOS los nodos.
+  // Crece la caja y el texto. No importa si se pegan (es a propósito).
+  (function(){
+    const gr=document.getElementById("ed-global-resize");
+    if(!gr)return;
+    gr.addEventListener("mousedown",function(e){
+      e.preventDefault();e.stopPropagation();
+      if(!edPositions)return;
+      const startX=e.clientX,startY=e.clientY;
+      const base={};
+      Object.keys(edPositions).forEach(id=>{const p=edPositions[id];base[id]={w:p.w||NW,h:p.h||NH};});
+      function onMove(ev){
+        ev.preventDefault();
+        const d=((ev.clientX-startX)+(ev.clientY-startY))/2;
+        const factor=Math.max(0.3,Math.min(5,1+d/180));
+        Object.keys(edPositions).forEach(id=>{
+          const p=edPositions[id];
+          if(base[id]){p.w=base[id].w*factor;p.h=base[id].h*factor;}
+        });
+        edFitted=true;
+        savePosForArea();
+        renderCanvas();
+      }
+      function onUp(){
+        window.removeEventListener("mousemove",onMove,true);
+        window.removeEventListener("mouseup",onUp,true);
+        savePosForArea();
+      }
+      window.addEventListener("mousemove",onMove,true);
+      window.addEventListener("mouseup",onUp,true);
     });
-    if(edWaypoints){
-      Object.keys(edWaypoints).forEach(k=>{
-        const arr=edWaypoints[k];
-        if(Array.isArray(arr))arr.forEach(pt=>{pt.x=cx+(pt.x-cx)*factor;pt.y=cy+(pt.y-cy)*factor;});
-      });
-    }
-    savePosForArea();saveWPForArea();
-    // No re-encuadrar: mantener el zoom actual para que se VEA el cambio de tamaño
-    // (si no, el auto-fit aleja el zoom y parece que nada creció).
-    edFitted=true;
-    renderCanvas();
-  }
-  wire("ed-btn-nodebig",()=>escalarNodos(1.15));
-  wire("ed-btn-nodesmall",()=>escalarNodos(0.87));
+  })();
+
 
   wire("ed-btn-back",()=>{if(window.__goToOrganigrama)window.__goToOrganigrama();});
   wire("ed-btn-node-save",()=>saveNodeChanges());
