@@ -930,6 +930,28 @@ window.__wrapTxt  = wrapTxt;
     const linkG=g.append("g");
     const wpG=g.append("g");
 
+    // Altura (Y) de la barra horizontal de un link auto.
+    // - Líneas sólidas: a 45% del trayecto (bus jerárquico clásico).
+    // - Líneas punteadas (conectores "fuera de nivel"): barra cerca del nodo
+    //   destino, para que NO crucen por el medio del organigrama formando
+    //   rectángulos enormes.
+    function autoMidY(sy,ty,dashed){
+      if(dashed)return Math.max(sy+20,ty-28);
+      return sy+(ty-sy)*0.45;
+    }
+
+    // Altura (Y) actual de la barra horizontal de un link (override custom o auto).
+    // Devuelve null si el link tiene waypoints propios (ruta libre) y no es punteado.
+    function linkMidY(lk){
+      const sp=edPositions[lk.sid], tp=edPositions[lk.tid];
+      if(!sp||!tp)return null;
+      const k=lk.sid+"-"+lk.tid;
+      if(!lk.dashed && (edWaypoints[k]||[]).length>0)return null;
+      const c=edLinkMidY[k];
+      if(typeof c==="number")return c;
+      return autoMidY(sp.y+(sp.h||NH),tp.y,!!lk.dashed);
+    }
+
     function linkPath(sid,tid){
       const sp=edPositions[sid]||{x:0,y:0};
       const tp=edPositions[tid]||{x:0,y:0};
@@ -948,8 +970,8 @@ window.__wrapTxt  = wrapTxt;
         }
         return d;
       }
-      // Estilo B: barra horizontal compartida con esquinas redondeadas
-      const my=sy+(ty-sy)*0.45;
+      // Estilo B: barra horizontal compartida (fallback sin waypoints)
+      const my=autoMidY(sy,ty,false);
       const R=6;
       if(Math.abs(sx-tx)<2){
         // Línea vertical directa
@@ -988,14 +1010,37 @@ window.__wrapTxt  = wrapTxt;
         return {x:(gp.x-edTransform.x)/edTransform.k,y:(gp.y-edTransform.y)/edTransform.k};
       }
 
-      // Handler de doble-click: crea waypoint donde se hizo clic (atajo explícito)
+      // Handler de doble-click: "corta" la línea creando un waypoint donde se
+      // hizo clic. El corte se aplica a TODAS las líneas pegadas a esta (las del
+      // mismo bus: misma altura, mismo padre, no punteadas), así se cortan y
+      // acompañan juntas en vez de quedar una sola desfasada.
       function onLinkDbl(lk){
         return function(e){
           e.stopPropagation();
           const wp=clientToCanvas(e);
-          const k=lk.sid+"-"+lk.tid;
-          if(!edWaypoints[k])edWaypoints[k]=[];
-          edWaypoints[k].push(wp);
+          const BUS_TOL=10;
+          // Líneas pegadas: mismo bus (misma altura) que la línea cliqueada.
+          // Las punteadas se cortan de a una (no forman bus jerárquico).
+          let group=[lk];
+          if(!lk.dashed){
+            const myMid=linkMidY(lk);
+            if(myMid!=null){
+              // Pegadas = mismas que se ven unidas en el bus: misma altura.
+              group=links.filter(o=>{
+                if(o.dashed)return false;
+                const m=linkMidY(o);
+                return m!=null && Math.abs(m-myMid)<BUS_TOL;
+              });
+              if(!group.length)group=[lk];
+            }
+          }
+          group.forEach(g=>{
+            const k=g.sid+"-"+g.tid;
+            if(!edWaypoints[k])edWaypoints[k]=[];
+            // Mismo Y para todas (el corte horizontal queda alineado); la X se
+            // mantiene en el punto del clic para que acompañen el mismo quiebre.
+            edWaypoints[k].push({x:wp.x,y:wp.y});
+          });
           saveWPForArea();drawLinks();drawWPs();
         };
       }
@@ -1012,7 +1057,10 @@ window.__wrapTxt  = wrapTxt;
           e.preventDefault();
           const k=lk.sid+"-"+lk.tid;
           const startScreenX=e.clientX, startScreenY=e.clientY;
-          const hasWPs=(edWaypoints[k]||[]).length>0;
+          // Las líneas punteadas ("fuera de nivel") se rutean siempre de forma
+          // automática e ignoran waypoints viejos: así se mueven de a una y
+          // hacen snap como las sólidas, en vez de arrastrar toda la ruta.
+          const hasWPs=!lk.dashed && (edWaypoints[k]||[]).length>0;
 
           if(hasWPs){
             // Modo waypoint: el drag desplaza TODOS los waypoints del link por el
@@ -1023,8 +1071,19 @@ window.__wrapTxt  = wrapTxt;
             const startCanvas=clientToCanvas(e);
             const wps=edWaypoints[k]||[];
             if(!wps.length)return;
+            // Grupo pegado: líneas del mismo bus (mismo padre) cuyos waypoints
+            // comparten altura con los de esta — se mueven todas juntas para que
+            // un corte compartido "acompañe" al arrastrar.
+            const myYs=wps.map(w=>w.y);
+            const group=links.filter(o=>{
+              if(o.dashed)return false;
+              const ows=edWaypoints[o.sid+"-"+o.tid]||[];
+              return ows.length>0 && ows.some(w=>myYs.some(y=>Math.abs(w.y-y)<12));
+            });
+            if(!group.length)group.push(lk);
             // Snapshot de posiciones iniciales para aplicar delta absoluto
-            const startPositions=wps.map(w=>({wp:w,x0:w.x,y0:w.y}));
+            const startPositions=[];
+            group.forEach(o=>(edWaypoints[o.sid+"-"+o.tid]||[]).forEach(w=>startPositions.push({wp:w,x0:w.x,y0:w.y})));
             let moved=false;
             function onMove(ev){
               const totalDx=Math.abs(ev.clientX-startScreenX);
@@ -1051,24 +1110,15 @@ window.__wrapTxt  = wrapTxt;
 
           // Modo bus: identificar el cluster y mover todos sus links juntos.
           // Calcular midY actual de este link y de todos los otros auto.
-          function midYOf(otherLk){
-            const osp=edPositions[otherLk.sid], otp=edPositions[otherLk.tid];
-            if(!osp||!otp)return null;
-            const ok=otherLk.sid+"-"+otherLk.tid;
-            if((edWaypoints[ok]||[]).length>0)return null; // excluir links con waypoints
-            const customY=edLinkMidY[ok];
-            if(typeof customY==="number")return customY;
-            return (osp.y+(osp.h||NH))+(otp.y-(osp.y+(osp.h||NH)))*0.45;
-          }
+          const midYOf=linkMidY;
           const myThis=midYOf(lk);
           if(myThis==null)return;
           // Snapshot del cluster al iniciar el drag (no cambia durante el movimiento).
-          // Sólo se mueven juntas las líneas que forman un MISMO bus: hermanas que
-          // salen del mismo nodo padre y comparten la misma altura. Líneas de otros
-          // padres que casualmente quedan a la misma altura NO se arrastran —
-          // antes esto hacía que "se moviera todo el esquema".
-          const cluster=links.filter(other=>{
-            if(other.sid!==lk.sid)return false;
+          // - Sólidas: se mueven juntas las hermanas del MISMO bus (mismo padre y
+          //   misma altura). Líneas de otros padres NO se arrastran.
+          // - Punteadas ("fuera de nivel"): se mueven SIEMPRE de a una.
+          const cluster=lk.dashed?[lk]:links.filter(other=>{
+            if(other.sid!==lk.sid||other.dashed)return false;
             const m=midYOf(other);
             return m!=null && Math.abs(m-myThis)<BUS_TOL;
           });
@@ -1130,12 +1180,13 @@ window.__wrapTxt  = wrapTxt;
         const sx=sp.x, sy=sp.y+(sp.h||NH);
         const tx=tp.x, ty=tp.y;
         const wps=edWaypoints[lk.sid+"-"+lk.tid];
-        if(wps&&wps.length>0){
+        // Las punteadas ignoran waypoints viejos y se rutean automáticamente
+        if(wps&&wps.length>0&&!lk.dashed){
           wpLinks.push({lk,sx,sy,tx,ty});
         } else {
-          // midY: custom override (drag del bus) o automático (45% del trayecto)
+          // midY: override custom (drag del bus) o automático según el helper
           const customY=edLinkMidY[lk.sid+"-"+lk.tid];
-          const my=(typeof customY==="number")?customY:(sy+(ty-sy)*0.45);
+          const my=(typeof customY==="number")?customY:autoMidY(sy,ty,!!lk.dashed);
           autoLinks.push({lk,sx,sy,tx,ty,my,dashed:!!lk.dashed});
         }
       });
@@ -1273,6 +1324,7 @@ window.__wrapTxt  = wrapTxt;
       const _sc=Math.max(0.6,Math.min(4,_avgW/NW));
       const wpR=Math.max(8,10*_sc);
       links.forEach(lk=>{
+        if(lk.dashed)return; // las punteadas no usan waypoints (ruteo automático)
         const wps=edWaypoints[lk.sid+"-"+lk.tid]||[];
         wps.forEach((wp,i)=>{
           const c=wpG.append("circle")
