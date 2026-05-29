@@ -1047,11 +1047,17 @@ window.__wrapTxt  = wrapTxt;
           }
           const myThis=midYOf(lk);
           if(myThis==null)return;
-          // Snapshot del cluster al iniciar el drag (no cambia durante el movimiento)
+          // Snapshot del cluster al iniciar el drag (no cambia durante el movimiento).
+          // Sólo se mueven juntas las líneas que forman un MISMO bus: hermanas que
+          // salen del mismo nodo padre y comparten la misma altura. Líneas de otros
+          // padres que casualmente quedan a la misma altura NO se arrastran —
+          // antes esto hacía que "se moviera todo el esquema".
           const cluster=links.filter(other=>{
+            if(other.sid!==lk.sid)return false;
             const m=midYOf(other);
             return m!=null && Math.abs(m-myThis)<BUS_TOL;
           });
+          const clusterKeys=new Set(cluster.map(c=>c.sid+"-"+c.tid));
           const startCanvas=clientToCanvas(e);
           const yOffset=startCanvas.y-myThis;
           let moved=false;
@@ -1061,7 +1067,30 @@ window.__wrapTxt  = wrapTxt;
             if(!moved&&totalDx<4&&totalDy<4)return;
             moved=true;
             const pos=clientToCanvas(ev);
-            const newY=pos.y-yOffset;
+            let newY=pos.y-yOffset;
+
+            // ── Snap: pegar a la altura (midY) de otra línea cercana ──────
+            // Cuando la línea arrastrada se acerca a la altura de otra, se
+            // engancha para que queden alineadas (y el render las fusione en
+            // un bus). Muestra una guía punteada como referencia.
+            const SNAP=9/edTransform.k; // px de pantalla, independiente del zoom
+            let snapY=null, best=SNAP;
+            for(const other of links){
+              if(clusterKeys.has(other.sid+"-"+other.tid))continue;
+              const m=midYOf(other);
+              if(m==null)continue;
+              const d=Math.abs(m-newY);
+              if(d<best){best=d;snapY=m;}
+            }
+            guideG.selectAll(".bus-snap").remove();
+            if(snapY!==null){
+              newY=snapY;
+              guideG.append("line").attr("class","snap-guide h bus-snap")
+                .attr("x1",-9999).attr("y1",snapY).attr("x2",9999).attr("y2",snapY)
+                .attr("stroke","#A0AEC0").attr("stroke-width",1)
+                .attr("stroke-dasharray","8,4").attr("opacity",0.9);
+            }
+
             cluster.forEach(clk=>{
               edLinkMidY[clk.sid+"-"+clk.tid]=newY;
             });
@@ -1070,6 +1099,7 @@ window.__wrapTxt  = wrapTxt;
           function onUp(){
             window.removeEventListener("mousemove",onMove);
             window.removeEventListener("mouseup",onUp);
+            guideG.selectAll(".bus-snap").remove();
             if(moved){saveMidYForArea();showSaved();}
           }
           window.addEventListener("mousemove",onMove);
