@@ -243,6 +243,8 @@ function genSVGA3(root,pn=1,tot=1){
   const isJG=root.tipo==="JG";
   const savedPos=JSON.parse(localStorage.getItem("gcba_org_positions_v1")||"{}")[root.id]||null;
   const waypoints=JSON.parse(localStorage.getItem("gcba_org_waypoints_v1")||"{}")[root.id]||{};
+  // Ruteo manual de líneas del editor: { "sid-tid": Y | {y,x} }
+  const savedMidY=JSON.parse(localStorage.getItem("gcba_org_midy_v1")||"{}")[root.id]||{};
   const _sz=JSON.parse(localStorage.getItem("gcba_org_nodesize_v1")||"{}")[root.id]||null;
   const ED_NW=_sz?.nw||158,ED_NH=_sz?.nh||50,ED_FS=_sz?.fs||0;
 
@@ -299,6 +301,15 @@ function genSVGA3(root,pn=1,tot=1){
         n.y=n.y*sc+offY;
         n.w=(n.w||ED_NW)*sc;
         n.h=(n.h||ED_NH)*sc;
+      });
+      // Trasladar el ruteo manual (altura de barra + tronco X) a coords A3
+      links.forEach(lk=>{
+        const ov=savedMidY[`${lk.s.data?.id}-${lk.t.data?.id}`];
+        if(ov==null)return;
+        const oy=(typeof ov==="number")?ov:(typeof ov.y==="number"?ov.y:null);
+        const ox=(ov&&typeof ov==="object"&&typeof ov.x==="number")?ov.x:null;
+        if(oy!=null)lk.my=oy*sc+offY;
+        if(ox!=null)lk.trunkX=ox*sc+offX;
       });
     }
     NW=ED_NW; NH=ED_NH;
@@ -427,8 +438,9 @@ function genSVGA3(root,pn=1,tot=1){
   const fsT=ED_FS>0?ED_FS*0.82:Math.max(6,Math.min(10.5,NW/15));
   const sw=Math.max(0.6,NW/220);
 
-  // Líneas
-  function lPath(s,t){
+  // Líneas. Respeta el ruteo manual del editor: my (altura de barra) y trunkX
+  // (posición horizontal del tronco), si fueron definidos.
+  function lPath(s,t,myOv,trunkOv){
     const sh=s.h||NH;
     const sx=s.x,sy=s.y+sh,tx=t.x,ty=t.y;
     const isDashed=s.data?.dashed||t.data?.dashed;
@@ -436,21 +448,37 @@ function genSVGA3(root,pn=1,tot=1){
     const strokeW=isDashed?Math.max(0.9,sw*1.2):Math.max(1.5,sw*1.7);
     const dash=isDashed?`stroke-dasharray="7,4" opacity="0.75"`:`opacity="0.92"`;
     const R=Math.max(4,NW*0.04);
-    // Ruteo ortogonal automático. Las punteadas ("fuera de nivel") llevan la
-    // barra horizontal cerca del destino para no cruzar el medio.
-    const my=isDashed?(sy+(ty-sy)*0.82):(sy+(ty-sy)*0.45);
-    if(Math.abs(sx-tx)<1){
-      return`<path d="M${fv(sx)},${fv(sy)}L${fv(tx)},${fv(ty)}" fill="none" stroke="${stroke}" stroke-width="${fv(strokeW)}" ${dash}/>`;
+    // Altura de la barra: override del editor o automático (punteadas cerca del destino).
+    const my=(typeof myOv==="number")?myOv:(isDashed?(sy+(ty-sy)*0.82):(sy+(ty-sy)*0.45));
+    const trunkX=(typeof trunkOv==="number")?trunkOv:sx;
+    const useTrunk=Math.abs(trunkX-sx)>=1;
+    let d;
+    if(!useTrunk){
+      if(Math.abs(sx-tx)<1){
+        d=`M${fv(sx)},${fv(sy)}L${fv(tx)},${fv(ty)}`;
+      } else {
+        const dx=tx>sx?R:-R;
+        d=`M${fv(sx)},${fv(sy)}L${fv(sx)},${fv(my-R)}Q${fv(sx)},${fv(my)} ${fv(sx+dx)},${fv(my)}L${fv(tx-dx)},${fv(my)}Q${fv(tx)},${fv(my)} ${fv(tx)},${fv(my+R)}L${fv(tx)},${fv(ty)}`;
+      }
+    } else {
+      // Tronco desplazado: jog arriba hacia trunkX, baja el tronco, barra y caída.
+      const gap=Math.min(Math.max(8,(my-sy)*0.22),Math.max(8,(my-sy)/2-R-1));
+      const sdir=trunkX>sx?R:-R;
+      d=`M${fv(sx)},${fv(sy)}L${fv(sx)},${fv(sy+gap-R)}Q${fv(sx)},${fv(sy+gap)} ${fv(sx+sdir)},${fv(sy+gap)}L${fv(trunkX-sdir)},${fv(sy+gap)}Q${fv(trunkX)},${fv(sy+gap)} ${fv(trunkX)},${fv(sy+gap+R)}`;
+      if(Math.abs(trunkX-tx)<2){
+        d+=`L${fv(trunkX)},${fv(ty)}`;
+      } else {
+        const tdir=tx>trunkX?R:-R;
+        d+=`L${fv(trunkX)},${fv(my-R)}Q${fv(trunkX)},${fv(my)} ${fv(trunkX+tdir)},${fv(my)}L${fv(tx-tdir)},${fv(my)}Q${fv(tx)},${fv(my)} ${fv(tx)},${fv(my+R)}L${fv(tx)},${fv(ty)}`;
+      }
     }
-    const dx=tx>sx?R:-R;
-    const d=`M${fv(sx)},${fv(sy)}L${fv(sx)},${fv(my-R)}Q${fv(sx)},${fv(my)} ${fv(sx+dx)},${fv(my)}L${fv(tx-dx)},${fv(my)}Q${fv(tx)},${fv(my)} ${fv(tx)},${fv(my+R)}L${fv(tx)},${fv(ty)}`;
     return`<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${fv(strokeW)}" ${dash}/>`;
   }
 
   let linesSVG="",nodesSVG="";
   links.forEach(lk=>{
     if(!lk.s||!lk.t)return;
-    linesSVG+=lPath(lk.s,lk.t);
+    linesSVG+=lPath(lk.s,lk.t,lk.my,lk.trunkX);
   });
   nodes.forEach(n=>{
     const nw=n.w||NW,nh=n.h||NH;
