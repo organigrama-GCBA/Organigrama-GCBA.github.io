@@ -303,14 +303,14 @@ function genSVGA3(root,pn=1,tot=1){
         n.h=(n.h||ED_NH)*sc;
         if(n.fs>0)n.fs=n.fs*sc;
       });
-      // Trasladar el ruteo manual (altura de barra + tronco X) a coords A3
+      // Trasladar el ruteo manual a coords A3: altura (por línea) y tronco (por padre)
       links.forEach(lk=>{
-        const ov=savedMidY[`${lk.s.data?.id}-${lk.t.data?.id}`];
-        if(ov==null)return;
-        const oy=(typeof ov==="number")?ov:(typeof ov.y==="number"?ov.y:null);
-        const ox=(ov&&typeof ov==="object"&&typeof ov.x==="number")?ov.x:null;
+        const sid=lk.s.data?.id;
+        const ov=savedMidY[`${sid}-${lk.t.data?.id}`];
+        const oy=(typeof ov==="number")?ov:(ov&&typeof ov.y==="number"?ov.y:null);
         if(oy!=null)lk.my=oy*sc+offY;
-        if(ox!=null)lk.trunkX=ox*sc+offX;
+        const tx=savedMidY["trunk:"+sid];
+        if(typeof tx==="number")lk.trunkX=tx*sc+offX;
       });
     }
     NW=ED_NW; NH=ED_NH;
@@ -964,23 +964,21 @@ window.__wrapTxt  = wrapTxt;
       return sy+(ty-sy)*0.45;
     }
 
-    // Override de ruteo de un link: puede ser un número (solo Y, legacy) o
-    // {y,x} cuando además se movió el tronco vertical hacia un costado.
-    // Altura (Y) de la barra horizontal (override custom o auto).
+    // Altura (Y) de la barra horizontal de un link (override por link o auto).
     function linkMidY(lk){
       const sp=edPositions[lk.sid], tp=edPositions[lk.tid];
       if(!sp||!tp)return null;
       const c=edLinkMidY[lk.sid+"-"+lk.tid];
       if(typeof c==="number")return c;
-      if(c&&typeof c.y==="number")return c.y;
+      if(c&&typeof c.y==="number")return c.y; // compat datos viejos {y,x}
       return autoMidY(sp.y+(sp.h||NH),tp.y,!!lk.dashed);
     }
-    // X del tronco vertical del link. Por defecto sale del centro del padre.
+    // X del tronco vertical. Es del PADRE (compartido por todas sus líneas):
+    // se guarda en edLinkMidY["trunk:"+sid]. Por defecto, el centro del padre.
     function linkMidX(lk){
       const sp=edPositions[lk.sid];if(!sp)return null;
-      const c=edLinkMidY[lk.sid+"-"+lk.tid];
-      if(c&&typeof c==="object"&&typeof c.x==="number")return c.x;
-      return sp.x;
+      const tx=edLinkMidY["trunk:"+lk.sid];
+      return (typeof tx==="number")?tx:sp.x;
     }
 
     // Path ortogonal de un conector con tronco vertical en trunkX (movible).
@@ -1139,16 +1137,14 @@ window.__wrapTxt  = wrapTxt;
                 .attr("stroke-dasharray","8,4").attr("opacity",0.9);
             }
 
-            cluster.forEach(clk=>{
-              const sx0=edPositions[clk.sid]?.x;
-              // Si el tronco está en el centro del padre, guardar solo Y (sigue al
-              // padre si se mueve). Si está corrido, guardar {y,x}.
-              if(typeof sx0==="number" && Math.abs(newX-sx0)<1.5){
-                edLinkMidY[clk.sid+"-"+clk.tid]=newY;
-              } else {
-                edLinkMidY[clk.sid+"-"+clk.tid]={y:newY,x:newX};
-              }
-            });
+            // Altura (Y): solo la línea agarrada.
+            cluster.forEach(clk=>{ edLinkMidY[clk.sid+"-"+clk.tid]=newY; });
+            // Tronco (X): compartido por el padre. Si vuelve al centro, se quita.
+            if(Math.abs(newX-sp.x)<1.5){
+              delete edLinkMidY["trunk:"+lk.sid];
+            } else {
+              edLinkMidY["trunk:"+lk.sid]=newX;
+            }
             drawLinks();drawWPs();
           }
           function onUp(){
