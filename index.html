@@ -931,16 +931,52 @@ window.__wrapTxt  = wrapTxt;
       return sy+(ty-sy)*0.45;
     }
 
-    // Altura (Y) actual de la barra horizontal de un link (override custom o auto).
-    // Devuelve null si el link tiene waypoints propios (ruta libre) y no es punteado.
+    // Override de ruteo de un link: puede ser un número (solo Y, legacy) o
+    // {y,x} cuando además se movió el tronco vertical hacia un costado.
+    // Altura (Y) de la barra horizontal (override custom o auto).
     function linkMidY(lk){
       const sp=edPositions[lk.sid], tp=edPositions[lk.tid];
       if(!sp||!tp)return null;
-      const k=lk.sid+"-"+lk.tid;
-      if(!lk.dashed && (edWaypoints[k]||[]).length>0)return null;
-      const c=edLinkMidY[k];
+      const c=edLinkMidY[lk.sid+"-"+lk.tid];
       if(typeof c==="number")return c;
+      if(c&&typeof c.y==="number")return c.y;
       return autoMidY(sp.y+(sp.h||NH),tp.y,!!lk.dashed);
+    }
+    // X del tronco vertical del link. Por defecto sale del centro del padre.
+    function linkMidX(lk){
+      const sp=edPositions[lk.sid];if(!sp)return null;
+      const c=edLinkMidY[lk.sid+"-"+lk.tid];
+      if(c&&typeof c==="object"&&typeof c.x==="number")return c.x;
+      return sp.x;
+    }
+
+    // Path ortogonal de un conector con tronco vertical en trunkX (movible).
+    // Si trunkX≈sx hace falta jog; degrada a la L-path clásica.
+    function trunkConnPath(sx,sy,tx,ty,my,trunkX,R){
+      const f=v=>v.toFixed(1);
+      const useTrunk=Math.abs(trunkX-sx)>=1;
+      if(!useTrunk){
+        if(Math.abs(sx-tx)<2)return`M${f(sx)},${f(sy)}L${f(tx)},${f(ty)}`;
+        const dx=tx>sx?R:-R;
+        return`M${f(sx)},${f(sy)}L${f(sx)},${f(my-R)}`+
+          `Q${f(sx)},${f(my)} ${f(sx+dx)},${f(my)}`+
+          `L${f(tx-dx)},${f(my)}Q${f(tx)},${f(my)} ${f(tx)},${f(my+R)}L${f(tx)},${f(ty)}`;
+      }
+      // Jog arriba: bajar un poco, ir a trunkX, y bajar el tronco hasta my
+      const gap=Math.min(Math.max(8,(my-sy)*0.22),Math.max(8,(my-sy)/2-R-1));
+      const sdir=trunkX>sx?R:-R;
+      let d=`M${f(sx)},${f(sy)}L${f(sx)},${f(sy+gap-R)}`+
+        `Q${f(sx)},${f(sy+gap)} ${f(sx+sdir)},${f(sy+gap)}`+
+        `L${f(trunkX-sdir)},${f(sy+gap)}`+
+        `Q${f(trunkX)},${f(sy+gap)} ${f(trunkX)},${f(sy+gap+R)}`;
+      if(Math.abs(trunkX-tx)<2){
+        d+=`L${f(trunkX)},${f(ty)}`;
+      }else{
+        const tdir=tx>trunkX?R:-R;
+        d+=`L${f(trunkX)},${f(my-R)}Q${f(trunkX)},${f(my)} ${f(trunkX+tdir)},${f(my)}`+
+          `L${f(tx-tdir)},${f(my)}Q${f(tx)},${f(my)} ${f(tx)},${f(my+R)}L${f(tx)},${f(ty)}`;
+      }
+      return d;
     }
 
     function linkPath(sid,tid){
@@ -1001,8 +1037,8 @@ window.__wrapTxt  = wrapTxt;
         return {x:(gp.x-edTransform.x)/edTransform.k,y:(gp.y-edTransform.y)/edTransform.k};
       }
 
-      // Drag directo sobre la línea: mueve verticalmente la altura de la barra
-      // (bus) con snap a otras líneas. Ruteo siempre ortogonal/automático.
+      // Drag directo sobre la línea: mueve la barra en VERTICAL (altura) y el
+      // tronco en HORIZONTAL (a los costados), ambos con snap. Ruteo ortogonal.
       function onLinkDragStart(lk){
         return function(e){
           if(e.button!==0)return;
@@ -1010,23 +1046,23 @@ window.__wrapTxt  = wrapTxt;
           e.preventDefault();
           const startScreenX=e.clientX, startScreenY=e.clientY;
 
-          // Modo bus: identificar el cluster y mover todos sus links juntos.
-          // Calcular midY actual de este link y de todos los otros auto.
           const midYOf=linkMidY;
           const myThis=midYOf(lk);
           if(myThis==null)return;
-          // Snapshot del cluster al iniciar el drag (no cambia durante el movimiento).
-          // - Sólidas: se mueven juntas las hermanas del MISMO bus (mismo padre y
-          //   misma altura). Líneas de otros padres NO se arrastran.
-          // - Punteadas ("fuera de nivel"): se mueven SIEMPRE de a una.
-          const cluster=lk.dashed?[lk]:links.filter(other=>{
-            if(other.sid!==lk.sid||other.dashed)return false;
+          // Cluster: hermanas del MISMO bus (mismo padre y misma altura). Las
+          // líneas de otros padres NO se arrastran.
+          const cluster=links.filter(other=>{
+            if(other.sid!==lk.sid)return false;
             const m=midYOf(other);
             return m!=null && Math.abs(m-myThis)<BUS_TOL;
           });
           const clusterKeys=new Set(cluster.map(c=>c.sid+"-"+c.tid));
+          const sp=edPositions[lk.sid]||{x:0};
+          const tgtXs=cluster.map(c=>edPositions[c.tid]?.x).filter(x=>typeof x==="number");
+          const startTrunkX=linkMidX(lk);
           const startCanvas=clientToCanvas(e);
           const yOffset=startCanvas.y-myThis;
+          const xOffset=startCanvas.x-startTrunkX;
           let moved=false;
           function onMove(ev){
             const totalDx=Math.abs(ev.clientX-startScreenX);
@@ -1035,21 +1071,17 @@ window.__wrapTxt  = wrapTxt;
             moved=true;
             const pos=clientToCanvas(ev);
             let newY=pos.y-yOffset;
-
-            // ── Snap: pegar a la altura (midY) de otra línea cercana ──────
-            // Cuando la línea arrastrada se acerca a la altura de otra, se
-            // engancha para que queden alineadas (y el render las fusione en
-            // un bus). Muestra una guía punteada como referencia.
+            let newX=pos.x-xOffset;
             const SNAP=9/edTransform.k; // px de pantalla, independiente del zoom
-            let snapY=null, best=SNAP;
+            guideG.selectAll(".bus-snap").remove();
+
+            // ── Snap vertical: a la altura (midY) de otra línea ──
+            let snapY=null, bestY=SNAP;
             for(const other of links){
               if(clusterKeys.has(other.sid+"-"+other.tid))continue;
-              const m=midYOf(other);
-              if(m==null)continue;
-              const d=Math.abs(m-newY);
-              if(d<best){best=d;snapY=m;}
+              const m=midYOf(other); if(m==null)continue;
+              const dd=Math.abs(m-newY); if(dd<bestY){bestY=dd;snapY=m;}
             }
-            guideG.selectAll(".bus-snap").remove();
             if(snapY!==null){
               newY=snapY;
               guideG.append("line").attr("class","snap-guide h bus-snap")
@@ -1058,8 +1090,32 @@ window.__wrapTxt  = wrapTxt;
                 .attr("stroke-dasharray","8,4").attr("opacity",0.9);
             }
 
+            // ── Snap horizontal del tronco: al centro del padre, a un hijo o a
+            //    otro tronco. Volver al centro del padre quita el desplazamiento.
+            const xCands=[sp.x,...tgtXs];
+            for(const other of links){
+              if(clusterKeys.has(other.sid+"-"+other.tid))continue;
+              const mx=linkMidX(other); if(typeof mx==="number")xCands.push(mx);
+            }
+            let snapX=null, bestX=SNAP;
+            for(const cx of xCands){const dd=Math.abs(cx-newX); if(dd<bestX){bestX=dd;snapX=cx;}}
+            if(snapX!==null){
+              newX=snapX;
+              guideG.append("line").attr("class","snap-guide v bus-snap")
+                .attr("x1",snapX).attr("y1",-9999).attr("x2",snapX).attr("y2",9999)
+                .attr("stroke","#A0AEC0").attr("stroke-width",1)
+                .attr("stroke-dasharray","8,4").attr("opacity",0.9);
+            }
+
             cluster.forEach(clk=>{
-              edLinkMidY[clk.sid+"-"+clk.tid]=newY;
+              const sx0=edPositions[clk.sid]?.x;
+              // Si el tronco está en el centro del padre, guardar solo Y (sigue al
+              // padre si se mueve). Si está corrido, guardar {y,x}.
+              if(typeof sx0==="number" && Math.abs(newX-sx0)<1.5){
+                edLinkMidY[clk.sid+"-"+clk.tid]=newY;
+              } else {
+                edLinkMidY[clk.sid+"-"+clk.tid]={y:newY,x:newX};
+              }
             });
             drawLinks();drawWPs();
           }
@@ -1082,10 +1138,9 @@ window.__wrapTxt  = wrapTxt;
         if(!sp||!tp)return;
         const sx=sp.x, sy=sp.y+(sp.h||NH);
         const tx=tp.x, ty=tp.y;
-        // midY: override custom (drag del bus con snap) o automático según el helper
-        const customY=edLinkMidY[lk.sid+"-"+lk.tid];
-        const my=(typeof customY==="number")?customY:autoMidY(sy,ty,!!lk.dashed);
-        autoLinks.push({lk,sx,sy,tx,ty,my,dashed:!!lk.dashed});
+        const my=linkMidY(lk);                 // override Y o automático
+        const trunkX=linkMidX(lk);             // X del tronco (override o centro del padre)
+        autoLinks.push({lk,sx,sy,tx,ty,my,trunkX,dashed:!!lk.dashed});
       });
 
       // 2) Clusterizar autoLinks por midY (orden + ventana)
@@ -1100,23 +1155,13 @@ window.__wrapTxt  = wrapTxt;
         }
       }
 
+      const fx=v=>v.toFixed(1);
       // 3) Render por cluster
       clusters.forEach(c=>{
         if(c.items.length===1){
-          // Solo: L-path clásica
+          // Solo: L-path (con tronco movible)
           const s=c.items[0], my=c.y, dashed=s.dashed;
-          let d;
-          if(Math.abs(s.sx-s.tx)<2){
-            d=`M${s.sx.toFixed(1)},${s.sy.toFixed(1)}L${s.tx.toFixed(1)},${s.ty.toFixed(1)}`;
-          } else {
-            const dx=s.tx>s.sx?R:-R;
-            d=`M${s.sx.toFixed(1)},${s.sy.toFixed(1)}`+
-              `L${s.sx.toFixed(1)},${(my-R).toFixed(1)}`+
-              `Q${s.sx.toFixed(1)},${my.toFixed(1)} ${(s.sx+dx).toFixed(1)},${my.toFixed(1)}`+
-              `L${(s.tx-dx).toFixed(1)},${my.toFixed(1)}`+
-              `Q${s.tx.toFixed(1)},${my.toFixed(1)} ${s.tx.toFixed(1)},${(my+R).toFixed(1)}`+
-              `L${s.tx.toFixed(1)},${s.ty.toFixed(1)}`;
-          }
+          const d=trunkConnPath(s.sx,s.sy,s.tx,s.ty,my,s.trunkX,R);
           linkG.append("path").attr("class","lpath c-link"+(dashed?" dashed-link":""))
             .attr("d",d).attr("fill","none").attr("stroke",STROKE)
             .attr("stroke-width",dashed?SW_DASHED:SW_SOLID)
@@ -1128,9 +1173,10 @@ window.__wrapTxt  = wrapTxt;
             .style("cursor","grab")
             .on("mousedown",onLinkDragStart(s.lk));
         } else {
-          // Múltiples: bus compartida + caídas
+          // Múltiples: bus compartida + caídas. El tronco (caída de origen)
+          // puede estar desplazado en X (trunkX).
           const y=c.items[0].my; // anclar al primero para que no flote al agregar nodos
-          const xs=c.items.flatMap(s=>[s.sx,s.tx]);
+          const xs=c.items.flatMap(s=>[s.sx,s.tx,s.trunkX]);
           const minX=Math.min(...xs), maxX=Math.max(...xs);
           const allDashed=c.items.every(s=>s.dashed);
           // Bus horizontal compartida
@@ -1140,15 +1186,26 @@ window.__wrapTxt  = wrapTxt;
             .attr("stroke-linecap","round")
             .attr("stroke-dasharray",allDashed?"9,5":"none")
             .attr("opacity",allDashed?0.75:0.9);
-          // Caídas desde cada origen único (al bus)
+          // Caídas desde cada origen único (al bus), por su tronco trunkX
           const seenSrc=new Map();
           c.items.forEach(s=>{
             const k=Math.round(s.sx);
             if(seenSrc.has(k))return;
             seenSrc.set(k,s);
+            let dd;
+            if(Math.abs(s.trunkX-s.sx)<1){
+              dd=`M${fx(s.sx)},${fx(s.sy)}L${fx(s.sx)},${fx(y)}`;
+            } else {
+              const gap=Math.min(Math.max(8,(y-s.sy)*0.22),Math.max(8,(y-s.sy)/2-R-1));
+              const sdir=s.trunkX>s.sx?R:-R;
+              dd=`M${fx(s.sx)},${fx(s.sy)}L${fx(s.sx)},${fx(s.sy+gap-R)}`+
+                `Q${fx(s.sx)},${fx(s.sy+gap)} ${fx(s.sx+sdir)},${fx(s.sy+gap)}`+
+                `L${fx(s.trunkX-sdir)},${fx(s.sy+gap)}`+
+                `Q${fx(s.trunkX)},${fx(s.sy+gap)} ${fx(s.trunkX)},${fx(s.sy+gap+R)}`+
+                `L${fx(s.trunkX)},${fx(y)}`;
+            }
             linkG.append("path").attr("class","c-drop")
-              .attr("d",`M${s.sx.toFixed(1)},${s.sy.toFixed(1)}L${s.sx.toFixed(1)},${y.toFixed(1)}`)
-              .attr("fill","none").attr("stroke",STROKE)
+              .attr("d",dd).attr("fill","none").attr("stroke",STROKE)
               .attr("stroke-width",s.dashed?SW_DASHED:SW_SOLID)
               .attr("stroke-linecap","round")
               .attr("stroke-dasharray",s.dashed?"9,5":"none")
@@ -1161,18 +1218,18 @@ window.__wrapTxt  = wrapTxt;
             if(seenTgt.has(k))return;
             seenTgt.set(k,s);
             linkG.append("path").attr("class","c-drop")
-              .attr("d",`M${s.tx.toFixed(1)},${y.toFixed(1)}L${s.tx.toFixed(1)},${s.ty.toFixed(1)}`)
+              .attr("d",`M${fx(s.tx)},${fx(y)}L${fx(s.tx)},${fx(s.ty)}`)
               .attr("fill","none").attr("stroke",STROKE)
               .attr("stroke-width",s.dashed?SW_DASHED:SW_SOLID)
               .attr("stroke-linecap","round")
               .attr("stroke-dasharray",s.dashed?"9,5":"none")
               .attr("opacity",s.dashed?0.75:0.9);
           });
-          // Hit-areas por link (para arrastrar la altura del bus)
+          // Hit-areas por link (para arrastrar la altura y el tronco)
           c.items.forEach(s=>{
-            const dHit=`M${s.sx.toFixed(1)},${s.sy.toFixed(1)}L${s.sx.toFixed(1)},${y.toFixed(1)}L${s.tx.toFixed(1)},${y.toFixed(1)}L${s.tx.toFixed(1)},${s.ty.toFixed(1)}`;
             linkG.append("path").attr("class","lhit")
-              .attr("d",dHit).attr("fill","none").attr("stroke","transparent").attr("stroke-width",HIT_SW)
+              .attr("d",trunkConnPath(s.sx,s.sy,s.tx,s.ty,y,s.trunkX,R))
+              .attr("fill","none").attr("stroke","transparent").attr("stroke-width",HIT_SW)
               .style("cursor","grab")
               .on("mousedown",onLinkDragStart(s.lk));
           });
