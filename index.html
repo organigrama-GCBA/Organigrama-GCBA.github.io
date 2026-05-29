@@ -679,6 +679,18 @@ window.__wrapTxt  = wrapTxt;
   const WP_KEY="gcba_org_waypoints_v1";
   const MIDY_KEY="gcba_org_midy_v1";
   const NW=158,NH=50,HPAD=18,VPAD=58;
+  const NW_MAX=340; // tope de ancho auto para nombres largos
+  // Ancho por defecto de un nodo según el largo de su nombre. Los nombres
+  // largos (ej: "Consejo de los Derechos de Niñas, Niños y Adolescentes")
+  // ensanchan la caja en vez de quedar con letra diminuta en muchas líneas.
+  function defNodeW(nombre){
+    const len=((nombre||"")+"").trim().length;
+    if(len<=14)return NW;
+    // ancho para que el nombre entre en ~2 líneas a una fuente legible (~12px)
+    const perLine=Math.ceil(len/1.7);
+    const w=Math.round(perLine*12*0.55)+22;
+    return Math.max(NW,Math.min(NW_MAX,w));
+  }
 
   // ── Estado ──────────────────────────────────────────────
   let edData=null;
@@ -817,7 +829,10 @@ window.__wrapTxt  = wrapTxt;
     }
     const viewRoot=findN(edData,edViewId)||edData;
     const d3root=d3.hierarchy(toH(viewRoot,0),d=>d._k.length?d._k:null);
-    d3.tree().nodeSize([NW+HPAD,NH+VPAD])(d3root);
+    // Ancho de columna = el nodo más ancho (según su nombre) para que el
+    // espaciado del árbol no deje que las cajas anchas se solapen.
+    const COLW=Math.max(NW,...nodes.map(n=>defNodeW(n.nombre)));
+    d3.tree().nodeSize([COLW+HPAD,NH+VPAD])(d3root);
     const d3pos={};
     d3root.each(n=>{d3pos[n.data.id]={x:n.x,y:n.y};});
     const allD3=Object.values(d3pos);
@@ -831,9 +846,9 @@ window.__wrapTxt  = wrapTxt;
     nodes.forEach(n=>{
       if(saved[n.id]){
         const s=saved[n.id];
-        edPositions[n.id]={x:s.x,y:s.y,w:s.w||NW,h:s.h||NH};
+        edPositions[n.id]={x:s.x,y:s.y,w:s.w||defNodeW(n.nombre),h:s.h||NH};
       } else {
-        edPositions[n.id]={...(d3pos[n.id]||{x:0,y:0}),w:NW,h:NH};
+        edPositions[n.id]={...(d3pos[n.id]||{x:0,y:0}),w:defNodeW(n.nombre),h:NH};
       }
     });
     edWaypoints=loadWPForArea(edViewId);
