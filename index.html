@@ -462,7 +462,8 @@ function genSVGA3(root,pn=1,tot=1){
       }
     } else {
       // Tronco desplazado: jog arriba hacia trunkX, baja el tronco, barra y caída.
-      const gap=Math.min(Math.max(8,(my-sy)*0.22),Math.max(8,(my-sy)/2-R-1));
+      // Codo a distancia FIJA del padre: subir/bajar la barra no lo mueve.
+      const gap=Math.min(R*3,Math.max(R,(my-sy)-R*2));
       const sdir=trunkX>sx?R:-R;
       d=`M${fv(sx)},${fv(sy)}L${fv(sx)},${fv(sy+gap-R)}Q${fv(sx)},${fv(sy+gap)} ${fv(sx+sdir)},${fv(sy+gap)}L${fv(trunkX-sdir)},${fv(sy+gap)}Q${fv(trunkX)},${fv(sy+gap)} ${fv(trunkX)},${fv(sy+gap+R)}`;
       if(Math.abs(trunkX-tx)<2){
@@ -991,7 +992,8 @@ window.__wrapTxt  = wrapTxt;
           `L${f(tx-dx)},${f(my)}Q${f(tx)},${f(my)} ${f(tx)},${f(my+R)}L${f(tx)},${f(ty)}`;
       }
       // Jog arriba: bajar un poco, ir a trunkX, y bajar el tronco hasta my
-      const gap=Math.min(Math.max(8,(my-sy)*0.22),Math.max(8,(my-sy)/2-R-1));
+      // Codo a distancia FIJA del padre: subir/bajar la barra no lo mueve.
+      const gap=Math.min(R*3,Math.max(R,(my-sy)-R*2));
       const sdir=trunkX>sx?R:-R;
       let d=`M${f(sx)},${f(sy)}L${f(sx)},${f(sy+gap-R)}`+
         `Q${f(sx)},${f(sy+gap)} ${f(sx+sdir)},${f(sy+gap)}`+
@@ -1118,12 +1120,14 @@ window.__wrapTxt  = wrapTxt;
                 .attr("stroke-dasharray","8,4").attr("opacity",0.9);
             }
 
-            // ── Snap horizontal del tronco: al centro del padre, a un hijo o a
-            //    otro tronco. Volver al centro del padre quita el desplazamiento.
+            // ── Snap horizontal del tronco: a cualquier vertical cercana —
+            //    centro de un nodo (padre/hijo), otro tronco o una caída de destino.
             const xCands=[sp.x,...tgtXs];
+            Object.values(edPositions).forEach(p=>{if(p&&typeof p.x==="number")xCands.push(p.x);});
             for(const other of links){
               if(clusterKeys.has(other.sid+"-"+other.tid))continue;
               const mx=linkMidX(other); if(typeof mx==="number")xCands.push(mx);
+              const otp=edPositions[other.tid]; if(otp&&typeof otp.x==="number")xCands.push(otp.x);
             }
             let snapX=null, bestX=SNAP;
             for(const cx of xCands){const dd=Math.abs(cx-newX); if(dd<bestX){bestX=dd;snapX=cx;}}
@@ -1224,7 +1228,8 @@ window.__wrapTxt  = wrapTxt;
             if(Math.abs(s.trunkX-s.sx)<1){
               dd=`M${fx(s.sx)},${fx(s.sy)}L${fx(s.sx)},${fx(y)}`;
             } else {
-              const gap=Math.min(Math.max(8,(y-s.sy)*0.22),Math.max(8,(y-s.sy)/2-R-1));
+              // Codo a distancia FIJA del padre (no se mueve al subir la barra)
+              const gap=Math.min(R*3,Math.max(R,(y-s.sy)-R*2));
               const sdir=s.trunkX>s.sx?R:-R;
               dd=`M${fx(s.sx)},${fx(s.sy)}L${fx(s.sx)},${fx(s.sy+gap-R)}`+
                 `Q${fx(s.sx)},${fx(s.sy+gap)} ${fx(s.sx+sdir)},${fx(s.sy+gap)}`+
