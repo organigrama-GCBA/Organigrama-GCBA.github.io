@@ -271,7 +271,7 @@ function genSVGA3(root,pn=1,tot=1){
     const visible=_visibleCache;
     const visIds=new Set(visible.map(n=>n.id));
 
-    nodes=visible.filter(n=>savedPos[n.id]!=null).map(n=>({x:savedPos[n.id].x,y:savedPos[n.id].y,w:savedPos[n.id].w||ED_NW,h:savedPos[n.id].h||ED_NH,data:n}));
+    nodes=visible.filter(n=>savedPos[n.id]!=null).map(n=>({x:savedPos[n.id].x,y:savedPos[n.id].y,w:savedPos[n.id].w||ED_NW,h:savedPos[n.id].h||ED_NH,fs:savedPos[n.id].fs||0,data:n}));
 
     // Links
     (function walk(node,depth){
@@ -301,6 +301,7 @@ function genSVGA3(root,pn=1,tot=1){
         n.y=n.y*sc+offY;
         n.w=(n.w||ED_NW)*sc;
         n.h=(n.h||ED_NH)*sc;
+        if(n.fs>0)n.fs=n.fs*sc;
       });
       // Trasladar el ruteo manual (altura de barra + tronco X) a coords A3
       links.forEach(lk=>{
@@ -485,7 +486,8 @@ function genSVGA3(root,pn=1,tot=1){
     const nw=n.w||NW,nh=n.h||NH;
     // Calcular fuente considerando ancho Y alto del nodo
     let fsNn,fsTn;
-    if(ED_FS>0){fsNn=ED_FS;fsTn=ED_FS*0.82;}
+    const nodeFS=(n.fs>0)?n.fs:ED_FS; // tamaño manual por nodo, si existe
+    if(nodeFS>0){fsNn=nodeFS;fsTn=nodeFS*0.82;}
     else{
       // Estimación inicial por ancho
       const fsW=Math.min(200,nw/5);
@@ -553,11 +555,10 @@ window.__wrapTxt  = wrapTxt;
     <span style="font-size:10px;font-weight:600;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.06em;">Área:</span>
     <select id="ed-area-sel" style="min-width:240px;flex:1;max-width:380px;"></select>
     <span style="font-size:10px;color:var(--ed-text3);margin-left:8px;">· clic = sel · Ctrl+clic = sumar nodo · Shift+clic = sumar rama · flechas = mover</span>
-    <span style="font-size:10px;color:var(--ed-text3);margin-left:12px;">Nodo:</span>
-    <span style="font-size:10px;color:var(--ed-text3);">Texto</span>
-    <input id="ed-fs" type="number" min="6" max="20" step="0.5" value="9.5"
+    <span style="font-size:10px;color:var(--ed-text3);margin-left:12px;" title="Aplica al nodo seleccionado (o a todos si no hay selección). Vacío/0 = automático.">Texto:</span>
+    <input id="ed-fs" type="number" min="6" max="72" step="0.5" value="11" title="Tamaño de letra. Aplica a los nodos seleccionados (o a todos). 0 = automático."
         style="width:52px;background:var(--ed-surface2);border:1px solid var(--ed-border2);border-radius:5px;padding:3px 6px;font-size:11px;color:var(--ed-text1);font-family:inherit;"/>
-    <button id="ed-btn-apply-size" style="background:var(--ed-accent);border:none;color:#fff;padding:3px 8px;border-radius:5px;cursor:pointer;font-size:11px;font-family:inherit;">✓</button>
+    <button id="ed-btn-apply-size" title="Aplicar tamaño de letra a la selección" style="background:var(--ed-accent);border:none;color:#fff;padding:3px 8px;border-radius:5px;cursor:pointer;font-size:11px;font-family:inherit;">✓</button>
     <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
       <span class="ed-saved" id="ed-saved-msg">✓ Guardado</span>
       <button class="ed-zb" id="ed-btn-undo" title="Deshacer" style="width:auto;padding:0 10px;font-size:11px;">↩ Deshacer</button>
@@ -866,9 +867,9 @@ window.__wrapTxt  = wrapTxt;
     nodes.forEach(n=>{
       if(saved[n.id]){
         const s=saved[n.id];
-        edPositions[n.id]={x:s.x,y:s.y,w:s.w||defNodeW(n.nombre),h:s.h||NH};
+        edPositions[n.id]={x:s.x,y:s.y,w:s.w||defNodeW(n.nombre),h:s.h||NH,fs:s.fs||0};
       } else {
-        edPositions[n.id]={...(d3pos[n.id]||{x:0,y:0}),w:defNodeW(n.nombre),h:NH};
+        edPositions[n.id]={...(d3pos[n.id]||{x:0,y:0}),w:defNodeW(n.nombre),h:NH,fs:0};
       }
     });
     edWaypoints=loadWPForArea(edViewId);
@@ -1079,13 +1080,9 @@ window.__wrapTxt  = wrapTxt;
           const midYOf=linkMidY;
           const myThis=midYOf(lk);
           if(myThis==null)return;
-          // Cluster: hermanas del MISMO bus (mismo padre y misma altura). Las
-          // líneas de otros padres NO se arrastran.
-          const cluster=links.filter(other=>{
-            if(other.sid!==lk.sid)return false;
-            const m=midYOf(other);
-            return m!=null && Math.abs(m-myThis)<BUS_TOL;
-          });
+          // Se mueve SOLO la línea agarrada (no las hermanas del bus). Si querés
+          // alinearla con otra, el snap la engancha a la misma altura.
+          const cluster=[lk];
           const clusterKeys=new Set(cluster.map(c=>c.sid+"-"+c.tid));
           const sp=edPositions[lk.sid]||{x:0};
           const tgtXs=cluster.map(c=>edPositions[c.tid]?.x).filter(x=>typeof x==="number");
@@ -1493,12 +1490,13 @@ window.__wrapTxt  = wrapTxt;
       }
       // Nombre — wrap respetando el ancho real (no más cap fijo de 20 chars)
       const wrap=window.__wrapTxt||((t)=>[t||""]);
-      let _fs=Math.max(8,Math.min(80,Math.min(_nw/8,mainH*0.5)));
+      const fsOv=edPositions[d.id]?.fs;           // tamaño de letra manual por nodo
+      let _fs=(fsOv>0)?fsOv:Math.max(8,Math.min(80,Math.min(_nw/8,mainH*0.5)));
       const charsPerLine=Math.max(6,Math.floor(_nw/(_fs*0.52)));
       const lines=wrap(d.nombre||"",charsPerLine);
-      // Si el bloque no cabe en alto, achicar la fuente proporcionalmente
+      // Si no hay tamaño manual y el bloque no cabe en alto, achicar la fuente
       const lhEst=_fs*1.3;
-      if(lines.length*lhEst>mainH*0.9){
+      if(!(fsOv>0) && lines.length*lhEst>mainH*0.9){
         _fs=Math.max(7,_fs*(mainH*0.9/(lines.length*lhEst)));
       }
       const _lh=_fs*1.3;
@@ -1632,6 +1630,7 @@ window.__wrapTxt  = wrapTxt;
     document.querySelectorAll(".ed-ni").forEach(el=>el.classList.toggle("sel",el.dataset.id===id));
     const node=id?findN(edData,id):null;
     renderInspector(node);
+    if(window.__syncFSInput)window.__syncFSInput();
     if(id){const el=document.querySelector(`.ed-ni[data-id="${id}"]`);if(el)el.scrollIntoView({block:"nearest"});}
   }
 
@@ -2076,6 +2075,28 @@ window.__wrapTxt  = wrapTxt;
   wire("ed-btn-autolayout",()=>autoLayoutA3());
   wire("ed-btn-clearlines",()=>clearLines());
   wire("ed-btn-reset",()=>resetLayout());
+
+  // Tamaño de letra: aplica el valor del input a los nodos seleccionados
+  // (o a todos si no hay selección). 0/“auto” vuelve al tamaño automático.
+  function applyNodeFS(){
+    const raw=document.getElementById("ed-fs")?.value;
+    const v=parseFloat(raw);
+    const fs=(v>0)?v:0; // 0 = auto
+    const ids=edSelectedIds.size?[...edSelectedIds]:Object.keys(edPositions);
+    ids.forEach(id=>{if(edPositions[id])edPositions[id].fs=fs;});
+    savePosForArea();renderCanvas();showSaved();
+  }
+  wire("ed-btn-apply-size",applyNodeFS);
+  (function(){const i=document.getElementById("ed-fs");if(i)i.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();applyNodeFS();}});})();
+  // Sincroniza el input con el nodo seleccionado
+  window.__syncFSInput=function(){
+    const i=document.getElementById("ed-fs");if(!i)return;
+    const ids=[...edSelectedIds];
+    if(ids.length===1&&edPositions[ids[0]]){
+      const fs=edPositions[ids[0]].fs;
+      if(fs>0)i.value=fs;
+    }
+  };
 
   // Handle fijo (esquina inferior derecha): arrastrar para agrandar/achicar TODOS los nodos.
   // Crece la caja y el texto. No importa si se pegan (es a propósito).
