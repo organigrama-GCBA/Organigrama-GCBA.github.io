@@ -163,7 +163,7 @@ body{margin:0;font-family:'Open Sans','Inter',-apple-system,sans-serif;backgroun
 
 // ── Colores (duplicado para uso en genSVGA3 fuera de Babel) ──
 const COLORS_SVG={
-  JG:{bg:"#9B1C1C"},VJG:{bg:"#9B1C1C"},MIN:{bg:"#FEA82D"},SEC:{bg:"#FCD307"},
+  JG:{bg:"#9B1C1C"},VJG:{bg:"#9B1C1C"},MIN:{bg:"#F5871F"},SEC:{bg:"#FFD400"},
   SS:{bg:"#004F86"},DG:{bg:"#268948"},GG:{bg:"#268948"},GO:{bg:"#268948"},ORG:{bg:"#E4E9ED"}
 };
 function getColorSVG(n){if(n?.tipo?.startsWith("CUSTOM:"))return"#5B21B6";return(COLORS_SVG[n?.tipo]||COLORS_SVG.ORG).bg;}
@@ -203,7 +203,7 @@ function svgBox(x,y,node,W,H,dashed,fsN,fsT){
   const lhN=aFsN*1.32;
 
   const da=dashed?`stroke="rgba(255,255,255,0.5)" stroke-width="1.5" stroke-dasharray="5,3"`:"";
-  const lightBg=["#FCD307","#E4E9ED","#FEA82D"];
+  const lightBg=["#FFD400","#E4E9ED","#F5871F"];
   const isLight=lightBg.some(c=>fill.toUpperCase()===c.toUpperCase());
   const txtMain=isLight?"#1A202C":"#fff";
 
@@ -503,7 +503,7 @@ function genSVGA3(root,pn=1,tot=1){
     nodesSVG+=svgBox(n.x-nw/2,n.y,n.data,nw,nh,!!n.data?.dashed,fsNn,fsTn);
   });
 
-  const leg=[["#9B1C1C","Jefatura"],["#FEA82D","Ministerio"],["#FCD307","Secretaría"],
+  const leg=[["#9B1C1C","Jefatura"],["#F5871F","Ministerio"],["#FFD400","Secretaría"],
              ["#004F86","Subsecretaría"],["#268948","Dir. General"],["#E4E9ED","Org. desc."]];
   const lw=118,lx=(PW-leg.length*lw)/2,ly=PH-FH+11;
   const legSVG=leg.map((it,i)=>
@@ -749,11 +749,11 @@ window.__wrapTxt  = wrapTxt;
   // ── Árbol helpers ────────────────────────────────────────
   function getColor(n){if(n?.tipo?.startsWith("CUSTOM:"))return"#5B21B6";
     // Misma paleta que la impresión y el visor (COLORS_SVG / COLORS)
-    const m={JG:"#9B1C1C",VJG:"#9B1C1C",MIN:"#FEA82D",SEC:"#FCD307",SS:"#004F86",
+    const m={JG:"#9B1C1C",VJG:"#9B1C1C",MIN:"#F5871F",SEC:"#FFD400",SS:"#004F86",
               DG:"#268948",GG:"#268948",GO:"#268948",ORG:"#E4E9ED"};
     return m[n?.tipo]||"#E4E9ED";}
   // Fondos claros → texto oscuro (igual criterio que la impresión)
-  function isLightBg(c){return["#FCD307","#E4E9ED","#FEA82D"].includes((c||"").toUpperCase());}
+  function isLightBg(c){return["#FFD400","#E4E9ED","#F5871F"].includes((c||"").toUpperCase());}
   function getLabel(n){
     if(n?.tipo?.startsWith("CUSTOM:"))return n.tipoLabel||n.tipo.replace("CUSTOM:","");
     const m={JG:"Jefatura",VJG:"Vicejefatura",MIN:"Ministerio",SEC:"Secretaría",
@@ -2910,7 +2910,7 @@ function moveNode(t,nodeId,newPid){const n=findNode(t,nodeId);if(!n)return t;ret
 // ── Colores ──────────────────────────────────────────────
 const COLORS={
   JG:{bg:"#9B1C1C",label:"Jefatura"},VJG:{bg:"#9B1C1C",label:"Vicejefatura"},
-  MIN:{bg:"#FEA82D",label:"Ministerio"},SEC:{bg:"#FCD307",label:"Secretaría"},
+  MIN:{bg:"#F5871F",label:"Ministerio"},SEC:{bg:"#FFD400",label:"Secretaría"},
   SS:{bg:"#004F86",label:"Subsecretaría"},DG:{bg:"#268948",label:"Dir. General"},
   GG:{bg:"#268948",label:"Gerencia General"},GO:{bg:"#268948",label:"Gerencia Operativa"},
   ORG:{bg:"#E4E9ED",label:"Organismo desc."}
@@ -3161,7 +3161,7 @@ function OrgChart({data,search,selectedId}){
     const hasKids=kids.length>0;
     const isExp=expanded.has(node.id)||(matchIds&&matchIds.has(node.id));
     const dim=matchIds&&!matchIds.has(node.id);
-    const LIGHT_BG=["#FCD307","#E4E9ED","#FEA82D"];
+    const LIGHT_BG=["#FFD400","#E4E9ED","#F5871F"];
     const isLightBg=LIGHT_BG.some(c=>color.toUpperCase()===c.toUpperCase());
     const txtMain=isLightBg?"#1A202C":"#fff";
     const txtAbbr=isLightBg?"rgba(30,32,40,0.5)":"rgba(255,255,255,0.65)";
