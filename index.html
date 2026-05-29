@@ -748,9 +748,12 @@ window.__wrapTxt  = wrapTxt;
 
   // ── Árbol helpers ────────────────────────────────────────
   function getColor(n){if(n?.tipo?.startsWith("CUSTOM:"))return"#5B21B6";
-    const m={JG:"#9B1C1C",VJG:"#9B1C1C",MIN:"#92400E",SEC:"#78350F",SS:"#1E3A5F",
-              DG:"#14532D",GG:"#065F46",GO:"#064E3B",ORG:"#374151"};
-    return m[n?.tipo]||"#374151";}
+    // Misma paleta que la impresión y el visor (COLORS_SVG / COLORS)
+    const m={JG:"#9B1C1C",VJG:"#9B1C1C",MIN:"#FEA82D",SEC:"#FCD307",SS:"#004F86",
+              DG:"#268948",GG:"#268948",GO:"#268948",ORG:"#E4E9ED"};
+    return m[n?.tipo]||"#E4E9ED";}
+  // Fondos claros → texto oscuro (igual criterio que la impresión)
+  function isLightBg(c){return["#FCD307","#E4E9ED","#FEA82D"].includes((c||"").toUpperCase());}
   function getLabel(n){
     if(n?.tipo?.startsWith("CUSTOM:"))return n.tipoLabel||n.tipo.replace("CUSTOM:","");
     const m={JG:"Jefatura",VJG:"Vicejefatura",MIN:"Ministerio",SEC:"Secretaría",
@@ -1503,9 +1506,10 @@ window.__wrapTxt  = wrapTxt;
       const blockH=lines.length*_lh;
       // Baseline de la 1ra línea: top del bloque + 0.85*fs (alpha ascent)
       const sy2=(mainH-blockH)/2+_fs*0.85;
+      const txtMain=isLightBg(getColor(d))?"#1A202C":"#fff";
       lines.forEach((l,i)=>g2.append("text").attr("x",_nw/2).attr("y",sy2+i*_lh)
         .attr("text-anchor","middle").attr("font-size",_fs).attr("font-weight",700)
-        .attr("fill","#fff").attr("font-family","Open Sans,Inter,sans-serif").text(l));
+        .attr("fill",txtMain).attr("font-family","Open Sans,Inter,sans-serif").text(l));
       // Titular en franja oscura
       if(hasTit){
         const fsTit=Math.max(6,Math.min(_fs*0.78,stripH*0.62));
