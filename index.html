@@ -309,7 +309,8 @@ function genSVGA3(root,pn=1,tot=1){
         const ov=savedMidY[`${sid}-${lk.t.data?.id}`];
         const oy=(typeof ov==="number")?ov:(ov&&typeof ov.y==="number"?ov.y:null);
         if(oy!=null)lk.my=oy*sc+offY;
-        const tx=savedMidY["trunk:"+sid];
+        const isDashed=lk.s.data?.dashed||lk.t.data?.dashed;
+        const tx=savedMidY["trunk:"+sid+(isDashed?":d":":s")];
         if(typeof tx==="number")lk.trunkX=tx*sc+offX;
       });
     }
@@ -973,11 +974,11 @@ window.__wrapTxt  = wrapTxt;
       if(c&&typeof c.y==="number")return c.y; // compat datos viejos {y,x}
       return autoMidY(sp.y+(sp.h||NH),tp.y,!!lk.dashed);
     }
-    // X del tronco vertical. Es del PADRE (compartido por todas sus líneas):
-    // se guarda en edLinkMidY["trunk:"+sid]. Por defecto, el centro del padre.
+    // X del tronco vertical. Es del PADRE y separado por tipo (relleno/punteado):
+    // se guarda en edLinkMidY["trunk:"+sid+(":d"|":s")]. Por defecto, centro del padre.
     function linkMidX(lk){
       const sp=edPositions[lk.sid];if(!sp)return null;
-      const tx=edLinkMidY["trunk:"+lk.sid];
+      const tx=edLinkMidY["trunk:"+lk.sid+(lk.dashed?":d":":s")];
       return (typeof tx==="number")?tx:sp.x;
     }
 
@@ -1103,10 +1104,12 @@ window.__wrapTxt  = wrapTxt;
             const SNAP=9/edTransform.k; // px de pantalla, independiente del zoom
             guideG.selectAll(".bus-snap").remove();
 
-            // ── Snap vertical: a la altura (midY) de otra línea ──
+            // ── Snap vertical: a la altura (midY) de otra línea DEL MISMO TIPO ──
+            // (las punteadas no se pegan con las rellenas y viceversa)
             let snapY=null, bestY=SNAP;
             for(const other of links){
               if(clusterKeys.has(other.sid+"-"+other.tid))continue;
+              if(!!other.dashed!==!!lk.dashed)continue;
               const m=midYOf(other); if(m==null)continue;
               const dd=Math.abs(m-newY); if(dd<bestY){bestY=dd;snapY=m;}
             }
@@ -1118,12 +1121,13 @@ window.__wrapTxt  = wrapTxt;
                 .attr("stroke-dasharray","8,4").attr("opacity",0.9);
             }
 
-            // ── Snap horizontal del tronco: a cualquier vertical cercana —
-            //    centro de un nodo (padre/hijo), otro tronco o una caída de destino.
+            // ── Snap horizontal del tronco: a un centro de nodo, o a otro tronco
+            //    o caída DEL MISMO TIPO (no se pega punteada con rellena).
             const xCands=[sp.x,...tgtXs];
             Object.values(edPositions).forEach(p=>{if(p&&typeof p.x==="number")xCands.push(p.x);});
             for(const other of links){
               if(clusterKeys.has(other.sid+"-"+other.tid))continue;
+              if(!!other.dashed!==!!lk.dashed)continue;
               const mx=linkMidX(other); if(typeof mx==="number")xCands.push(mx);
               const otp=edPositions[other.tid]; if(otp&&typeof otp.x==="number")xCands.push(otp.x);
             }
@@ -1139,11 +1143,13 @@ window.__wrapTxt  = wrapTxt;
 
             // Altura (Y): solo la línea agarrada.
             cluster.forEach(clk=>{ edLinkMidY[clk.sid+"-"+clk.tid]=newY; });
-            // Tronco (X): compartido por el padre. Si vuelve al centro, se quita.
+            // Tronco (X): compartido por el padre PERO separado por tipo
+            // (relleno/punteado), para poder separar la punteada de la rellena.
+            const tKey="trunk:"+lk.sid+(lk.dashed?":d":":s");
             if(Math.abs(newX-sp.x)<1.5){
-              delete edLinkMidY["trunk:"+lk.sid];
+              delete edLinkMidY[tKey];
             } else {
-              edLinkMidY["trunk:"+lk.sid]=newX;
+              edLinkMidY[tKey]=newX;
             }
             drawLinks();drawWPs();
           }
