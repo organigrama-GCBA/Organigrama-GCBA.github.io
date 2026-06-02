@@ -555,7 +555,7 @@ window.__wrapTxt  = wrapTxt;
   <div id="ed-toolbar">
     <span style="font-size:10px;font-weight:600;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.06em;">Área:</span>
     <select id="ed-area-sel" style="min-width:240px;flex:1;max-width:380px;"></select>
-    <span style="font-size:10px;color:var(--ed-text3);margin-left:8px;">· clic = sel · Ctrl+clic = sumar nodo · Shift+clic = sumar rama · flechas = mover</span>
+    <span style="font-size:10px;color:var(--ed-text3);margin-left:8px;">· clic = sel · Ctrl+clic = sumar nodo · Shift+clic = sumar rama · flechas = mover · <b style="color:var(--ed-accent);">Alt+arrastrar = sin pegar</b></span>
     <span style="font-size:10px;color:var(--ed-text3);margin-left:12px;" title="Aplica al nodo seleccionado (o a todos si no hay selección). Vacío/0 = automático.">Texto:</span>
     <input id="ed-fs" type="number" min="6" max="72" step="0.5" value="11" title="Tamaño de letra. Aplica a los nodos seleccionados (o a todos). 0 = automático."
         style="width:52px;background:var(--ed-surface2);border:1px solid var(--ed-border2);border-radius:5px;padding:3px 6px;font-size:11px;color:var(--ed-text1);font-family:inherit;"/>
@@ -1101,7 +1101,8 @@ window.__wrapTxt  = wrapTxt;
             const pos=clientToCanvas(ev);
             let newY=pos.y-yOffset;
             let newX=pos.x-xOffset;
-            const SNAP=9/edTransform.k; // px de pantalla, independiente del zoom
+            // Alt mientras se arrastra = mover SIN pegar (para despegar líneas).
+            const SNAP=ev.altKey?0:9/edTransform.k; // px de pantalla, indep. del zoom
             guideG.selectAll(".bus-snap").remove();
 
             // ── Snap vertical: a la altura (midY) de otra línea DEL MISMO TIPO ──
@@ -1381,7 +1382,8 @@ window.__wrapTxt  = wrapTxt;
 
         // ── Snap guides — nodos y vértices de líneas ─────────
         guideG.selectAll("*").remove();
-        const SNAP=6/edTransform.k; // screen pixels, zoom-independent
+        // Alt mientras se arrastra = mover SIN pegar (despegar).
+        const SNAP=e.sourceEvent&&e.sourceEvent.altKey?0:6/edTransform.k; // screen px, zoom-independent
 
         // ── Snap de vértice de línea (midY) ─────────────────
         // Para cada nodo seleccionado, calcular el midY de sus links entrantes
