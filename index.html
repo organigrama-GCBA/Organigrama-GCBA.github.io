@@ -1102,8 +1102,12 @@ window.__wrapTxt  = wrapTxt;
             const pos=clientToCanvas(ev);
             let newY=pos.y-yOffset;
             let newX=pos.x-xOffset;
-            // Alt mientras se arrastra = mover SIN pegar (para despegar líneas).
-            const SNAP=ev.altKey?0:9/edTransform.k; // px de pantalla, indep. del zoom
+            // El snap NO se activa mientras estás cerca de donde agarraste la
+            // línea: así podés despegarla de las que tenía pegadas. Se activa al
+            // alejarte (para alinear con otras). Alt lo desactiva siempre.
+            const BREAK=16/edTransform.k;
+            const movedFar=Math.abs(newY-myThis)>BREAK||Math.abs(newX-startTrunkX)>BREAK;
+            const SNAP=(ev.altKey||!movedFar)?0:9/edTransform.k; // px de pantalla
             guideG.selectAll(".bus-snap").remove();
 
             // ── Snap vertical: a la altura (midY) de otra línea DEL MISMO TIPO ──
