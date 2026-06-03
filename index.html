@@ -305,13 +305,12 @@ function genSVGA3(root,pn=1,tot=1){
       });
       // Trasladar el ruteo manual a coords A3: altura (por línea) y tronco (por padre)
       links.forEach(lk=>{
-        const sid=lk.s.data?.id;
-        const ov=savedMidY[`${sid}-${lk.t.data?.id}`];
-        const oy=(typeof ov==="number")?ov:(ov&&typeof ov.y==="number"?ov.y:null);
+        const ov=savedMidY[`${lk.s.data?.id}-${lk.t.data?.id}`];
+        if(ov==null)return;
+        const oy=(typeof ov==="number")?ov:(typeof ov.y==="number"?ov.y:null);
+        const ox=(ov&&typeof ov==="object"&&typeof ov.x==="number")?ov.x:null;
         if(oy!=null)lk.my=oy*sc+offY;
-        const isDashed=lk.s.data?.dashed||lk.t.data?.dashed;
-        const tx=savedMidY["trunk:"+sid+(isDashed?":d":":s")];
-        if(typeof tx==="number")lk.trunkX=tx*sc+offX;
+        if(ox!=null)lk.trunkX=ox*sc+offX;
       });
     }
     NW=ED_NW; NH=ED_NH;
@@ -974,12 +973,14 @@ window.__wrapTxt  = wrapTxt;
       if(c&&typeof c.y==="number")return c.y; // compat datos viejos {y,x}
       return autoMidY(sp.y+(sp.h||NH),tp.y,!!lk.dashed);
     }
-    // X del tronco vertical. Es del PADRE y separado por tipo (relleno/punteado):
-    // se guarda en edLinkMidY["trunk:"+sid+(":d"|":s")]. Por defecto, centro del padre.
+    // X del tronco vertical, POR LÍNEA (como la altura). Se guarda en
+    // edLinkMidY[key]={y,x}. Por defecto, el centro del padre. Las líneas se
+    // agrupan por snap y se separan con Alt.
     function linkMidX(lk){
       const sp=edPositions[lk.sid];if(!sp)return null;
-      const tx=edLinkMidY["trunk:"+lk.sid+(lk.dashed?":d":":s")];
-      return (typeof tx==="number")?tx:sp.x;
+      const c=edLinkMidY[lk.sid+"-"+lk.tid];
+      if(c&&typeof c==="object"&&typeof c.x==="number")return c.x;
+      return sp.x;
     }
 
     // Path ortogonal de un conector con tronco vertical en trunkX (movible).
@@ -1142,15 +1143,13 @@ window.__wrapTxt  = wrapTxt;
                 .attr("stroke-dasharray","8,4").attr("opacity",0.9);
             }
 
-            // Altura (Y): solo la línea agarrada.
-            cluster.forEach(clk=>{ edLinkMidY[clk.sid+"-"+clk.tid]=newY; });
-            // Tronco (X): compartido por el padre PERO separado por tipo
-            // (relleno/punteado), para poder separar la punteada de la rellena.
-            const tKey="trunk:"+lk.sid+(lk.dashed?":d":":s");
+            // Solo la línea agarrada. Si el tronco está en el centro del padre,
+            // guardar solo Y (sigue al padre); si está corrido, guardar {y,x}.
+            const key=lk.sid+"-"+lk.tid;
             if(Math.abs(newX-sp.x)<1.5){
-              delete edLinkMidY[tKey];
+              edLinkMidY[key]=newY;
             } else {
-              edLinkMidY[tKey]=newX;
+              edLinkMidY[key]={y:newY,x:newX};
             }
             drawLinks();drawWPs();
           }
