@@ -260,6 +260,7 @@ function genSVGA3(root,pn=1,tot=1){
     (function collect(node,depth){
       _visibleCache.push(node);
       if(isJG&&depth>=1)return;
+      if(depth>0&&node.dashed)return; // fuera de nivel: no desplegar su sub-organigrama
       (node.children||[]).forEach(c=>collect(c,depth+1));
     })(root,0);
     const haveCount=_visibleCache.filter(n=>savedPos[n.id]!=null).length;
@@ -279,7 +280,7 @@ function genSVGA3(root,pn=1,tot=1){
         if(!visIds.has(ch.id))return;
         const s=nodes.find(n=>n.data.id===node.id),t=nodes.find(n=>n.data.id===ch.id);
         if(s&&t)links.push({s,t});
-        if(!(isJG&&depth>=1))walk(ch,depth+1);
+        if(!(isJG&&depth>=1)&&!ch.dashed)walk(ch,depth+1);
       });
     })(root,0);
 
@@ -775,6 +776,9 @@ window.__wrapTxt  = wrapTxt;
     function collect(node,depth,acc){
       acc.push(node);
       if(isJGView()&&depth>=1)return acc;
+      // No desplegar el sub-organigrama de un nodo "fuera de nivel" (punteado):
+      // se muestra como hoja, salvo que sea el área que se está editando.
+      if(depth>0&&node.dashed)return acc;
       (node.children||[]).forEach(c=>collect(c,depth+1,acc));
       return acc;
     }
@@ -789,7 +793,8 @@ window.__wrapTxt  = wrapTxt;
       (node.children||[]).forEach(ch=>{
         if(!ids.has(ch.id))return;
         links.push({sid:node.id,tid:ch.id,dashed:!!ch.dashed});
-        if(!(isJGView()&&depth>=1))walk(ch,depth+1);
+        // No entrar al sub-organigrama de un nodo fuera de nivel (punteado)
+        if(!(isJGView()&&depth>=1)&&!ch.dashed)walk(ch,depth+1);
       });
     }
     walk(viewRoot,0);
@@ -848,7 +853,9 @@ window.__wrapTxt  = wrapTxt;
 
     // Calcular layout D3 para posiciones iniciales
     function toH(node,depth){
-      const kids=isJGView()&&depth>=1?[]:(node.children||[]);
+      // Los nodos fuera de nivel (punteados) no despliegan su sub-organigrama
+      const collapse=(isJGView()&&depth>=1)||(depth>0&&node.dashed);
+      const kids=collapse?[]:(node.children||[]);
       return{...node,_k:kids.map(c=>toH(c,depth+1)),children:undefined};
     }
     const viewRoot=findN(edData,edViewId)||edData;
