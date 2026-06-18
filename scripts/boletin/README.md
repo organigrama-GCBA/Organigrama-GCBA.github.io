@@ -28,6 +28,19 @@ actualizaciones a `data/organigrama.json` vía un Pull Request para revisión.
 - (Opcional) Variable del repo **`CLAUDE_MODEL`** para elegir modelo.
   Por defecto `claude-opus-4-8`. Para abaratar, poné `claude-sonnet-4-6`.
 
+## PR automático
+
+El workflow **intenta crear el PR solo**. Si el repo no se lo permite, sube la
+rama igual y deja un link para abrirlo a mano. Para que sea 100% automático,
+elegí **una** de estas opciones (una sola vez):
+
+- **Opción A (más simple):** Settings → Actions → General → *Workflow permissions*
+  → marcá **"Allow GitHub Actions to create and approve pull requests"** y
+  **"Read and write permissions"**. Guardá.
+- **Opción B (PAT):** creá un *fine-grained token* con permisos
+  *Contents: Read and write* y *Pull requests: Read and write* sobre este repo,
+  y guardalo como secret **`GH_PAT`**. El workflow lo usa si existe.
+
 ## Probar localmente
 
 ```bash
