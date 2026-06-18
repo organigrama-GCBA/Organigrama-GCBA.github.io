@@ -1,0 +1,85 @@
+name: Importar organigrama desde PDF
+
+# Reconstruye data/organigrama.json desde docs/Organigrama_GCBA_2026.pdf usando
+# Claude (visión). Ejecución manual. Abre un PR con el resultado para revisar.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pdf:
+        description: "Ruta del PDF en el repo"
+        required: false
+        default: "docs/Organigrama_GCBA_2026.pdf"
+        type: string
+      modelo:
+        description: "Modelo (default claude-opus-4-8; para abaratar claude-sonnet-4-6)"
+        required: false
+        default: "claude-opus-4-8"
+        type: string
+      dpi:
+        description: "Resolución de render (DPI)"
+        required: false
+        default: "150"
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: importar-pdf
+  cancel-in-progress: false
+
+jobs:
+  importar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Instalar poppler-utils
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+
+      - name: Renderizar PDF a imágenes
+        run: |
+          set -e
+          mkdir -p /tmp/pages
+          pdftoppm -png -r "${{ inputs.dpi }}" "${{ inputs.pdf }}" /tmp/pages/pg
+          echo "Páginas renderizadas: $(ls /tmp/pages/*.png | wc -l)"
+
+      - name: Instalar dependencias
+        run: npm install --prefix scripts/importar-pdf
+
+      - name: Reconstruir organigrama
+        id: run
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PAGES_DIR: /tmp/pages
+          CLAUDE_MODEL: ${{ inputs.modelo }}
+        run: node scripts/importar-pdf/run.mjs
+
+      - name: Abrir PR
+        if: steps.run.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -e
+          branch="import-pdf"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add data/organigrama.json docs/import-report.md
+          git commit -m "Reconstruir organigrama desde PDF"
+          git push -f origin "$branch"
+          compare="https://github.com/${REPO}/compare/main...${branch}?expand=1"
+          if pr_url=$(gh pr create --base main --head "$branch" --title "Importar organigrama desde PDF" --body-file docs/import-report.md --assignee lubelrivero-design 2>/tmp/e); then
+            echo "✅ PR: ${pr_url}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "⚠️ No se pudo crear el PR automáticamente:" >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/e >> "$GITHUB_STEP_SUMMARY"
+            echo "👉 [Abrir PR manualmente](${compare})" >> "$GITHUB_STEP_SUMMARY"
+          fi
