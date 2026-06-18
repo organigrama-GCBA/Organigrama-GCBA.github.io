@@ -1,0 +1,45 @@
+name: Boletín → índice de pendientes
+
+# Mantiene data/cambios-pendientes.json sincronizado con los PRs del boletín
+# abiertos. Se dispara cuando un PR se cierra (merge o descarte), así el panel
+# de la app deja de mostrar lo que ya resolviste.
+
+on:
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: boletin-indice
+  cancel-in-progress: false
+
+jobs:
+  indice:
+    # Solo para PRs del boletín (o ejecución manual)
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.pull_request.head.ref, 'boletin/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Regenerar índice de pendientes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh pr list --state open --json title,url,headRefName,body \
+            --jq '[ .[] | select(.headRefName|startswith("boletin/")) | {fecha:(.headRefName|sub("boletin/";"")), titulo:.title, url:.url, resumen:.body} ]' \
+            > data/cambios-pendientes.json
+          if ! git diff --quiet -- data/cambios-pendientes.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/cambios-pendientes.json
+            git commit -m "Actualizar índice de cambios pendientes del Boletín"
+            git push origin main
+          fi
