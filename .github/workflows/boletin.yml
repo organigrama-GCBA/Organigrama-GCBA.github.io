@@ -10,6 +10,14 @@ on:
         description: "Fecha YYYY-MM-DD (vacío = hoy, hora ARG)"
         required: false
         type: string
+      desde:
+        description: "Backfill: fecha inicial YYYY-MM-DD (opcional)"
+        required: false
+        type: string
+      hasta:
+        description: "Backfill: fecha final YYYY-MM-DD (opcional)"
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -39,6 +47,8 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           FECHA: ${{ inputs.fecha }}
+          DESDE: ${{ inputs.desde }}
+          HASTA: ${{ inputs.hasta }}
           CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}   # opcional; default en el script
           BODY_PATH: ${{ runner.temp }}/pr-body.md
         run: node scripts/boletin/run.mjs
