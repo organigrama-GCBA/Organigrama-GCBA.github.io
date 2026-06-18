@@ -20,7 +20,13 @@ actualizaciones a `data/organigrama.json` vía un Pull Request para revisión.
 ## Disparadores
 
 - **Automático:** cron de lunes a viernes (ver `.github/workflows/boletin.yml`).
-- **Manual:** Actions → *Boletín → Organigrama* → *Run workflow* (podés indicar una fecha).
+- **Manual (un día):** Actions → *Boletín → Organigrama* → *Run workflow* → campo *fecha*.
+- **Backfill (rango):** mismo *Run workflow*, completando *desde* y *hasta*
+  (YYYY-MM-DD). Recorre cada día del rango, acumula todos los cambios y los
+  aplica en **orden cronológico** (los más nuevos pisan a los más viejos) en
+  **un solo PR** `boletin/backfill-<desde>_<hasta>`. Útil para ponerse al día.
+
+> Backfill local: `DESDE=2026-01-01 HASTA=2026-06-18 ANTHROPIC_API_KEY=... node run.mjs`
 
 ## Requisitos
 

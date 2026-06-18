@@ -267,24 +267,60 @@ function aplicar(root, cambios) {
 }
 
 // ── Resumen (audit + cuerpo del PR) ────────────────────────────────────
-function resumen(fecha, url, aplicados, omitidos) {
+function resumen(titulo, fuente, aplicados, omitidos) {
   const linea = (c) => {
     const det = [];
     if (c.nuevo_titular !== undefined) det.push(`titular: "${c.nuevo_titular}"`);
     if (c.nuevo_nombre) det.push(`nombre: "${c.nuevo_nombre}"`);
     if (c.nuevo_padre_id) det.push(`nuevo padre: ${c.nuevo_padre_id}`);
     if (c._nuevo_id) det.push(`id nuevo: ${c._nuevo_id}`);
-    return `- **${c.tipo}** \`${c.target_id}\`${det.length ? " — " + det.join(", ") : ""}\n  - ${c.norma || "?"} · confianza: ${c.confianza}\n  - _"${(c.cita || "").slice(0, 240)}"_`;
+    const dia = c._dia ? ` _(${c._dia})_` : "";
+    return `- **${c.tipo}** \`${c.target_id}\`${det.length ? " — " + det.join(", ") : ""}${dia}\n  - ${c.norma || "?"} · confianza: ${c.confianza}\n  - _"${(c.cita || "").slice(0, 240)}"_`;
   };
-  let md = `# Cambios del Boletín Oficial — ${fecha}\n\nFuente: ${url}\n\n`;
+  let md = `# ${titulo}\n\n${fuente}\n\n`;
   md += `## Cambios aplicados (${aplicados.length})\n\n`;
   md += aplicados.length ? aplicados.map(linea).join("\n\n") : "_(ninguno)_";
   md += `\n\n## No aplicados / a revisar (${omitidos.length})\n\n`;
   md += omitidos.length
-    ? omitidos.map((c) => `- **${c.tipo}** \`${c.target_id}\` — ${c._motivo}\n  - ${c.norma || "?"} · _"${(c.cita || "").slice(0, 200)}"_`).join("\n")
+    ? omitidos.map((c) => `- **${c.tipo}** \`${c.target_id}\`${c._dia ? ` _(${c._dia})_` : ""} — ${c._motivo}\n  - ${c.norma || "?"} · _"${(c.cita || "").slice(0, 200)}"_`).join("\n")
     : "_(ninguno)_";
   md += `\n\n---\n\n> Generado automáticamente. Revisá cada cambio contra el Boletín antes de mergear.\n`;
   return md;
+}
+
+// ── Procesar un día: fetch + filtro + extracción (no aplica) ────────────
+async function procesarDia(client, orgContext, fecha) {
+  const url = pdfUrl(fecha);
+  let pdf;
+  try {
+    pdf = await fetchPdf(url);
+  } catch (e) {
+    console.log(`  ${fecha}: sin boletín (${e.message.split(" desde ")[0]})`);
+    return { fecha, url, cambios: [] };
+  }
+  const { text } = await pdfParse(pdf);
+  const relevante = filtrarRelevante(text);
+  if (!relevante) {
+    console.log(`  ${fecha}: sin secciones relevantes`);
+    return { fecha, url, cambios: [] };
+  }
+  const chunks = chunkText(relevante, MAX_CHUNK_CHARS);
+  let cambios = [];
+  for (let i = 0; i < chunks.length; i++) {
+    cambios = cambios.concat(await extraerCambios(client, orgContext, chunks[i]));
+  }
+  cambios.forEach((c) => { c._dia = fecha; });
+  console.log(`  ${fecha}: ${cambios.length} cambio(s) (${chunks.length} frag.)`);
+  return { fecha, url, cambios };
+}
+
+// Lista de fechas YYYY-MM-DD entre desde y hasta (inclusive).
+function diasEntre(desde, hasta) {
+  const out = [];
+  let d = new Date(desde + "T00:00:00Z");
+  const fin = new Date(hasta + "T00:00:00Z");
+  while (d <= fin) { out.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1); }
+  return out;
 }
 
 // ── Main ───────────────────────────────────────────────────────────────
@@ -293,35 +329,11 @@ function setOutput(k, v) {
 }
 
 async function main() {
-  const fecha = (process.env.FECHA || "").trim() ||
-    new Date(new Date().toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" }))
-      .toISOString().slice(0, 10);
-  setOutput("fecha", fecha);
-  const url = pdfUrl(fecha);
-  console.log(`Boletín ${fecha} -> ${url}`);
+  const DESDE = (process.env.DESDE || "").trim();
+  const HASTA = (process.env.HASTA || "").trim();
+  const backfill = DESDE && HASTA;
 
-  let pdf;
-  try {
-    pdf = await fetchPdf(url);
-  } catch (e) {
-    console.log(`No hay boletín disponible para ${fecha}: ${e.message}`);
-    setOutput("changed", "false");
-    return; // día sin edición (feriado/finde) -> salir limpio
-  }
-
-  const { text } = await pdfParse(pdf);
-  const relevante = filtrarRelevante(text);
-  if (process.env.DUMP_TEXT === "1") {
-    fs.writeFileSync(path.join(ROOT, `boletin-${fecha}.txt`), text);
-    fs.writeFileSync(path.join(ROOT, `boletin-${fecha}-filtrado.txt`), relevante);
-  }
-  console.log(`Texto: ${text.length} chars; relevante: ${relevante.length} chars`);
-  if (!relevante) {
-    console.log("Sin secciones relevantes del Poder Ejecutivo.");
-    setOutput("changed", "false");
-    return;
-  }
-
+  // Organigrama actual como contexto (estable -> se cachea entre llamadas)
   const root = JSON.parse(fs.readFileSync(ORG_PATH, "utf8"));
   const flat = flatten(root, null, []);
   const orgContext =
@@ -329,25 +341,43 @@ async function main() {
     flat.map((n) => `${n.id} | ${n.tipo} | ${n.nombre} | ${n.titular} | ${n.parentId || "-"}`).join("\n");
 
   const client = new Anthropic(); // usa ANTHROPIC_API_KEY
-  const chunks = chunkText(relevante, MAX_CHUNK_CHARS);
-  console.log(`Analizando ${chunks.length} fragmento(s) con ${MODEL}…`);
 
-  let cambios = [];
-  for (let i = 0; i < chunks.length; i++) {
-    console.log(` - fragmento ${i + 1}/${chunks.length}`);
-    cambios = cambios.concat(await extraerCambios(client, orgContext, chunks[i]));
+  let tag, titulo, fuente, cambios = [];
+
+  if (backfill) {
+    const dias = diasEntre(DESDE, HASTA);
+    tag = `backfill-${DESDE}_${HASTA}`;
+    setOutput("fecha", tag);
+    console.log(`Backfill ${DESDE} → ${HASTA} (${dias.length} días) con ${MODEL}…`);
+    for (const dia of dias) {
+      const r = await procesarDia(client, orgContext, dia);
+      cambios = cambios.concat(r.cambios); // orden cronológico
+    }
+    titulo = `Backfill del Boletín — ${DESDE} a ${HASTA}`;
+    fuente = `Procesados ${dias.length} días. Cambios aplicados en orden cronológico (los más nuevos pisan a los más viejos).`;
+  } else {
+    const fecha = (process.env.FECHA || "").trim() ||
+      new Date(new Date().toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" }))
+        .toISOString().slice(0, 10);
+    tag = fecha;
+    setOutput("fecha", fecha);
+    console.log(`Boletín ${fecha} con ${MODEL}…`);
+    const r = await procesarDia(client, orgContext, fecha);
+    cambios = r.cambios;
+    titulo = `Cambios del Boletín Oficial — ${fecha}`;
+    fuente = `Fuente: ${r.url}`;
   }
-  console.log(`Cambios propuestos por el modelo: ${cambios.length}`);
 
+  console.log(`Cambios propuestos por el modelo: ${cambios.length}`);
   if (!cambios.length) { setOutput("changed", "false"); console.log("Sin cambios."); return; }
 
   const { aplicados, omitidos } = aplicar(root, cambios);
-  const md = resumen(fecha, url, aplicados, omitidos);
+  const md = resumen(titulo, fuente, aplicados, omitidos);
 
   // Resumen de auditoría versionado
   const auditDir = path.join(ROOT, "data", "boletin");
   fs.mkdirSync(auditDir, { recursive: true });
-  fs.writeFileSync(path.join(auditDir, `${fecha}.md`), md);
+  fs.writeFileSync(path.join(auditDir, `${tag}.md`), md);
   // Cuerpo del PR (fuera del repo, no se commitea)
   if (process.env.BODY_PATH) fs.writeFileSync(process.env.BODY_PATH, md);
 
