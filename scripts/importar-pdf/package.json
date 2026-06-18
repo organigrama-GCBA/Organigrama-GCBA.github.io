@@ -1,0 +1,9 @@
+{
+  "name": "importar-pdf-organigrama",
+  "private": true,
+  "type": "module",
+  "description": "Reconstruye data/organigrama.json desde un PDF de organigrama (vía Claude visión)",
+  "dependencies": {
+    "@anthropic-ai/sdk": "*"
+  }
+}
