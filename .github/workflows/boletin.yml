@@ -43,16 +43,24 @@ jobs:
           BODY_PATH: ${{ runner.temp }}/pr-body.md
         run: node scripts/boletin/run.mjs
 
-      - name: Abrir Pull Request
+      - name: Subir rama con los cambios
         if: steps.run.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v7
-        with:
-          branch: boletin/${{ steps.run.outputs.fecha }}
-          base: main
-          title: "Boletín ${{ steps.run.outputs.fecha }}: cambios de organigrama"
-          body-path: ${{ runner.temp }}/pr-body.md
-          add-paths: |
-            data/organigrama.json
-            data/boletin/**
-          commit-message: "Cambios del Boletín Oficial ${{ steps.run.outputs.fecha }}"
-          delete-branch: true
+        env:
+          FECHA: ${{ steps.run.outputs.fecha }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -e
+          branch="boletin/${FECHA}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add data/organigrama.json data/boletin
+          git commit -m "Cambios del Boletín Oficial ${FECHA}"
+          git push -f origin "$branch"
+          url="https://github.com/${REPO}/compare/main...${branch}?expand=1"
+          echo "## Boletín ${FECHA}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Rama subida: \`${branch}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "👉 [Abrir Pull Request para revisar](${url})" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Resumen de cambios: \`data/boletin/${FECHA}.md\` (en el diff de la rama)." >> "$GITHUB_STEP_SUMMARY"
