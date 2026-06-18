@@ -1924,7 +1924,7 @@
         {
           "id": "SSGCOM",
           "nombre": "SS. Gestión Comunal",
-          "titular": "María Guadalupe Rossi",
+          "titular": "",
           "tipo": "SS",
           "children": [
             {
@@ -1946,7 +1946,7 @@
         {
           "id": "SSVC",
           "nombre": "SS. Vinculación Ciudadana",
-          "titular": "Federico Marcelo Bouzas",
+          "titular": "",
           "tipo": "SS",
           "children": [
             {
