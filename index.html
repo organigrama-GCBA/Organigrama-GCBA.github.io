@@ -2812,6 +2812,12 @@ function sanitize(n){
   if(n.children)n.children=n.children.filter(Boolean).map(sanitize).filter(Boolean);
   return n;
 }
+// Datos por defecto: archivo del repo (data/organigrama.json) si se cargó,
+// si no el INITIAL embebido. Copia profunda para no mutar la fuente.
+function defaultData(){
+  const base=window.__ORG_DEFAULT||INITIAL;
+  return sanitize(JSON.parse(JSON.stringify(base)));
+}
 function loadData(){
   try{
     const savedVersion=localStorage.getItem(VERSION_KEY);
@@ -2822,17 +2828,17 @@ function loadData(){
       localStorage.removeItem("gcba_org_waypoints_v1");
       localStorage.removeItem("gcba_org_midy_v1");
       localStorage.setItem(VERSION_KEY,APP_VERSION);
-      return sanitize(JSON.parse(JSON.stringify(INITIAL)));
+      return defaultData();
     }
     const s=localStorage.getItem(STORAGE_KEY);
     if(s){
       try{
         const parsed=JSON.parse(s);
-        return sanitize(parsed)||sanitize(JSON.parse(JSON.stringify(INITIAL)));
-      }catch(e){return sanitize(JSON.parse(JSON.stringify(INITIAL)));}
+        return sanitize(parsed)||defaultData();
+      }catch(e){return defaultData();}
     }
-    return sanitize(JSON.parse(JSON.stringify(INITIAL)));
-  }catch{return sanitize(JSON.parse(JSON.stringify(INITIAL)));}
+    return defaultData();
+  }catch{return defaultData();}
 }
 function saveData(d){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(d));}catch{}}
 
@@ -3956,7 +3962,21 @@ function App(){
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+// Fuente de datos: se intenta cargar data/organigrama.json (archivo versionado
+// en el repo, fuente de verdad para el pipeline). Si falla (file:// u offline),
+// se usa el INITIAL embebido. Recién después se monta la app.
+function __mountApp(){
+  ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+}
+(function(){
+  try{
+    fetch("data/organigrama.json",{cache:"no-store"})
+      .then(r=>r.ok?r.json():Promise.reject(r.status))
+      .then(d=>{ if(d&&d.id)window.__ORG_DEFAULT=sanitize(d); })
+      .catch(()=>{})
+      .finally(__mountApp);
+  }catch(e){ __mountApp(); }
+})();
 
 </script>
 
