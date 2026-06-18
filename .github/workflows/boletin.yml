@@ -29,7 +29,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
       - name: Instalar dependencias del script
         run: npm install --prefix scripts/boletin
@@ -45,7 +45,7 @@ jobs:
 
       - name: Abrir Pull Request
         if: steps.run.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
           branch: boletin/${{ steps.run.outputs.fecha }}
           base: main
