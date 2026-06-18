@@ -1,0 +1,58 @@
+name: Boletín → Organigrama
+
+on:
+  schedule:
+    # 12:00 UTC ≈ 09:00 ART, días hábiles
+    - cron: "0 12 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      fecha:
+        description: "Fecha YYYY-MM-DD (vacío = hoy, hora ARG)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: boletin
+  cancel-in-progress: false
+
+jobs:
+  ingesta:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Instalar dependencias del script
+        run: npm install --prefix scripts/boletin
+
+      - name: Procesar boletín
+        id: run
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FECHA: ${{ inputs.fecha }}
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}   # opcional; default en el script
+          BODY_PATH: ${{ runner.temp }}/pr-body.md
+        run: node scripts/boletin/run.mjs
+
+      - name: Abrir Pull Request
+        if: steps.run.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: boletin/${{ steps.run.outputs.fecha }}
+          base: main
+          title: "Boletín ${{ steps.run.outputs.fecha }}: cambios de organigrama"
+          body-path: ${{ runner.temp }}/pr-body.md
+          add-paths: |
+            data/organigrama.json
+            data/boletin/**
+          commit-message: "Cambios del Boletín Oficial ${{ steps.run.outputs.fecha }}"
+          delete-branch: true
