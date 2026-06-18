@@ -66,7 +66,7 @@ jobs:
           title="Boletín ${FECHA}: cambios de organigrama"
 
           # Intentar crear el PR automáticamente; si falla (permiso), dejar link.
-          if pr_url=$(gh pr create --base main --head "$branch" --title "$title" --body-file "$BODY_PATH" 2>/tmp/pr_err); then
+          if pr_url=$(gh pr create --base main --head "$branch" --title "$title" --body-file "$BODY_PATH" --assignee lubelrivero-design 2>/tmp/pr_err); then
             echo "## Boletín ${FECHA}" >> "$GITHUB_STEP_SUMMARY"
             echo "✅ PR creado automáticamente: ${pr_url}" >> "$GITHUB_STEP_SUMMARY"
           else
