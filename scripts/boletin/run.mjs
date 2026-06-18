@@ -344,17 +344,32 @@ async function main() {
 
   let tag, titulo, fuente, cambios = [];
 
+  // Detecta errores de API por los que NO tiene sentido seguir llamando.
+  const esFatal = (e) => /usage limit|rate limit|overloaded|401|403|authentication|x-api-key|credit balance|insufficient/i.test(String(e?.message || e));
+
   if (backfill) {
     const dias = diasEntre(DESDE, HASTA);
     tag = `backfill-${DESDE}_${HASTA}`;
     setOutput("fecha", tag);
     console.log(`Backfill ${DESDE} → ${HASTA} (${dias.length} días) con ${MODEL}…`);
+    let parcial = false, ultimo = null;
     for (const dia of dias) {
-      const r = await procesarDia(client, orgContext, dia);
-      cambios = cambios.concat(r.cambios); // orden cronológico
+      try {
+        const r = await procesarDia(client, orgContext, dia);
+        cambios = cambios.concat(r.cambios); // orden cronológico
+        ultimo = dia;
+      } catch (e) {
+        console.error(`  ${dia}: ERROR ${String(e?.message || e)}`);
+        if (esFatal(e)) {
+          console.error("⛔ Error de API (límite/credenciales). Corto el backfill y guardo lo recolectado.");
+          parcial = true;
+          break;
+        }
+        // error no-fatal (ej. PDF roto) -> seguir con el próximo día
+      }
     }
-    titulo = `Backfill del Boletín — ${DESDE} a ${HASTA}`;
-    fuente = `Procesados ${dias.length} días. Cambios aplicados en orden cronológico (los más nuevos pisan a los más viejos).`;
+    titulo = `Backfill del Boletín — ${DESDE} a ${HASTA}` + (parcial ? ` (PARCIAL, hasta ${ultimo || "—"})` : "");
+    fuente = `Procesados ${dias.length} días${parcial ? ` (cortado por error de API en ${ultimo || "el inicio"})` : ""}. Cambios aplicados en orden cronológico (los más nuevos pisan a los más viejos).`;
   } else {
     const fecha = (process.env.FECHA || "").trim() ||
       new Date(new Date().toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" }))
