@@ -78,3 +78,23 @@ jobs:
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "👉 [Abrir el PR manualmente](${compare}) — o habilitá el PR automático (ver README)." >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      - name: Actualizar índice de cambios pendientes (para el panel de la app)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
+          gh pr list --state open --json title,url,headRefName,body \
+            --jq '[ .[] | select(.headRefName|startswith("boletin/")) | {fecha:(.headRefName|sub("boletin/";"")), titulo:.title, url:.url, resumen:.body} ]' \
+            > data/cambios-pendientes.json
+          if ! git diff --quiet -- data/cambios-pendientes.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/cambios-pendientes.json
+            git commit -m "Actualizar índice de cambios pendientes del Boletín"
+            git push origin main
+          fi
