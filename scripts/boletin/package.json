@@ -1,0 +1,10 @@
+{
+  "name": "boletin-organigrama",
+  "private": true,
+  "type": "module",
+  "description": "Pipeline: Boletín Oficial CABA -> cambios de organigrama (vía Claude)",
+  "dependencies": {
+    "@anthropic-ai/sdk": "*",
+    "pdf-parse": "^1.1.1"
+  }
+}

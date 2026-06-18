@@ -1,0 +1,6 @@
+# Dependencias del script del boletín
+scripts/boletin/node_modules/
+scripts/boletin/package-lock.json
+
+# Dumps de depuración del boletín (DUMP_TEXT=1)
+boletin-*.txt
