@@ -233,6 +233,27 @@ function svgBox(x,y,node,W,H,dashed,fsN,fsT){
 }
 
 
+// ── Helpers para la vista de Jefe de Gobierno (página 1, como el PDF) ──
+// La Jefatura de Gabinete es el nodo que contiene a los ministerios.
+function nodeIsGabinete(node){return !!node&&(node.children||[]).some(c=>c.tipo==="MIN");}
+// En la vista JG mostramos hasta 2 niveles, pero en el nivel 1 solo se
+// despliega la Jefatura de Gabinete (para que aparezcan los ministerios).
+// Devuelve true si hay que entrar a los hijos de `node`.
+function jgDescend(depth,node){
+  if(depth>=2)return false;
+  if(depth===1&&!nodeIsGabinete(node))return false;
+  return true;
+}
+// Hijos visibles en la vista JG: bajo la Jefatura de Gabinete (nivel 1) la
+// página 1 muestra SOLO los ministerios (como el PDF). El resto de sus hijos
+// (secretarías sueltas, DG/UAI) quedan para la página propia de Jefatura de
+// Gabinete. En cualquier otro nodo se devuelven todos los hijos.
+function jgKids(depth,node){
+  const kids=(node.children||[]);
+  if(depth===1&&nodeIsGabinete(node))return kids.filter(c=>c.tipo==="MIN");
+  return kids;
+}
+
 function genSVGA3(root,pn=1,tot=1){
   const PW=1587,PH=1123,MAR=40,HH=68,FH=34;
   const AW=PW-MAR*2,AH=PH-HH-FH-MAR;
@@ -259,9 +280,9 @@ function genSVGA3(root,pn=1,tot=1){
     _visibleCache=[];
     (function collect(node,depth){
       _visibleCache.push(node);
-      if(isJG&&depth>=1)return;
       if(depth>0&&node.dashed)return; // fuera de nivel: no desplegar su sub-organigrama
-      (node.children||[]).forEach(c=>collect(c,depth+1));
+      if(isJG&&!jgDescend(depth,node))return;
+      ((isJG?jgKids(depth,node):node.children)||[]).forEach(c=>collect(c,depth+1));
     })(root,0);
     const haveCount=_visibleCache.filter(n=>savedPos[n.id]!=null).length;
     if(haveCount<_visibleCache.length*0.5)useSavedLayout=false;
@@ -276,11 +297,11 @@ function genSVGA3(root,pn=1,tot=1){
 
     // Links
     (function walk(node,depth){
-      (node.children||[]).forEach(ch=>{
+      ((isJG?jgKids(depth,node):node.children)||[]).forEach(ch=>{
         if(!visIds.has(ch.id))return;
         const s=nodes.find(n=>n.data.id===node.id),t=nodes.find(n=>n.data.id===ch.id);
         if(s&&t)links.push({s,t});
-        if(!(isJG&&depth>=1)&&!ch.dashed)walk(ch,depth+1);
+        if(!ch.dashed&&(!isJG||jgDescend(depth+1,ch)))walk(ch,depth+1);
       });
     })(root,0);
 
@@ -775,11 +796,11 @@ window.__wrapTxt  = wrapTxt;
     if(!viewRoot)return[];
     function collect(node,depth,acc){
       acc.push(node);
-      if(isJGView()&&depth>=1)return acc;
       // No desplegar el sub-organigrama de un nodo "fuera de nivel" (punteado):
       // se muestra como hoja, salvo que sea el área que se está editando.
       if(depth>0&&node.dashed)return acc;
-      (node.children||[]).forEach(c=>collect(c,depth+1,acc));
+      if(isJGView()&&!jgDescend(depth,node))return acc;
+      ((isJGView()?jgKids(depth,node):node.children)||[]).forEach(c=>collect(c,depth+1,acc));
       return acc;
     }
     return collect(viewRoot,0,[]);
@@ -790,11 +811,11 @@ window.__wrapTxt  = wrapTxt;
     const viewRoot=findN(edData,edViewId)||edData;
     const links=[];
     function walk(node,depth){
-      (node.children||[]).forEach(ch=>{
+      ((isJGView()?jgKids(depth,node):node.children)||[]).forEach(ch=>{
         if(!ids.has(ch.id))return;
         links.push({sid:node.id,tid:ch.id,dashed:!!ch.dashed});
         // No entrar al sub-organigrama de un nodo fuera de nivel (punteado)
-        if(!(isJGView()&&depth>=1)&&!ch.dashed)walk(ch,depth+1);
+        if(!ch.dashed&&(!isJGView()||jgDescend(depth+1,ch)))walk(ch,depth+1);
       });
     }
     walk(viewRoot,0);
@@ -854,8 +875,8 @@ window.__wrapTxt  = wrapTxt;
     // Calcular layout D3 para posiciones iniciales
     function toH(node,depth){
       // Los nodos fuera de nivel (punteados) no despliegan su sub-organigrama
-      const collapse=(isJGView()&&depth>=1)||(depth>0&&node.dashed);
-      const kids=collapse?[]:(node.children||[]);
+      const collapse=(depth>0&&node.dashed)||(isJGView()&&!jgDescend(depth,node));
+      const kids=collapse?[]:((isJGView()?jgKids(depth,node):node.children)||[]);
       return{...node,_k:kids.map(c=>toH(c,depth+1)),children:undefined};
     }
     const viewRoot=findN(edData,edViewId)||edData;
@@ -1826,40 +1847,48 @@ window.__wrapTxt  = wrapTxt;
       positions[viewRoot.id]={x:AW/2,y:AH/3,w:Math.min(360,AW*0.5),h:70};
       layoutMode="root-only";
     } else if(isJG){
-      // ── Vista JG: root + (MIN/VJG) + SEC + otros + dashed ──
-      const minVjg=regular.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
+      // ── Vista JG (página 1, como el PDF): root → Jefatura de Gabinete + Vice
+      //    → ministerios (banda ancha) → secretarías → otros → fuera de nivel ──
+      const gab=regular.find(c=>nodeIsGabinete(c));            // Jefatura de Gabinete
+      const tier=regular.filter(c=>c.tipo==="MIN"||c.tipo==="VJG"); // Jefatura + Vice
+      const ministries=gab?(gab.children||[]).filter(c=>c&&!c.dashed&&c.tipo==="MIN"):[];
       const sec=regular.filter(c=>c.tipo==="SEC");
       const others=regular.filter(c=>c.tipo!=="MIN"&&c.tipo!=="VJG"&&c.tipo!=="SEC");
-      const ROOT_H=60,ROW_H=72;
-      let y=VGAP*2;
-      positions[viewRoot.id]={x:AW/2,y,w:Math.min(380,AW*0.55),h:ROOT_H};
-      y+=ROOT_H+VGAP*3;
-      // MIN/VJG (puede que necesite envolver)
-      const minWrap=Math.min(minVjg.length,Math.max(6,Math.ceil(Math.sqrt(minVjg.length*2))));
-      const minRows=Math.ceil(minVjg.length/minWrap);
-      for(let r=0;r<minRows;r++){
-        const rowItems=minVjg.slice(r*minWrap,(r+1)*minWrap);
-        layoutRow(rowItems,y+r*(ROW_H+VGAP),ROW_H,90,200);
+      const dashedAll=dashed;
+
+      // Reparte una banda de items en filas, con cajas lo más anchas posible
+      // (envuelve para no exceder el ancho → sin solapamientos) y llenando el alto.
+      function fillBand(items,topY,bandH,minW,maxW){
+        if(!items.length)return topY;
+        const perRow=Math.max(1,Math.min(items.length,Math.floor((AW+HGAP)/(maxW+HGAP))||1));
+        const rows=Math.ceil(items.length/perRow);
+        const rowH=Math.max(38,Math.min(Math.floor((bandH-VGAP*(rows-1))/rows),Math.round(maxW*0.34)));
+        for(let r=0;r<rows;r++){
+          const slice=items.slice(r*perRow,(r+1)*perRow);
+          layoutRow(slice,topY+r*(rowH+VGAP),rowH,minW,maxW);
+        }
+        return topY+rows*(rowH+VGAP)-VGAP;
       }
-      y+=minRows*(ROW_H+VGAP)+VGAP;
-      // SEC (envuelve si son muchas)
-      const secWrap=Math.min(sec.length,Math.max(6,Math.ceil(Math.sqrt(sec.length*2.5))));
-      const secRows=Math.ceil(sec.length/secWrap);
-      for(let r=0;r<secRows;r++){
-        const rowItems=sec.slice(r*secWrap,(r+1)*secWrap);
-        layoutRow(rowItems,y+r*(ROW_H+VGAP),ROW_H,90,180);
-      }
-      y+=secRows*(ROW_H+VGAP);
+
+      const ROOT_H=56;
+      let y=VGAP;
+      positions[viewRoot.id]={x:AW/2,y,w:Math.min(360,AW*0.42),h:ROOT_H};
+      y+=ROOT_H+VGAP*2;
+      // Jefatura de Gabinete + Vicejefatura
+      if(tier.length){y=fillBand(tier,y,64,150,320)+VGAP*2;}
+      // Espacio que queda para ministerios + secretarías + otros (dejando lugar al pie)
+      const dashedRoom=dashedAll.length?64+VGAP:0;
+      const avail=AH-y-dashedRoom-VGAP;
+      const hasLower=sec.length||others.length;
+      // Ministerios: banda principal, cajas grandes (≈60% del espacio si hay más abajo)
+      const minBandH=Math.max(150,Math.floor(avail*(hasLower?0.58:1)));
+      y=fillBand(ministries,y,minBandH,160,280)+VGAP*2;
+      // Secretarías
+      if(sec.length){y=fillBand(sec,y,Math.max(80,AH-y-dashedRoom-(others.length?VGAP*2:VGAP)-(others.length?60:0)),130,240)+VGAP;}
       // Otros
-      if(others.length>0){
-        layoutRow(others,y,ROW_H,90,180);
-        y+=ROW_H+VGAP;
-      }
-      // Dashed al pie
-      if(dashed.length>0){
-        const dY=Math.max(y,AH-60-VGAP);
-        layoutRow(dashed,dY,55,80,160);
-      }
+      if(others.length){y=fillBand(others,y,60,110,210)+VGAP;}
+      // Fuera de nivel al pie
+      if(dashedAll.length){layoutRow(dashedAll,AH-56,54,90,180);}
       layoutMode="jg";
     } else {
       // ── Vista área (MIN/SEC/etc): root + columnas + apilado vertical ──
