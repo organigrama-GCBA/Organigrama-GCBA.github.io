@@ -2,8 +2,9 @@ name: Boletín → Organigrama
 
 on:
   schedule:
-    # 12:00 UTC ≈ 09:00 ART, días hábiles
-    - cron: "0 12 * * 1-5"
+    # 18:00 UTC ≈ 15:00 ART, días hábiles (más tarde para que el Boletín del
+    # día ya esté publicado; antes corría 09:00 ART y a veces aún no existía → 404).
+    - cron: "0 18 * * 1-5"
   workflow_dispatch:
     inputs:
       fecha:
@@ -49,7 +50,7 @@ jobs:
           FECHA: ${{ inputs.fecha }}
           DESDE: ${{ inputs.desde }}
           HASTA: ${{ inputs.hasta }}
-          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}   # opcional; default en el script
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL || 'claude-sonnet-4-6' }}   # Sonnet por defecto (más barato que Opus)
           BODY_PATH: ${{ runner.temp }}/pr-body.md
         run: node scripts/boletin/run.mjs
 
