@@ -3150,7 +3150,7 @@
           ]
         },
         {
-          "id": "DGAGA_2",
+          "id": "DGAGOB",
           "nombre": "DG. Actos de Gobierno y Agenda",
           "titular": "Sofía Benegas",
           "tipo": "DG",
@@ -3648,7 +3648,50 @@
       "titular": "Mónica Beatriz Freda",
       "tipo": "ORG",
       "dashed": true,
-      "children": []
+      "children": [
+        {
+          "id": "SGADJUNTA",
+          "nombre": "Sindicatura General Adjunta",
+          "titular": "Silvia Graciela Venenatto",
+          "tipo": "ORG",
+          "children": []
+        },
+        {
+          "id": "GGACSGCBA",
+          "nombre": "Gerencia General Auditoría de Comunas",
+          "titular": "Juan Carlos Valero",
+          "tipo": "GG",
+          "children": []
+        },
+        {
+          "id": "GGTALSGCBA",
+          "nombre": "Gerencia General Técnica, Administrativa y Legal",
+          "titular": "Carlos Pablo Maza",
+          "tipo": "GG",
+          "children": []
+        },
+        {
+          "id": "GGAJISGCBA",
+          "nombre": "Gerencia General Auditoría Jurisdicción I",
+          "titular": "Emilse Moira Teyo",
+          "tipo": "GG",
+          "children": []
+        },
+        {
+          "id": "GGAJIISGCBA",
+          "nombre": "Gerencia General Auditoría Jurisdicción II",
+          "titular": "",
+          "tipo": "GG",
+          "children": []
+        },
+        {
+          "id": "UAISGCBA",
+          "nombre": "Unidad de Auditoría Interna",
+          "titular": "Jorge Rodrigo Martinez Daveño",
+          "tipo": "ORG",
+          "children": []
+        }
+      ]
     },
     {
       "id": "CPEST",
@@ -3772,56 +3815,6 @@
       ]
     },
     {
-      "id": "SGADCBA",
-      "nombre": "Sindicatura General de la Ciudad de Buenos Aires",
-      "titular": "Mónica Beatriz Freda",
-      "tipo": "ORG",
-      "children": [
-        {
-          "id": "SGADJUNTA",
-          "nombre": "Sindicatura General Adjunta",
-          "titular": "Silvia Graciela Venenatto",
-          "tipo": "ORG",
-          "children": []
-        },
-        {
-          "id": "GGACSGCBA",
-          "nombre": "Gerencia General Auditoría de Comunas",
-          "titular": "Juan Carlos Valero",
-          "tipo": "GG",
-          "children": []
-        },
-        {
-          "id": "GGTALSGCBA",
-          "nombre": "Gerencia General Técnica, Administrativa y Legal",
-          "titular": "Carlos Pablo Maza",
-          "tipo": "GG",
-          "children": []
-        },
-        {
-          "id": "GGAJISGCBA",
-          "nombre": "Gerencia General Auditoría Jurisdicción I",
-          "titular": "Emilse Moira Teyo",
-          "tipo": "GG",
-          "children": []
-        },
-        {
-          "id": "GGAJIISGCBA",
-          "nombre": "Gerencia General Auditoría Jurisdicción II",
-          "titular": "",
-          "tipo": "GG",
-          "children": []
-        },
-        {
-          "id": "UAISGCBA",
-          "nombre": "Unidad de Auditoría Interna",
-          "titular": "Jorge Rodrigo Martinez Daveño",
-          "tipo": "ORG",
-          "children": []
-        }
-      ]
-    },
-    {
       "id": "APRA",
       "nombre": "Agencia de Protección Ambiental Ley N° 2.628",
       "titular": "Renzo Néstor Morosi",
@@ -3856,14 +3849,8 @@
           "tipo": "DG",
           "children": []
         }
-      ]
-    },
-    {
-      "id": "ASINF_2",
-      "nombre": "Agencia de sistemas de Información",
-      "titular": "Pablo Andrés Saccani",
-      "tipo": "ORG",
-      "children": []
+      ],
+      "dashed": true
     }
   ]
 }

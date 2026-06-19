@@ -18,3 +18,12 @@ Modelo: claude-opus-4-8 · Páginas: 32 · Nodos resultantes: 519
 ---
 
 > Reconstruido automáticamente desde docs/Organigrama_GCBA_2026.pdf. Revisá jerarquía y siglas contra el PDF antes de mergear.
+
+## Correcciones aplicadas (revisión)
+
+- **Sindicatura**: se unificó `SGADCBA` dentro de `SGCBA` (misma entidad, mismo titular); quedó como "fuera de nivel" con sus 6 áreas.
+- **ASINF**: se eliminó el duplicado suelto `ASINF_2` (el real es `ASINF` bajo `SECITD`).
+- **APRA** (Agencia de Protección Ambiental): marcada "fuera de nivel" (confirmar de qué ministerio depende).
+- **DGAGA** (colisión): "DG. Actos de Gobierno y Agenda" pasó a id `DGAGOB`.
+
+Total de nodos: 517 · sin ids duplicados.
