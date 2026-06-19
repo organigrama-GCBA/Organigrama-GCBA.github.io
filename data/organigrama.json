@@ -2811,6 +2811,44 @@
               "titular": "Carolina Laura De Sande",
               "tipo": "DG",
               "children": []
+            },
+            {
+              "id": "APRA",
+              "nombre": "Agencia de Protección Ambiental Ley N° 2.628",
+              "titular": "Renzo Néstor Morosi",
+              "tipo": "ORG",
+              "children": [
+                {
+                  "id": "UAIAPRA",
+                  "nombre": "Unidad de Auditoría Interna APRA",
+                  "titular": "María Luján Azcurra",
+                  "tipo": "ORG",
+                  "dashed": true,
+                  "children": []
+                },
+                {
+                  "id": "UCSYTRM",
+                  "nombre": "Unidad de Coordinación Sanidad y Tenencia Responsable de Mascotas",
+                  "titular": "Carolina Laura De Sande",
+                  "tipo": "ORG",
+                  "children": []
+                },
+                {
+                  "id": "DGEVA",
+                  "nombre": "DG. Evaluación Ambiental",
+                  "titular": "Josefina María Pena Podrez",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGCONTA",
+                  "nombre": "DG. Control Ambiental",
+                  "titular": "Boris Nicolás Buffa",
+                  "tipo": "DG",
+                  "children": []
+                }
+              ],
+              "dashed": true
             }
           ]
         },
@@ -3813,44 +3851,6 @@
           "children": []
         }
       ]
-    },
-    {
-      "id": "APRA",
-      "nombre": "Agencia de Protección Ambiental Ley N° 2.628",
-      "titular": "Renzo Néstor Morosi",
-      "tipo": "ORG",
-      "children": [
-        {
-          "id": "UAIAPRA",
-          "nombre": "Unidad de Auditoría Interna APRA",
-          "titular": "María Luján Azcurra",
-          "tipo": "ORG",
-          "dashed": true,
-          "children": []
-        },
-        {
-          "id": "UCSYTRM",
-          "nombre": "Unidad de Coordinación Sanidad y Tenencia Responsable de Mascotas",
-          "titular": "Carolina Laura De Sande",
-          "tipo": "ORG",
-          "children": []
-        },
-        {
-          "id": "DGEVA",
-          "nombre": "DG. Evaluación Ambiental",
-          "titular": "Josefina María Pena Podrez",
-          "tipo": "DG",
-          "children": []
-        },
-        {
-          "id": "DGCONTA",
-          "nombre": "DG. Control Ambiental",
-          "titular": "Boris Nicolás Buffa",
-          "tipo": "DG",
-          "children": []
-        }
-      ],
-      "dashed": true
     }
   ]
 }
