@@ -39,7 +39,7 @@
                 {
                   "id": "DGEART",
                   "nombre": "DG. Enseñanza Artística",
-                  "titular": "",
+                  "titular": "Mariano Stolkiner",
                   "tipo": "DG",
                   "children": []
                 }
@@ -2487,7 +2487,7 @@
                 {
                   "id": "DGCDI",
                   "nombre": "DG. Canales Digitales",
-                  "titular": "Julieta Verónica Rappan",
+                  "titular": "Jorge Ariel González",
                   "tipo": "DG",
                   "children": []
                 },
@@ -2894,7 +2894,7 @@
         {
           "id": "GGAJIISGCBA",
           "nombre": "Gerencia General Auditoría Jurisdicción II",
-          "titular": "",
+          "titular": "Noemí Beatriz Cesari",
           "tipo": "GG",
           "children": []
         },
