@@ -300,6 +300,14 @@ function jgKids(depth,node){
   if(depth===1&&nodeIsGabinete(node))return kids.filter(c=>c.tipo==="MIN");
   return kids;
 }
+// Hijos a mostrar según la vista. En la vista de un área (ej. Jefatura de
+// Gabinete) se OCULTAN los ministerios: cada uno tiene su propia página, si no
+// la vista de Jefatura de Gabinete mostraría todo el gobierno. En la vista JG
+// (portada) manda jgKids (ministerios como cajas bajo Jefatura de Gabinete).
+function pageKids(node,depth,isJG){
+  if(isJG)return jgKids(depth,node);
+  return (node.children||[]).filter(c=>c.tipo!=="MIN");
+}
 
 function genSVGA3(root,pn=1,tot=1){
   const PW=1587,PH=1123,MAR=40,HH=68,FH=34;
@@ -329,7 +337,7 @@ function genSVGA3(root,pn=1,tot=1){
       _visibleCache.push(node);
       if(depth>0&&node.dashed)return; // fuera de nivel: no desplegar su sub-organigrama
       if(isJG&&!jgDescend(depth,node))return;
-      ((isJG?jgKids(depth,node):node.children)||[]).forEach(c=>collect(c,depth+1));
+      (pageKids(node,depth,isJG)||[]).forEach(c=>collect(c,depth+1));
     })(root,0);
     const haveCount=_visibleCache.filter(n=>savedPos[n.id]!=null).length;
     if(haveCount<_visibleCache.length*0.5)useSavedLayout=false;
@@ -344,7 +352,7 @@ function genSVGA3(root,pn=1,tot=1){
 
     // Links
     (function walk(node,depth){
-      ((isJG?jgKids(depth,node):node.children)||[]).forEach(ch=>{
+      (pageKids(node,depth,isJG)||[]).forEach(ch=>{
         if(!visIds.has(ch.id))return;
         const s=nodes.find(n=>n.data.id===node.id),t=nodes.find(n=>n.data.id===ch.id);
         if(s&&t)links.push({s,t});
@@ -843,7 +851,7 @@ window.__wrapTitular = wrapTitular;
       // se muestra como hoja, salvo que sea el área que se está editando.
       if(depth>0&&node.dashed)return acc;
       if(isJGView()&&!jgDescend(depth,node))return acc;
-      ((isJGView()?jgKids(depth,node):node.children)||[]).forEach(c=>collect(c,depth+1,acc));
+      (pageKids(node,depth,isJGView())||[]).forEach(c=>collect(c,depth+1,acc));
       return acc;
     }
     return collect(viewRoot,0,[]);
@@ -854,7 +862,7 @@ window.__wrapTitular = wrapTitular;
     const viewRoot=findN(edData,edViewId)||edData;
     const links=[];
     function walk(node,depth){
-      ((isJGView()?jgKids(depth,node):node.children)||[]).forEach(ch=>{
+      (pageKids(node,depth,isJGView())||[]).forEach(ch=>{
         if(!ids.has(ch.id))return;
         links.push({sid:node.id,tid:ch.id,dashed:!!ch.dashed});
         // No entrar al sub-organigrama de un nodo fuera de nivel (punteado)
@@ -919,7 +927,7 @@ window.__wrapTitular = wrapTitular;
     function toH(node,depth){
       // Los nodos fuera de nivel (punteados) no despliegan su sub-organigrama
       const collapse=(depth>0&&node.dashed)||(isJGView()&&!jgDescend(depth,node));
-      const kids=collapse?[]:((isJGView()?jgKids(depth,node):node.children)||[]);
+      const kids=collapse?[]:(pageKids(node,depth,isJGView())||[]);
       return{...node,_k:kids.map(c=>toH(c,depth+1)),children:undefined};
     }
     const viewRoot=findN(edData,edViewId)||edData;
@@ -1941,11 +1949,14 @@ window.__wrapTitular = wrapTitular;
       if(dashedAll.length){layoutRow(dashedAll,AH-56,54,90,180);}
       layoutMode="jg";
     } else {
-      // ── Vista área (MIN/SEC/etc): root + columnas + apilado vertical ──
-      // Cada hijo regular se vuelve una columna. Sus hijos no-dashed se apilan abajo.
-      const colInfo=regular.map(c=>({
+      // ── Vista área (SEC/etc): root + columnas + apilado vertical ──
+      // Se excluyen los ministerios: cada uno tiene su propia página (si no, la
+      // vista de Jefatura de Gabinete mostraría todo el gobierno).
+      const reg=regular.filter(c=>c.tipo!=="MIN");
+      // Cada hijo se vuelve una columna. Sus hijos no-dashed se apilan abajo.
+      const colInfo=reg.map(c=>({
         parent:c,
-        kids:(c.children||[]).filter(g=>g&&!g.dashed)
+        kids:(c.children||[]).filter(g=>g&&!g.dashed&&g.tipo!=="MIN")
       }));
       const cols=colInfo.length;
       // Si hay nietos profundos (bisnietos), los aplanamos al apilado de su abuelo
@@ -1953,7 +1964,7 @@ window.__wrapTitular = wrapTitular;
       colInfo.forEach(ci=>{
         const flat=[];
         (function rec(node){
-          (node.children||[]).filter(g=>g&&!g.dashed).forEach(g=>{flat.push(g);rec(g);});
+          (node.children||[]).filter(g=>g&&!g.dashed&&g.tipo!=="MIN").forEach(g=>{flat.push(g);rec(g);});
         })(ci.parent);
         ci.kids=flat;
       });
@@ -1963,7 +1974,7 @@ window.__wrapTitular = wrapTitular;
       // Si no hay grandkids, layout shallow (root + 1 fila ancha)
       if(maxKids===0){
         positions[viewRoot.id]={x:AW/2,y:VGAP*2,w:Math.min(360,AW*0.5),h:ROOT_H};
-        const items=regular;
+        const items=reg;
         const rows=Math.ceil(items.length/Math.max(8,Math.ceil(Math.sqrt(items.length*2.5))));
         const perRow=Math.ceil(items.length/rows);
         const rowH=Math.max(40,Math.min(80,Math.floor((AH-ROOT_H-VGAP*5-dashedRowHeight())/rows)));
