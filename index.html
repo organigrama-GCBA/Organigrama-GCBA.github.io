@@ -186,6 +186,23 @@ function wrapTxt(t,max){
   return ls;
 }
 
+// Tamaño de letra que MEJOR llena la caja: la fuente más grande con la que el
+// nombre, envuelto según el ancho disponible, entra en el alto. Al ensanchar un
+// nodo el texto se reacomoda en menos líneas y por eso se ve más grande.
+function fitFontSize(name,W,mainH,minFs,maxFs){
+  name=(name||"").trim();
+  minFs=minFs||7; maxFs=maxFs||120;
+  if(!name||W<=0||mainH<=0)return minFs;
+  for(let fs=maxFs; fs>=minFs; fs-=0.5){
+    const cpl=Math.max(4,Math.floor((W*0.92)/(fs*0.52)));
+    const lines=wrapTxt(name,cpl);
+    const lh=fs*1.3;
+    const widthOk=lines.every(l=>l.length*fs*0.52<=W*0.96);
+    if(widthOk&&lines.length*lh<=mainH*0.92)return Math.max(minFs,fs);
+  }
+  return minFs;
+}
+
 function svgBox(x,y,node,W,H,dashed,fsN,fsT){
   const fill=getColorSVG(node);
   const hasTit=node.titular&&node.titular.trim();
@@ -511,15 +528,9 @@ function genSVGA3(root,pn=1,tot=1){
     const nodeFS=(n.fs>0)?n.fs:ED_FS; // tamaño manual por nodo, si existe
     if(nodeFS>0){fsNn=nodeFS;fsTn=nodeFS*0.82;}
     else{
-      // Estimación inicial por ancho
-      const fsW=Math.min(200,nw/5);
-      // Estimar líneas con esa fuente
-      const estChars=Math.max(8,Math.floor(nw/(fsW*0.52)));
-      const estLines=wrapTxt(n.data.nombre||"",estChars).length+(n.data.titular?1:0);
-      // Calcular fuente por alto disponible
-      const fsH=Math.min(200,nh/(estLines+0.8)*0.72);
-      // Usar el menor de los dos
-      fsNn=Math.max(7,Math.min(fsW,fsH));
+      // Letra que llena la caja: al ensanchar el nodo, menos líneas y más grande.
+      const stripH=(n.data.titular&&n.data.titular.trim())?Math.max(14,nh*0.28):0;
+      fsNn=fitFontSize(n.data.nombre,nw,nh-stripH,7,200);
       fsTn=Math.max(6,fsNn*0.82);
     }
     nodesSVG+=svgBox(n.x-nw/2,n.y,n.data,nw,nh,!!n.data?.dashed,fsNn,fsTn);
@@ -563,6 +574,7 @@ window.__genSVGA3 = genSVGA3;
 window.genSVGA3   = genSVGA3;
 window.__dlSVG    = dlSVG;
 window.__wrapTxt  = wrapTxt;
+window.__fitFontSize = fitFontSize;
 // flatList and findNode are defined in the React JSX block
 
 
@@ -1453,7 +1465,7 @@ window.__wrapTxt  = wrapTxt;
       // Nombre — wrap respetando el ancho real (no más cap fijo de 20 chars)
       const wrap=window.__wrapTxt||((t)=>[t||""]);
       const fsOv=edPositions[d.id]?.fs;           // tamaño de letra manual por nodo
-      let _fs=(fsOv>0)?fsOv:Math.max(8,Math.min(80,Math.min(_nw/8,mainH*0.5)));
+      let _fs=(fsOv>0)?fsOv:(window.__fitFontSize?window.__fitFontSize(d.nombre,_nw,mainH,8,90):Math.min(_nw/8,mainH*0.5));
       const charsPerLine=Math.max(6,Math.floor(_nw/(_fs*0.52)));
       const lines=wrap(d.nombre||"",charsPerLine);
       // Si no hay tamaño manual y el bloque no cabe en alto, achicar la fuente
@@ -1514,7 +1526,7 @@ window.__wrapTxt  = wrapTxt;
             const stripH=hasTit?Math.max(14,p.h*0.28):0;
             const mainH=p.h-stripH;
             const wrap=window.__wrapTxt||((t)=>[t||""]);
-            let _fs=Math.max(8,Math.min(80,Math.min(p.w/8,mainH*0.5)));
+            let _fs=(p.fs>0)?p.fs:(window.__fitFontSize?window.__fitFontSize(d.nombre,p.w,mainH,8,90):Math.min(p.w/8,mainH*0.5));
             const charsPerLine=Math.max(6,Math.floor(p.w/(_fs*0.52)));
             const lines=wrap(d.nombre||"",charsPerLine);
             const lhEst=_fs*1.3;
