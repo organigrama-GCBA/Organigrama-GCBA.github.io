@@ -203,6 +203,33 @@ function fitFontSize(name,W,mainH,minFs,maxFs){
   return minFs;
 }
 
+// Titular (nombre de la persona) en la franja: hasta 2 líneas. Si entra en una
+// con buen tamaño, una sola; si es largo, lo parte en dos en vez de truncar con "…".
+function wrapTitular(titular,W,stripH){
+  titular=(titular||"").trim();
+  if(!titular)return{lines:[],fs:0};
+  const maxFs=Math.max(6,stripH*0.62);
+  const avail=W*0.94;
+  // ¿entra en una sola línea casi a tamaño pleno?
+  const fitOne=avail/(titular.length*0.5);
+  if(fitOne>=maxFs*0.92||titular.indexOf(" ")<0){
+    return{lines:[titular],fs:Math.max(6,Math.min(maxFs,fitOne))};
+  }
+  // Dos líneas: partir en el espacio más cercano a la mitad
+  const words=titular.split(" ");
+  let best=1,bestDiff=1e9;
+  for(let i=1;i<words.length;i++){
+    const a=words.slice(0,i).join(" ").length,b=words.slice(i).join(" ").length;
+    const diff=Math.abs(a-b);
+    if(diff<bestDiff){bestDiff=diff;best=i;}
+  }
+  const l1=words.slice(0,best).join(" "),l2=words.slice(best).join(" ");
+  const longest=Math.max(l1.length,l2.length);
+  // Fuente: la mayor que cumple ancho (línea más larga) y alto (2 líneas en la franja)
+  const fs=Math.max(6,Math.min(maxFs,avail/(longest*0.5),stripH*0.42));
+  return{lines:[l1,l2],fs};
+}
+
 function svgBox(x,y,node,W,H,dashed,fsN,fsT){
   const fill=getColorSVG(node);
   const hasTit=node.titular&&node.titular.trim();
@@ -239,12 +266,15 @@ function svgBox(x,y,node,W,H,dashed,fsN,fsT){
     yt+=lhN;
   });
 
-  // Titular in strip
+  // Titular in strip — hasta 2 líneas
   if(hasTit){
-    const fsTit=Math.max(6,Math.min(aFsN*0.78,stripH*0.62));
-    const titTxt=node.titular.length>30?node.titular.slice(0,28)+"…":node.titular;
-    const yTit=y+mainH+stripH/2+fsTit*0.38;
-    s+=`<text x="${fv(x+W/2)}" y="${fv(yTit)}" text-anchor="middle" font-size="${fv(fsTit)}" font-weight="400" fill="rgba(255,255,255,0.88)" font-family="Open Sans,Inter,Arial,sans-serif">${titTxt}</text>`;
+    const tt=wrapTitular(node.titular,W,stripH);
+    const lhT=tt.fs*1.18;
+    let yTit=y+mainH+(stripH-tt.lines.length*lhT)/2+tt.fs*0.82;
+    tt.lines.forEach(l=>{
+      s+=`<text x="${fv(x+W/2)}" y="${fv(yTit)}" text-anchor="middle" font-size="${fv(tt.fs)}" font-weight="400" fill="rgba(255,255,255,0.88)" font-family="Open Sans,Inter,Arial,sans-serif">${l}</text>`;
+      yTit+=lhT;
+    });
   }
   return s;
 }
@@ -575,6 +605,7 @@ window.genSVGA3   = genSVGA3;
 window.__dlSVG    = dlSVG;
 window.__wrapTxt  = wrapTxt;
 window.__fitFontSize = fitFontSize;
+window.__wrapTitular = wrapTitular;
 // flatList and findNode are defined in the React JSX block
 
 
@@ -1481,14 +1512,17 @@ window.__fitFontSize = fitFontSize;
       lines.forEach((l,i)=>g2.append("text").attr("x",_nw/2).attr("y",sy2+i*_lh)
         .attr("text-anchor","middle").attr("font-size",_fs).attr("font-weight",700)
         .attr("fill",txtMain).attr("font-family","Open Sans,Inter,sans-serif").text(l));
-      // Titular en franja oscura
+      // Titular en franja oscura — hasta 2 líneas
       if(hasTit){
-        const fsTit=Math.max(6,Math.min(_fs*0.78,stripH*0.62));
-        g2.append("text").attr("x",_nw/2).attr("y",mainH+stripH/2+fsTit*0.38)
-          .attr("text-anchor","middle").attr("font-size",fsTit).attr("font-weight",400)
-          .attr("fill","rgba(255,255,255,0.88)")
-          .attr("font-family","Open Sans,Inter,sans-serif")
-          .text(d.titular.length>28?d.titular.slice(0,26)+"…":d.titular);
+        const tt=window.__wrapTitular?window.__wrapTitular(d.titular,_nw,stripH):{lines:[d.titular],fs:Math.max(6,Math.min(_fs*0.78,stripH*0.62))};
+        const lhT=tt.fs*1.18;
+        let yT=mainH+(stripH-tt.lines.length*lhT)/2+tt.fs*0.82;
+        tt.lines.forEach(l=>{
+          g2.append("text").attr("x",_nw/2).attr("y",yT)
+            .attr("text-anchor","middle").attr("font-size",tt.fs).attr("font-weight",400)
+            .attr("fill","rgba(255,255,255,0.88)").attr("font-family","Open Sans,Inter,sans-serif").text(l);
+          yT+=lhT;
+        });
       }
     });
 
@@ -1553,14 +1587,18 @@ window.__fitFontSize = fitFontSize;
               .style("font-size",_fs+"px").attr("font-weight",700)
               .attr("fill","#fff").attr("font-family","Open Sans,sans-serif").text(l));
             if(hasTit){
-              const fsTit=Math.max(6,Math.min(_fs*0.78,stripH*0.62));
-              par.append("text")
-                .attr("x",p.w/2).attr("y",mainH+stripH/2+fsTit*0.38)
-                .attr("text-anchor","middle")
-                .style("font-size",fsTit+"px").attr("font-weight",400)
-                .attr("fill","rgba(255,255,255,0.88)")
-                .attr("font-family","Open Sans,sans-serif")
-                .text(d.titular.length>28?d.titular.slice(0,26)+"…":d.titular);
+              const tt=window.__wrapTitular?window.__wrapTitular(d.titular,p.w,stripH):{lines:[d.titular],fs:Math.max(6,Math.min(_fs*0.78,stripH*0.62))};
+              const lhT=tt.fs*1.18;
+              let yT=mainH+(stripH-tt.lines.length*lhT)/2+tt.fs*0.82;
+              tt.lines.forEach(l=>{
+                par.append("text")
+                  .attr("x",p.w/2).attr("y",yT)
+                  .attr("text-anchor","middle")
+                  .style("font-size",tt.fs+"px").attr("font-weight",400)
+                  .attr("fill","rgba(255,255,255,0.88)")
+                  .attr("font-family","Open Sans,sans-serif").text(l);
+                yT+=lhT;
+              });
             }
             par.select(".resize-handle").raise();
             par.attr("transform",`translate(${p.x-p.w/2},${p.y})`);
