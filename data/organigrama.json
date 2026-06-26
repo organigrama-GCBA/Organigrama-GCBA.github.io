@@ -1034,7 +1034,7 @@
             {
               "id": "SSGRH",
               "nombre": "SS. Gestión de Recursos Humanos",
-              "titular": "Sebastián Emanuel Fernandez",
+              "titular": "",
               "tipo": "SS",
               "children": [
                 {
@@ -1833,7 +1833,7 @@
                 {
                   "id": "DGRFISS",
                   "nombre": "DG. Recursos Físicos en Salud",
-                  "titular": "Mercedes María Di Loreto",
+                  "titular": "",
                   "tipo": "DG",
                   "children": []
                 },
@@ -3306,7 +3306,7 @@
             {
               "id": "DGAIGA",
               "nombre": "DG. Acceso a la Información y Gobierno Abierto",
-              "titular": "Tamara Laznik",
+              "titular": "",
               "tipo": "DG",
               "children": []
             }
@@ -3377,7 +3377,7 @@
             {
               "id": "DGAPMU",
               "nombre": "DG Acuerdos con Provincias y Municipios",
-              "titular": "Pablo Daniel Lecadito",
+              "titular": "",
               "tipo": "DG",
               "children": []
             },
@@ -3674,7 +3674,7 @@
         {
           "id": "DGPECGE",
           "nombre": "DG. Planificación Estratégica y Control de Gestión",
-          "titular": "Natalia Mariel Carreira",
+          "titular": "",
           "tipo": "DG",
           "children": []
         },
@@ -3730,7 +3730,7 @@
             {
               "id": "DGDYPC",
               "nombre": "DG. Defensa y Protección al Consumidor",
-              "titular": "Alejandro Pérez",
+              "titular": "",
               "tipo": "DG",
               "children": []
             }
