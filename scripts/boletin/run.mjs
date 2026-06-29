@@ -1,8 +1,9 @@
 // Pipeline Boletín Oficial CABA -> cambios de organigrama.
 //
 // 1. Baja el PDF del día (URL predecible del BOCBA).
-// 2. Extrae texto y filtra las secciones del Poder Ejecutivo relevantes
-//    (designaciones, ceses, creación/disolución/cambios de estructura).
+// 2. Extrae texto y se queda SOLO con los DECRETOS del Poder Ejecutivo
+//    (designaciones/ceses de alto nivel y cambios de estructura). Se puede
+//    ampliar a todo el boletín con INCLUIR_RESOLUCIONES=1.
 // 3. Llama a Claude con salida estructurada (tool use) para extraer una lista
 //    de operaciones de cambio contra data/organigrama.json. El organigrama
 //    actual se envía en `system` con prompt caching, así se reutiliza entre
@@ -35,6 +36,12 @@ const ORG_PATH = path.join(ROOT, "data", "organigrama.json");
 const MODEL = process.env.CLAUDE_MODEL || "claude-opus-4-8";
 const MAX_CHUNK_CHARS = 24000;   // ~8k tokens por chunk de boletín
 const KEEP_CONTEXT_LINES = 6;    // líneas alrededor de cada coincidencia
+// Por defecto SOLO miramos los DECRETOS (Poder Ejecutivo): son los que cambian
+// la estructura y designan/cesan funcionarios de alto nivel (SS, DG, organismos).
+// Así descartamos el grueso del boletín (resoluciones ministeriales con cargos
+// operativos de bajo nivel) → menos ruido y muchísimos menos tokens.
+// Poné INCLUIR_RESOLUCIONES=1 para volver a mirar todo el boletín.
+const SOLO_DECRETOS = process.env.INCLUIR_RESOLUCIONES !== "1";
 
 // Palabras clave del Poder Ejecutivo que marcan designaciones / ceses /
 // cambios de estructura. (BOCBA usa lenguaje jurídico bastante estable.)
@@ -99,8 +106,30 @@ async function fetchPdf(url) {
 }
 
 // ── 2) Extraer y filtrar texto ─────────────────────────────────────────
-function filtrarRelevante(texto) {
+// Conserva solo el texto de los DECRETOS. Segmenta el boletín por encabezados
+// de norma (DECRETO / RESOLUCIÓN / DISPOSICIÓN…) y se queda con los bloques
+// cuyo encabezado es un Decreto. Descarta resoluciones/disposiciones (ruido).
+function soloDecretos(texto) {
   const lines = texto.split(/\r?\n/);
+  const esHeader = (l) => {
+    const s = l.trim();
+    if (!/^(DECRETO|RESOLUCI[ÓO]N|RESOLUCION|DISPOSICI[ÓO]N|DISPOSICION)\b/i.test(s)) return false;
+    // Un encabezado real es una línea corta (título de la norma) o trae "N.° 123".
+    return s.length < 70 || /n\s*[.º°]\s*\d/i.test(s);
+  };
+  const esDecreto = (l) => /^\s*DECRETO\b/i.test(l);
+  const out = [];
+  let dentro = false;
+  for (const l of lines) {
+    if (esHeader(l)) dentro = esDecreto(l);
+    if (dentro) out.push(l);
+  }
+  return out.join("\n");
+}
+function filtrarRelevante(texto) {
+  const base = SOLO_DECRETOS ? soloDecretos(texto) : texto;
+  if (!base.trim()) return "";
+  const lines = base.split(/\r?\n/);
   const keep = new Array(lines.length).fill(false);
   const low = lines.map((l) => l.toLowerCase());
   for (let i = 0; i < lines.length; i++) {
@@ -136,8 +165,16 @@ function chunkText(t, max) {
 
 // ── 3) Tool / prompt para Claude ───────────────────────────────────────
 const INSTRUCCIONES = `Sos un analista jurídico-administrativo del Gobierno de la Ciudad de Buenos Aires (GCBA).
-Recibís fragmentos del Boletín Oficial (BOCBA) y un organigrama vigente.
+Recibís fragmentos de DECRETOS del Poder Ejecutivo del Boletín Oficial (BOCBA) y un organigrama vigente.
 Tu tarea: extraer ÚNICAMENTE los cambios que el texto respalda de forma EXPLÍCITA y que afecten al organigrama.
+
+FOCO: el organigrama que mantenemos llega hasta el nivel de Dirección General / Gerencia General
+y organismos. Te interesan los cambios de ESTRUCTURA (crear/suprimir/transferir/renombrar áreas) y
+las designaciones/ceses de funcionarios con rango de Subsecretario, Director General, Gerente General
+o titular de organismo descentralizado, y superiores.
+IGNORÁ (no devuelvas cambios) para cargos operativos de bajo nivel: Gerencias Operativas,
+Subgerencias Operativas, Coordinaciones, cargos "transitorios" de planta, jefaturas de departamento,
+subdirecciones de hospital y similares. Esos NO forman parte del organigrama.
 
 Tipos de cambio:
 - set_titular: una persona es designada como titular de un área existente, o cesa/renuncia (en cuyo caso el titular queda vacío). target_id = id del área. nuevo_titular = nombre y apellido (vacío si es cese sin reemplazo).
