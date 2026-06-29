@@ -4157,12 +4157,37 @@ function App(){
 function __mountApp(){
   ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 }
+// Auto-carga del layout (posiciones/líneas/tamaños) guardado en la nube.
+// Solo si el dispositivo no tiene layout propio todavía (dispositivo nuevo):
+// así los retoques visuales viajan junto con data/organigrama.json.
+function __loadLayout(){
+  try{
+    const hay=localStorage.getItem("gcba_org_positions_v1")
+            ||localStorage.getItem("gcba_org_waypoints_v1")
+            ||localStorage.getItem("gcba_org_midy_v1")
+            ||localStorage.getItem("gcba_org_nodesize_v1");
+    if(hay) return Promise.resolve();
+    return fetch("data/layout.json",{cache:"no-store"})
+      .then(r=>r.ok?r.json():null)
+      .then(L=>{
+        if(!L||typeof L!=="object") return;
+        if(L.positions) localStorage.setItem("gcba_org_positions_v1",JSON.stringify(L.positions));
+        if(L.waypoints) localStorage.setItem("gcba_org_waypoints_v1",JSON.stringify(L.waypoints));
+        if(L.midy)      localStorage.setItem("gcba_org_midy_v1",JSON.stringify(L.midy));
+        if(L.nodesize)  localStorage.setItem("gcba_org_nodesize_v1",JSON.stringify(L.nodesize));
+        // Marcar la versión para que loadData() no borre el layout recién traído.
+        localStorage.setItem(VERSION_KEY,APP_VERSION);
+      })
+      .catch(()=>{});
+  }catch(e){ return Promise.resolve(); }
+}
 (function(){
   try{
     fetch("data/organigrama.json",{cache:"no-store"})
       .then(r=>r.ok?r.json():Promise.reject(r.status))
       .then(d=>{ if(d&&d.id)window.__ORG_DEFAULT=sanitize(d); })
       .catch(()=>{})
+      .then(__loadLayout)
       .finally(__mountApp);
   }catch(e){ __mountApp(); }
 })();
@@ -4329,6 +4354,165 @@ function __mountApp(){
       render();
     })
     .catch(function(){});
+})();
+</script>
+
+<!-- ── ☁️ Guardar / Traer de la nube (multi-dispositivo) ──────────────────
+     Sube los cambios (organigrama + layout) al repo vía la API de GitHub
+     usando un token personal guardado en este navegador (localStorage).
+     "Traer" lee los archivos del propio sitio (sin token) y recarga.
+     Así lo que editás queda guardado y accesible desde cualquier compu. -->
+<div id="cloud-fab" title="Guardar / traer de la nube" style="display:none;position:fixed;bottom:16px;right:16px;z-index:9000;
+  background:#004F86;color:#fff;border:none;border-radius:24px;padding:10px 16px;
+  font:600 13px 'Open Sans',sans-serif;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.3);">☁️ Nube</div>
+<div id="cloud-modal" style="display:none;position:fixed;inset:0;z-index:9001;background:rgba(0,0,0,.5);">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,92vw);
+    max-height:88vh;overflow:auto;background:#fff;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.4);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #E2E8F0;position:sticky;top:0;background:#fff;">
+      <strong style="font:700 15px 'Open Sans',sans-serif;color:#101E37;">☁️ Guardar en la nube</strong>
+      <button id="cloud-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#718096;">✕</button>
+    </div>
+    <div style="padding:16px 18px;">
+      <p style="font:400 13px/1.6 'Open Sans',sans-serif;color:#2D3748;margin:0 0 12px;">
+        Guarda tus cambios en GitHub para verlos desde cualquier computadora.
+        <b>Guardar</b> sube lo que editaste; <b>Traer</b> baja la última versión guardada a esta compu.
+      </p>
+      <div style="display:flex;gap:10px;margin:0 0 16px;">
+        <button id="cloud-save" style="flex:1;background:#004F86;color:#fff;border:none;border-radius:8px;padding:11px;font:600 13px 'Open Sans',sans-serif;cursor:pointer;">⬆️ Guardar en la nube</button>
+        <button id="cloud-pull" style="flex:1;background:#268948;color:#fff;border:none;border-radius:8px;padding:11px;font:600 13px 'Open Sans',sans-serif;cursor:pointer;">⬇️ Traer de la nube</button>
+      </div>
+      <div id="cloud-status" style="display:none;font:500 12px/1.5 'Open Sans',sans-serif;border-radius:8px;padding:9px 12px;margin:0 0 16px;"></div>
+
+      <details id="cloud-tokbox" style="border-top:1px solid #E2E8F0;padding-top:12px;">
+        <summary style="font:600 12px 'Open Sans',sans-serif;color:#4A5568;cursor:pointer;">🔑 Token de GitHub <span id="cloud-tokstate"></span></summary>
+        <p style="font:400 12px/1.6 'Open Sans',sans-serif;color:#718096;margin:8px 0;">
+          Necesario una sola vez por navegador para poder <b>guardar</b>. Crealo en GitHub →
+          <i>Settings → Developer settings → Fine-grained tokens</i>, con permiso
+          <b>Contents: Read and write</b> solo sobre este repositorio. Se guarda únicamente en esta compu.
+        </p>
+        <div style="display:flex;gap:8px;">
+          <input id="cloud-token" type="password" placeholder="github_pat_…" autocomplete="off"
+            style="flex:1;border:1px solid #CBD5E0;border-radius:7px;padding:8px 10px;font:400 12px 'Open Sans',sans-serif;">
+          <button id="cloud-tok-save" style="background:#101E37;color:#fff;border:none;border-radius:7px;padding:8px 12px;font:600 12px 'Open Sans',sans-serif;cursor:pointer;">Guardar</button>
+          <button id="cloud-tok-clear" style="background:#fff;color:#9B1C1C;border:1px solid #E2B8B8;border-radius:7px;padding:8px 12px;font:600 12px 'Open Sans',sans-serif;cursor:pointer;">Borrar</button>
+        </div>
+      </details>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var REPO="lubelrivero-design/Organigrama-GCBA", BRANCH="main";
+  var API="https://api.github.com/repos/"+REPO+"/contents/";
+  var TOK_KEY="gh_token";
+  var fab=document.getElementById("cloud-fab"), modal=document.getElementById("cloud-modal");
+  var st=document.getElementById("cloud-status"), tokState=document.getElementById("cloud-tokstate");
+  var tokInput=document.getElementById("cloud-token");
+
+  function token(){ try{return localStorage.getItem(TOK_KEY)||"";}catch(e){return"";} }
+  function setStatus(msg,kind){
+    st.style.display="block";
+    st.innerHTML=msg;
+    if(kind==="ok"){st.style.background="#E6F4EA";st.style.color="#1E6B33";}
+    else if(kind==="err"){st.style.background="#FDECEC";st.style.color="#9B1C1C";}
+    else{st.style.background="#EEF2F7";st.style.color="#2D3748";}
+  }
+  function refreshTok(){
+    tokState.textContent = token() ? "✅ guardado" : "— sin token";
+  }
+  // base64 seguro para UTF-8 (acentos)
+  function b64(str){ return btoa(unescape(encodeURIComponent(str))); }
+
+  // Mostrar el botón solo con sesión de editor (⚙ + clave). Polling simple.
+  function chequearLogin(){ fab.style.display = (window._gcbaEditorAuth===true) ? "block" : "none"; }
+  setInterval(chequearLogin,600); chequearLogin();
+
+  fab.onclick=function(){ modal.style.display="block"; refreshTok(); };
+  document.getElementById("cloud-close").onclick=function(){ modal.style.display="none"; };
+  modal.onclick=function(e){ if(e.target===modal) modal.style.display="none"; };
+
+  document.getElementById("cloud-tok-save").onclick=function(){
+    var v=(tokInput.value||"").trim();
+    if(!v){ setStatus("Pegá un token antes de guardar.","err"); return; }
+    try{ localStorage.setItem(TOK_KEY,v); }catch(e){}
+    tokInput.value=""; refreshTok(); setStatus("Token guardado en este navegador.","ok");
+  };
+  document.getElementById("cloud-tok-clear").onclick=function(){
+    try{ localStorage.removeItem(TOK_KEY); }catch(e){}
+    refreshTok(); setStatus("Token borrado de este navegador.","info");
+  };
+
+  // PUT de un archivo (crea o actualiza) vía la API Contents de GitHub.
+  function putFile(path,contentStr,message){
+    var headers={ "Authorization":"Bearer "+token(), "Accept":"application/vnd.github+json" };
+    // 1) obtener sha actual (si existe) para poder actualizar
+    return fetch(API+path+"?ref="+BRANCH,{headers:headers,cache:"no-store"})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(meta){
+        var body={ message:message, content:b64(contentStr), branch:BRANCH };
+        if(meta&&meta.sha) body.sha=meta.sha;
+        return fetch(API+path,{ method:"PUT", headers:headers, body:JSON.stringify(body) });
+      })
+      .then(function(r){
+        if(r.ok) return true;
+        return r.json().then(function(j){ throw new Error((j&&j.message)||("HTTP "+r.status)); });
+      });
+  }
+
+  document.getElementById("cloud-save").onclick=function(){
+    if(!token()){ setStatus("Falta el token. Abrí “🔑 Token de GitHub” acá abajo.","err"); return; }
+    var org=localStorage.getItem("gcba_org_v2");
+    if(!org){ setStatus("No hay cambios locales para guardar.","err"); return; }
+    var tree; try{ tree=JSON.parse(org); }catch(e){ setStatus("El organigrama local está corrupto.","err"); return; }
+    var orgStr=JSON.stringify(tree,null,2)+"\n";
+    var layout={
+      positions: JSON.parse(localStorage.getItem("gcba_org_positions_v1")||"{}"),
+      waypoints: JSON.parse(localStorage.getItem("gcba_org_waypoints_v1")||"{}"),
+      midy:      JSON.parse(localStorage.getItem("gcba_org_midy_v1")||"{}"),
+      nodesize:  JSON.parse(localStorage.getItem("gcba_org_nodesize_v1")||"{}")
+    };
+    var layoutStr=JSON.stringify(layout,null,2)+"\n";
+    var stamp=new Date().toISOString().slice(0,16).replace("T"," ");
+    setStatus("⏳ Guardando en la nube…","info");
+    putFile("data/organigrama.json",orgStr,"App: actualizar organigrama ("+stamp+")")
+      .then(function(){ return putFile("data/layout.json",layoutStr,"App: actualizar layout ("+stamp+")"); })
+      .then(function(){
+        setStatus("✅ Guardado. En ~1 min queda publicado; en otra compu tocá <b>Traer de la nube</b>.","ok");
+      })
+      .catch(function(e){
+        var m=String(e&&e.message||e);
+        if(/401|403|bad credentials|not accessible/i.test(m))
+          setStatus("❌ Token inválido o sin permiso <b>Contents: Read and write</b> en este repo.","err");
+        else setStatus("❌ No se pudo guardar: "+m,"err");
+      });
+  };
+
+  document.getElementById("cloud-pull").onclick=function(){
+    if(!confirm("Esto reemplaza lo que tenés en esta computadora con la última versión guardada en la nube. ¿Seguir?")) return;
+    setStatus("⏳ Trayendo de la nube…","info");
+    Promise.all([
+      fetch("data/organigrama.json",{cache:"no-store"}).then(function(r){return r.ok?r.json():Promise.reject("organigrama");}),
+      fetch("data/layout.json",{cache:"no-store"}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;})
+    ]).then(function(res){
+      var tree=res[0], L=res[1];
+      if(!tree||!tree.id) throw new Error("respuesta inválida");
+      var prev=localStorage.getItem("gcba_org_v2");
+      if(prev) localStorage.setItem("gcba_org_v2_backup_"+Date.now(),prev);
+      localStorage.setItem("gcba_org_v2",JSON.stringify(tree));
+      if(L&&typeof L==="object"){
+        localStorage.setItem("gcba_org_positions_v1",JSON.stringify(L.positions||{}));
+        localStorage.setItem("gcba_org_waypoints_v1",JSON.stringify(L.waypoints||{}));
+        localStorage.setItem("gcba_org_midy_v1",JSON.stringify(L.midy||{}));
+        localStorage.setItem("gcba_org_nodesize_v1",JSON.stringify(L.nodesize||{}));
+      }
+      setStatus("✅ Traído. Recargando…","ok");
+      setTimeout(function(){ location.reload(); },700);
+    }).catch(function(e){
+      setStatus("❌ No se pudo traer: "+String(e&&e.message||e),"err");
+    });
+  };
+
+  refreshTok();
 })();
 </script>
 
