@@ -2027,9 +2027,12 @@ window.__wrapTitular = wrapTitular;
       layoutMode="jg";
     } else {
       // ── Vista área (SEC/etc): root + columnas + apilado vertical ──
-      // Se excluyen los ministerios: cada uno tiene su propia página (si no, la
-      // vista de Jefatura de Gabinete mostraría todo el gobierno).
-      const reg=regular.filter(c=>c.tipo!=="MIN");
+      // Se excluyen los ministerios SALVO cuando el área que se mira ES la
+      // Jefatura de Gabinete (cuyos hijos son justamente los ministerios): en
+      // ese caso hay que ubicarlos, si no quedan sin posición y se van fuera del
+      // lienzo. En otras áreas cada ministerio tiene su propia página.
+      const verGabinete=nodeIsGabinete(viewRoot);
+      const reg=verGabinete?regular:regular.filter(c=>c.tipo!=="MIN");
       // Cada hijo se vuelve una columna. Sus hijos no-dashed se apilan abajo.
       const colInfo=reg.map(c=>({
         parent:c,
@@ -2095,6 +2098,22 @@ window.__wrapTitular = wrapTitular;
         }
         layoutMode="columns";
       }
+    }
+
+    // Red de seguridad: cualquier nodo VISIBLE que no haya recibido posición
+    // (casos raros: punteados anidados, etc.) se acomoda en una grilla al pie
+    // en vez de quedarse con coordenadas viejas que lo tiran fuera del lienzo.
+    const _vis=visibleNodes();
+    const _falt=_vis.filter(n=>!positions[n.id]);
+    if(_falt.length){
+      const fw=140,perRow=Math.max(1,Math.floor((AW+HGAP)/(fw+HGAP)));
+      const usados=_falt.length<perRow?_falt.length:perRow;
+      const baseX=(AW-(usados*(fw+HGAP)-HGAP))/2+fw/2;
+      let baseY=Math.max(...Object.values(positions).map(p=>p.y+(p.h||40)),AH*0.5)+VGAP*2;
+      _falt.forEach((n,i)=>{
+        const r=Math.floor(i/perRow),c=i%perRow;
+        positions[n.id]={x:baseX+c*(fw+HGAP),y:baseY+r*46,w:fw,h:40};
+      });
     }
 
     // Aplicar — pisamos solo las posiciones de los nodos que calculamos
