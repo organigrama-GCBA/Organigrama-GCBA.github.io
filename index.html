@@ -272,7 +272,7 @@ function svgBox(x,y,node,W,H,dashed,fsN,fsT){
     const lhT=tt.fs*1.18;
     let yTit=y+mainH+(stripH-tt.lines.length*lhT)/2+tt.fs*0.82;
     tt.lines.forEach(l=>{
-      s+=`<text x="${fv(x+W/2)}" y="${fv(yTit)}" text-anchor="middle" font-size="${fv(tt.fs)}" font-weight="400" fill="rgba(255,255,255,0.88)" font-family="Open Sans,Inter,Arial,sans-serif">${l}</text>`;
+      s+=`<text x="${fv(x+W/2)}" y="${fv(yTit)}" text-anchor="middle" font-size="${fv(tt.fs)}" font-weight="700" fill="rgba(255,255,255,0.92)" font-family="Open Sans,Inter,Arial,sans-serif">${l}</text>`;
       yTit+=lhT;
     });
   }
@@ -627,7 +627,7 @@ window.__wrapTitular = wrapTitular;
   <div id="ed-toolbar">
     <span style="font-size:10px;font-weight:600;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.06em;">Área:</span>
     <select id="ed-area-sel" style="min-width:240px;flex:1;max-width:380px;"></select>
-    <span style="font-size:10px;color:var(--ed-text3);margin-left:8px;">· clic = sel · Ctrl+clic = sumar nodo · Shift+clic = sumar rama · flechas = mover · <b style="color:var(--ed-accent);">Alt+arrastrar = sin pegar</b></span>
+    <span style="font-size:10px;color:var(--ed-text3);margin-left:8px;">· clic = sel · Ctrl+clic = sumar nodo · Shift+clic = sumar rama · arrastrar fondo = mover lienzo · Shift+arrastrar fondo = seleccionar · flechas = mover · <b style="color:var(--ed-accent);">Alt+arrastrar = sin pegar</b></span>
     <span style="font-size:10px;color:var(--ed-text3);margin-left:12px;" title="Aplica al nodo seleccionado (o a todos si no hay selección). Vacío/0 = automático.">Texto:</span>
     <input id="ed-fs" type="number" min="6" max="72" step="0.5" value="11" title="Tamaño de letra. Aplica a los nodos seleccionados (o a todos). 0 = automático."
         style="width:52px;background:var(--ed-surface2);border:1px solid var(--ed-border2);border-radius:5px;padding:3px 6px;font-size:11px;color:var(--ed-text1);font-family:inherit;"/>
@@ -803,6 +803,12 @@ window.__wrapTitular = wrapTitular;
   let edRenderState={nodes:[],links:[],drawLinks:()=>{},drawWPs:()=>{}};
   // Cleanup de listeners registrados en renderCanvas previo (lasso); evita acumular handlers.
   let edLassoCleanup=null;
+  // ── Deshacer (undo) ──────────────────────────────────────
+  // Pila de estados "confirmados" (posiciones + líneas + árbol). Cada cambio
+  // empuja un snapshot vía showSaved(); deshacer vuelve al snapshot anterior.
+  let edUndoStack=[];
+  let edUndoArea=null;        // área del baseline actual de la pila
+  let edUndoSuspend=false;    // evita re-empujar mientras restauramos
 
   // ── LocalStorage helpers ─────────────────────────────────
   function readLS(key){try{const v=JSON.parse(localStorage.getItem(key)||"{}");return(v&&typeof v==="object"&&!Array.isArray(v))?v:{};}catch{return{};}}
@@ -1295,7 +1301,7 @@ window.__wrapTitular = wrapTitular;
       .attr("rx",3).style("display","none").style("pointer-events","none");
 
     const onLassoDown=function(e){
-      if(e.button!==0)return;
+      if(e.button!==0||!e.shiftKey)return;   // lasso = Shift+arrastre (clic izq solo = pan)
       const tgt=e.target;
       if(tgt.closest&&(tgt.closest(".c-node")||tgt.closest(".lhit")||tgt.closest(".wp-dot")))return;
       const svgR=svgEl.getBoundingClientRect();
@@ -1527,7 +1533,7 @@ window.__wrapTitular = wrapTitular;
         let yT=mainH+(stripH-tt.lines.length*lhT)/2+tt.fs*0.82;
         tt.lines.forEach(l=>{
           g2.append("text").attr("x",_nw/2).attr("y",yT)
-            .attr("text-anchor","middle").attr("font-size",tt.fs).attr("font-weight",400)
+            .attr("text-anchor","middle").attr("font-size",tt.fs).attr("font-weight",700)
             .attr("fill","rgba(255,255,255,0.88)").attr("font-family","Open Sans,Inter,sans-serif").text(l);
           yT+=lhT;
         });
@@ -1552,8 +1558,27 @@ window.__wrapTitular = wrapTitular;
           const startW=p.w||NW,startH=p.h||NH;
           const nodeId=d.id;
           const handleEl=this;
+          // Si el nodo es parte de una selección múltiple, redimensionar TODOS
+          // los seleccionados a la vez (mismo delta), manteniendo la selección.
+          const multi=edSelectedIds.has(d.id)&&edSelectedIds.size>1;
+          const group=multi?[...edSelectedIds]:[d.id];
+          const startSizes={};
+          group.forEach(gid=>{const gp=edPositions[gid];if(gp)startSizes[gid]={w:gp.w||NW,h:gp.h||NH};});
+          let rafPending=false;
 
           function onMove(ev){
+            if(multi){
+              ev.stopPropagation();
+              const dxm=ev.clientX-startX, dym=ev.clientY-startY;
+              group.forEach(gid=>{
+                const gp=edPositions[gid], ss=startSizes[gid];
+                if(!gp||!ss)return;
+                gp.w=Math.max(60,Math.min(800,ss.w+dxm));
+                gp.h=Math.max(24,Math.min(400,ss.h+dym));
+              });
+              if(!rafPending){rafPending=true;requestAnimationFrame(()=>{rafPending=false;savePosForArea();renderCanvas();});}
+              return;
+            }
             const liveEl=document.querySelector(`.c-node[data-id="${nodeId}"]`)||handleEl.parentNode;
             const par=d3.select(liveEl);
             ev.stopPropagation();
@@ -1602,7 +1627,7 @@ window.__wrapTitular = wrapTitular;
                 par.append("text")
                   .attr("x",p.w/2).attr("y",yT)
                   .attr("text-anchor","middle")
-                  .style("font-size",tt.fs+"px").attr("font-weight",400)
+                  .style("font-size",tt.fs+"px").attr("font-weight",700)
                   .attr("fill","rgba(255,255,255,0.88)")
                   .attr("font-family","Open Sans,sans-serif").text(l);
                 yT+=lhT;
@@ -1642,6 +1667,8 @@ window.__wrapTitular = wrapTitular;
 
     // Publicar estado para que las funciones globales (nudge, selectAllNodes, etc.) lo puedan leer
     edRenderState={nodes,links,drawLinks,drawWPs};
+    edEnsureBaseline();
+    edUpdateUndoBtn();
   }
 
   // ── Selección & Inspector ─────────────────────────────────
@@ -1660,7 +1687,7 @@ window.__wrapTitular = wrapTitular;
     const actions=document.getElementById("ed-actions");
     const idEl=document.getElementById("ed-ins-id");
     if(!node){
-      body.innerHTML='<div class="ed-ins-empty"><div class="ico">⬡</div><p>Clic = seleccionar uno<br>Ctrl+clic = sumar / quitar nodo<br>Shift+clic = sumar rama entera<br>Arrastre en fondo = lasso</p></div>';
+      body.innerHTML='<div class="ed-ins-empty"><div class="ico">⬡</div><p>Clic = seleccionar uno<br>Ctrl+clic = sumar / quitar nodo<br>Shift+clic = sumar rama entera<br>Arrastre en fondo = mover lienzo<br>Shift+arrastre = seleccionar (lasso)</p></div>';
       actions.style.display="none";if(idEl)idEl.textContent="";return;
     }
     if(idEl)idEl.textContent=node.id;
@@ -1839,10 +1866,60 @@ window.__wrapTitular = wrapTitular;
   }
 
   function showSaved(){
+    edPushUndo();
     const el=document.getElementById("ed-saved-msg");
     if(!el)return;
     el.style.opacity="1";clearTimeout(el._t);
     el._t=setTimeout(()=>el.style.opacity="0",2000);
+  }
+
+  // ── Implementación de Deshacer ──────────────────────────
+  const _clone=(o)=>JSON.parse(JSON.stringify(o));
+  function edSnapshot(){
+    return {pos:_clone(edPositions),wp:_clone(edWaypoints),midy:_clone(edLinkMidY),data:_clone(edData)};
+  }
+  // Garantiza un baseline en la pila al entrar a un área (antes de cualquier cambio).
+  function edEnsureBaseline(){
+    if(edUndoSuspend)return;
+    if(edUndoArea!==edViewId){
+      edUndoStack=[edSnapshot()];
+      edUndoArea=edViewId;
+    }
+  }
+  // Empuja el estado actual (post-cambio) si difiere del tope.
+  function edPushUndo(){
+    if(edUndoSuspend||!edViewId||!edData)return;
+    if(edUndoArea!==edViewId){edUndoStack=[edSnapshot()];edUndoArea=edViewId;return;}
+    const snap=edSnapshot();
+    const top=edUndoStack[edUndoStack.length-1];
+    if(top&&JSON.stringify(top)===JSON.stringify(snap))return;
+    edUndoStack.push(snap);
+    if(edUndoStack.length>60)edUndoStack.shift();
+    edUpdateUndoBtn();
+  }
+  function edUpdateUndoBtn(){
+    const b=document.getElementById("ed-btn-undo");
+    if(!b)return;
+    const can=edUndoStack.length>1;
+    b.disabled=!can;b.style.opacity=can?"1":"0.45";b.style.cursor=can?"pointer":"default";
+  }
+  function edUndo(){
+    if(edUndoStack.length<=1)return;
+    edUndoStack.pop();                                   // descartar estado actual
+    const snap=edUndoStack[edUndoStack.length-1];        // volver al anterior
+    edUndoSuspend=true;
+    edPositions=_clone(snap.pos);
+    edWaypoints=_clone(snap.wp);
+    edLinkMidY=_clone(snap.midy);
+    edData=_clone(snap.data);
+    savePosForArea();saveWPForArea();saveMidYForArea();
+    window.dispatchEvent(new CustomEvent("editorDataChanged",{detail:_clone(edData)}));
+    renderSidebar();renderCanvas();renderInspector(null);
+    edUndoSuspend=false;
+    edUpdateUndoBtn();
+    const el=document.getElementById("ed-saved-msg");
+    if(el){el.textContent="↩ Deshecho";el.style.opacity="1";clearTimeout(el._t);
+      el._t=setTimeout(()=>{el.style.opacity="0";el.textContent="✓ Guardado";},1800);}
   }
 
   function resetLayout(){
@@ -2107,6 +2184,7 @@ window.__wrapTitular = wrapTitular;
   wire("ed-btn-autolayout",()=>autoLayoutA3());
   wire("ed-btn-clearlines",()=>clearLines());
   wire("ed-btn-reset",()=>resetLayout());
+  wire("ed-btn-undo",()=>edUndo());
 
   // Tamaño de letra: aplica el valor del input a los nodos seleccionados
   // (o a todos si no hay selección). 0/“auto” vuelve al tamaño automático.
@@ -2290,18 +2368,32 @@ window.__wrapTitular = wrapTitular;
   });
 
   _edSvg.addEventListener("mousedown",function(e){
-    // Pan con: clic derecho, clic medio, o espacio+clic izquierdo.
-    // El clic izquierdo sin modificador queda para el lasso (mousedown handler aparte).
-    const isPan=e.button===1||e.button===2||(e.button===0&&_spaceDown);
-    if(!isPan)return;
-    e.preventDefault();e.stopPropagation();
-    _panStart={cx:e.clientX,cy:e.clientY,tx:edTransform.x,ty:edTransform.y};
-    _edCanvas.style.cursor="grabbing";
+    // Pan (mover el lienzo): clic derecho, clic medio, espacio+clic izq, o
+    // clic izquierdo arrastrando sobre el FONDO (sin Shift). Shift+arrastre en
+    // el fondo queda para el lasso de selección; arrastre sobre un nodo lo mueve.
+    const onNode=e.target.closest&&(e.target.closest(".c-node")||e.target.closest(".lhit")||e.target.closest(".wp-dot")||e.target.closest(".resize-handle"));
+    const hardPan=e.button===1||e.button===2||(e.button===0&&_spaceDown);
+    const softPan=e.button===0&&!_spaceDown&&!e.shiftKey&&!onNode;
+    if(!hardPan&&!softPan)return;
+    if(hardPan){
+      e.preventDefault();e.stopPropagation();
+      _panStart={cx:e.clientX,cy:e.clientY,tx:edTransform.x,ty:edTransform.y,moved:true,soft:false};
+      _edCanvas.style.cursor="grabbing";
+    }else{
+      // soft: no bloqueamos el click (deselección) hasta confirmar arrastre real
+      _panStart={cx:e.clientX,cy:e.clientY,tx:edTransform.x,ty:edTransform.y,moved:false,soft:true};
+    }
   },{passive:false});
 
   window.addEventListener("mousemove",function(e){
     if(!_panStart)return;
     if(!document.getElementById("ed-pane").classList.contains("visible")){_panStart=null;return;}
+    if(_panStart.soft&&!_panStart.moved){
+      const md=Math.abs(e.clientX-_panStart.cx)+Math.abs(e.clientY-_panStart.cy);
+      if(md<4)return;            // todavía es un clic, no un arrastre
+      _panStart.moved=true;
+      _edCanvas.style.cursor="grabbing";
+    }
     const t=d3.zoomIdentity.translate(
       _panStart.tx+(e.clientX-_panStart.cx),
       _panStart.ty+(e.clientY-_panStart.cy)
@@ -2312,8 +2404,15 @@ window.__wrapTitular = wrapTitular;
 
   window.addEventListener("mouseup",function(e){
     if(_panStart){
+      const wasPan=_panStart.moved;
       _panStart=null;
       _edCanvas.style.cursor=_spaceDown?"grab":"";
+      if(wasPan){
+        // Tras panear, suprimir el "click" que dispararía la deselección.
+        const swallow=ev=>{ev.stopPropagation();ev.preventDefault();};
+        _edSvg.addEventListener("click",swallow,{capture:true,once:true});
+        setTimeout(()=>_edSvg.removeEventListener("click",swallow,{capture:true}),0);
+      }
     }
   });
 
@@ -4142,9 +4241,12 @@ function __mountApp(){
 </div>
 <script>
 (function(){
+  var REPO="lubelrivero-design/Organigrama-GCBA";
   var fab=document.getElementById("bol-fab"), modal=document.getElementById("bol-modal"),
       list=document.getElementById("bol-list");
+  var items=[];
   function esc(s){return String(s==null?"":s).replace(/[&<>]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;"}[c];});}
+  function token(){ try{return localStorage.getItem("gh_token")||"";}catch(e){return"";} }
   // Render mínimo de markdown del resumen (negritas, código, itálicas, títulos, viñetas)
   function md(t){
     return esc(t)
@@ -4160,22 +4262,71 @@ function __mountApp(){
   document.getElementById("bol-close").onclick=function(){modal.style.display="none";};
   modal.onclick=function(e){if(e.target===modal)modal.style.display="none";};
 
+  function prNumber(url){ var m=/\/pull\/(\d+)/.exec(url||""); return m?m[1]:null; }
+
+  function render(){
+    if(!items.length){
+      fab.style.display="none";
+      list.innerHTML='<div style="font:400 13px \'Open Sans\',sans-serif;color:#718096;text-align:center;padding:12px;">No hay cambios pendientes. 🎉</div>';
+      return;
+    }
+    fab.textContent="📥 Boletín: "+items.length+" pendiente"+(items.length>1?"s":"");
+    fab.style.display="block";
+    list.innerHTML=items.map(function(it,i){
+      return '<div class="bol-card" data-i="'+i+'" style="border:1px solid #E2E8F0;border-radius:8px;padding:12px 14px;margin-bottom:12px;">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">'
+          +'<strong style="font:700 13px \'Open Sans\',sans-serif;color:#101E37;">'+esc(it.titulo||("Boletín "+it.fecha))+'</strong>'
+          +'<div style="display:flex;gap:8px;white-space:nowrap;">'
+            +'<a href="'+esc(it.url)+'" target="_blank" rel="noopener" '
+              +'style="background:#268948;color:#fff;text-decoration:none;border-radius:7px;padding:7px 14px;font:600 12px \'Open Sans\',sans-serif;">Aprobar →</a>'
+            +'<button class="bol-reject" data-i="'+i+'" '
+              +'style="background:#fff;color:#9B1C1C;border:1px solid #E2B8B8;border-radius:7px;padding:7px 12px;font:600 12px \'Open Sans\',sans-serif;cursor:pointer;">Rechazar</button>'
+          +'</div>'
+        +'</div>'
+        +'<div style="font:400 12px/1.5 \'Open Sans\',sans-serif;color:#2D3748;">'+md(it.resumen||"")+'</div>'
+      +'</div>';
+    }).join("");
+    Array.prototype.forEach.call(list.querySelectorAll(".bol-reject"),function(b){
+      b.onclick=function(){ reject(parseInt(b.dataset.i,10)); };
+    });
+  }
+
+  // Rechazar = cerrar el PR en GitHub (y borrar su rama) con el token guardado.
+  // Al cerrarse, el workflow del índice regenera cambios-pendientes.json.
+  function reject(i){
+    var it=items[i]; if(!it)return;
+    var num=prNumber(it.url);
+    if(!num){ alert("No pude identificar el PR de este cambio."); return; }
+    var tk=token();
+    if(!tk){
+      alert("Para rechazar desde la app necesitás el token de GitHub.\nAbrí “☁️ Nube → 🔑 Token de GitHub” y pegá un token con permiso de Pull requests: Read and write.");
+      return;
+    }
+    if(!confirm("¿Rechazar este cambio? Se cerrará el Pull Request y no se aplicará.")) return;
+    var headers={ "Authorization":"Bearer "+tk, "Accept":"application/vnd.github+json" };
+    fetch("https://api.github.com/repos/"+REPO+"/pulls/"+num,{
+      method:"PATCH", headers:headers, body:JSON.stringify({state:"closed"})
+    }).then(function(r){
+      if(!r.ok) return r.json().then(function(j){ throw new Error((j&&j.message)||("HTTP "+r.status)); });
+      if(it.fecha){ // borrar la rama boletin/<fecha> (best-effort)
+        fetch("https://api.github.com/repos/"+REPO+"/git/refs/heads/boletin/"+it.fecha,{method:"DELETE",headers:headers}).catch(function(){});
+      }
+      items.splice(i,1);
+      render();
+    }).catch(function(e){
+      var m=String(e&&e.message||e);
+      if(/401|403|bad credentials|not accessible/i.test(m))
+        alert("Token inválido o sin permiso. Necesita Pull requests: Read and write en este repo.");
+      else alert("No se pudo rechazar: "+m);
+    });
+  }
+
   fetch("data/cambios-pendientes.json",{cache:"no-store"})
     .then(function(r){return r.ok?r.json():[];})
-    .then(function(items){
-      if(!Array.isArray(items)||!items.length)return;
-      fab.textContent="📥 Boletín: "+items.length+" pendiente"+(items.length>1?"s":"");
-      fab.style.display="block";
-      list.innerHTML=items.map(function(it){
-        return '<div style="border:1px solid #E2E8F0;border-radius:8px;padding:12px 14px;margin-bottom:12px;">'
-          +'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">'
-            +'<strong style="font:700 13px \'Open Sans\',sans-serif;color:#101E37;">'+esc(it.titulo||("Boletín "+it.fecha))+'</strong>'
-            +'<a href="'+esc(it.url)+'" target="_blank" rel="noopener" '
-              +'style="background:#268948;color:#fff;text-decoration:none;border-radius:7px;padding:7px 14px;font:600 12px \'Open Sans\',sans-serif;white-space:nowrap;">Aprobar en GitHub →</a>'
-          +'</div>'
-          +'<div style="font:400 12px/1.5 \'Open Sans\',sans-serif;color:#2D3748;">'+md(it.resumen||"")+'</div>'
-        +'</div>';
-      }).join("");
+    .then(function(data){
+      items=Array.isArray(data)?data:[];
+      if(!items.length)return;   // nada pendiente: no mostrar el FAB
+      render();
     })
     .catch(function(){});
 })();
