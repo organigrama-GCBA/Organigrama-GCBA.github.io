@@ -142,7 +142,7 @@
             {
               "id": "EATC",
               "nombre": "Ente Autárquico Teatro Colón Ley N° 2.855",
-              "titular": "Gerardo Luis Grieco Martínez",
+              "titular": "",
               "tipo": "ORG",
               "dashed": true,
               "children": []
@@ -393,7 +393,7 @@
                 {
                   "id": "DGPAPM",
                   "nombre": "DG. Políticas Asistenciales para Personas Mayores",
-                  "titular": "Ana Belén Rimoldi",
+                  "titular": "",
                   "tipo": "DG",
                   "children": []
                 }
@@ -570,7 +570,7 @@
             {
               "id": "UAIMED",
               "nombre": "Unidad de Auditoría Interna MED",
-              "titular": "María Inés Solessi",
+              "titular": "",
               "tipo": "ORG",
               "dashed": true,
               "children": []
@@ -766,7 +766,7 @@
                     {
                       "id": "EMUI",
                       "nombre": "Ente de Mantenimiento Urbano Integral (E.M.U.I) Ley N° 473",
-                      "titular": "Joel Franco Iacarin",
+                      "titular": "Joel Franco Iacarini",
                       "tipo": "ORG",
                       "dashed": true,
                       "children": []
@@ -790,7 +790,7 @@
                 {
                   "id": "DGPCIURB",
                   "nombre": "DG. Planificación y Coordinación de Intervenciones Urbanas",
-                  "titular": "Karina Patricia Soto",
+                  "titular": "",
                   "tipo": "DG",
                   "children": []
                 },
@@ -1026,7 +1026,7 @@
             {
               "id": "OSBA",
               "nombre": "Obra Social de la Ciudad de Buenos Aires Ley N° 472",
-              "titular": "Alejandro Amor",
+              "titular": "Ezequiel Edgardo Jarvis",
               "tipo": "ORG",
               "dashed": true,
               "children": []
@@ -1556,7 +1556,7 @@
                     {
                       "id": "DGPDT",
                       "nombre": "DG. Protección del Trabajo",
-                      "titular": "José Fernando Cohen",
+                      "titular": "",
                       "tipo": "DG",
                       "children": []
                     },
@@ -2291,7 +2291,7 @@
             {
               "id": "ISSP",
               "nombre": "Instituto Superior de Seguridad Pública Ley N° 5.688",
-              "titular": "Javier Martín López Zavaleta",
+              "titular": "Ignacio Mahiques",
               "tipo": "ORG",
               "dashed": true,
               "children": []
@@ -2302,6 +2302,13 @@
               "titular": "Pablo Gonzalo Pinamonti",
               "tipo": "ORG",
               "dashed": true,
+              "children": []
+            },
+            {
+              "id": "INSTITUTOUNI",
+              "nombre": "Instituto Universitario de Seguridad (IUSE)",
+              "tipo": "ORG",
+              "titular": "Ignacio Mahiques",
               "children": []
             }
           ]
@@ -2377,13 +2384,13 @@
             {
               "id": "SSHIG",
               "nombre": "SS. Higiene",
-              "titular": "Juan Martín Malcolm",
+              "titular": "",
               "tipo": "SS",
               "children": [
                 {
                   "id": "DGRECI",
                   "nombre": "DG. Reciclado",
-                  "titular": "Agustín Luciano Montagnoli",
+                  "titular": "",
                   "tipo": "DG",
                   "children": []
                 },
@@ -2489,7 +2496,15 @@
                   "nombre": "DG. Canales Digitales",
                   "titular": "Jorge Ariel González",
                   "tipo": "DG",
-                  "children": []
+                  "children": [
+                    {
+                      "id": "SUBGERENCIAO",
+                      "nombre": "Subgerencia Operativa Aseguramiento de Calidad, Usabilidad y Mejora Continua",
+                      "tipo": "GO",
+                      "titular": "Candela Yúdice",
+                      "children": []
+                    }
+                  ]
                 },
                 {
                   "id": "DGCDC",
@@ -2588,7 +2603,15 @@
               "nombre": "DG. Asuntos Jurídicos",
               "titular": "Nicolás Roberto Wissinger",
               "tipo": "DG",
-              "children": []
+              "children": [
+                {
+                  "id": "GERENCIAOPER1",
+                  "nombre": "Gerencia Operativa Legal",
+                  "tipo": "GO",
+                  "titular": "Pablo Eduardo Banfi",
+                  "children": []
+                }
+              ]
             },
             {
               "id": "DGTAS",
@@ -2643,7 +2666,7 @@
             {
               "id": "DGROC",
               "nombre": "DG. Registro de Obras y Catastro",
-              "titular": "Antonella Ana Amicucci",
+              "titular": "María Josefina Previde",
               "tipo": "DG",
               "children": []
             }
@@ -2683,7 +2706,7 @@
         {
           "id": "CBAS",
           "nombre": "Corporación Buenos Aires Sur S.A.U. Ley N°470",
-          "titular": "Karina Andrea Burijson",
+          "titular": "",
           "tipo": "ORG",
           "dashed": true,
           "children": []
@@ -2880,9 +2903,17 @@
         {
           "id": "GGTALSGCBA",
           "nombre": "Gerencia General Técnica, Administrativa y Legal",
-          "titular": "Carlos Pablo Maza",
+          "titular": "Noemí Beatriz Cesari",
           "tipo": "GG",
-          "children": []
+          "children": [
+            {
+              "id": "GERENCIAOPER",
+              "nombre": "Gerencia Operativa Legal",
+              "tipo": "GO",
+              "titular": "Noemí Beatriz Cesari",
+              "children": []
+            }
+          ]
         },
         {
           "id": "GGAJISGCBA",
@@ -2894,7 +2925,7 @@
         {
           "id": "GGAJIISGCBA",
           "nombre": "Gerencia General Auditoría Jurisdicción II",
-          "titular": "Noemí Beatriz Cesari",
+          "titular": "",
           "tipo": "GG",
           "children": []
         },
@@ -3100,7 +3131,7 @@
             {
               "id": "DGPJ",
               "nombre": "DG. Políticas de Juventud",
-              "titular": "Stefano Salmeri",
+              "titular": "",
               "tipo": "DG",
               "children": []
             }
@@ -3685,24 +3716,24 @@
           "tipo": "SS",
           "children": [
             {
-              "id": "DGEV",
-              "nombre": "DG. Espacios Verdes",
-              "titular": "Martín Andrés Maffuchi",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "DGARBOL",
-              "nombre": "DG. Arbolado",
-              "titular": "Mauro Daniel Morando",
-              "tipo": "DG",
-              "children": []
-            },
-            {
               "id": "DGCEME",
               "nombre": "DG. Cementerios",
               "titular": "Ignacio Salaberri",
               "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGESPACIOSVE",
+              "nombre": "DG. Espacios Verdes",
+              "tipo": "DG",
+              "titular": "",
+              "children": []
+            },
+            {
+              "id": "DGARBOLADO",
+              "nombre": "DG. Arbolado",
+              "tipo": "DG",
+              "titular": "",
               "children": []
             }
           ]
@@ -3730,7 +3761,7 @@
             {
               "id": "DGDYPC",
               "nombre": "DG. Defensa y Protección al Consumidor",
-              "titular": "Alejandro Pérez",
+              "titular": "",
               "tipo": "DG",
               "children": []
             }
@@ -3762,6 +3793,13 @@
               "titular": "Claudio Alfredo Baranzelli",
               "tipo": "DG",
               "children": []
+            },
+            {
+              "id": "DGGESTIONDEC",
+              "nombre": "DG. Gestión de Calidad y Demanda Ciudadana",
+              "tipo": "DG",
+              "titular": "",
+              "children": []
             }
           ]
         },
@@ -3775,13 +3813,6 @@
               "id": "DGHC",
               "nombre": "DG. Habilitación a Conductores",
               "titular": "María Florencia Saavedra",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "DGADJREC",
-              "nombre": "DG. Adjunta Registro del Estado Civil y Capacidad de las Personas",
-              "titular": "",
               "tipo": "DG",
               "children": []
             },
