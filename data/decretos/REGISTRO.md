@@ -173,6 +173,27 @@ SECLYT, MSEGC (174/26), PG (186/26), SECGVC (215/26), MEPHUGC (124/26), SECCO; +
   Descentralizados, Servicios de Atención Permanente, Políticas/Programas/Atención en la Urgencia,
   Legal Técnica y Administrativa, Responsabilidad Penal Juvenil.
 
-## Estado
+### Áreas de Jefatura / Jefe de Gobierno con decreto propio
+- **Asuntos Estratégicos (SECAE)** — Decreto 122/25: SS Asuntos Estratégicos, DG Proyectos Estratégicos.
+- **Ordenamiento Urbano (SECOU)** — Decreto 124/26 (anexo Jefatura, sección 8): SECOU, SS Gestión
+  del Ordenamiento Urbano, DG Fiscalización.
+- **Relaciones Federales (URFVI)** — Decreto 292/25 (anexo Jefe de Gobierno): URFVI, SS Asuntos
+  Interjurisdiccionales, DG Gestión y Evaluación Estratégica, DG Acuerdos con Provincias y Municipios,
+  DG Representaciones Federales, DG Vinculación con Centros Formativos.
+
+### Cierre con descripción/remisión breve
+Cuerpos consultivos y áreas sin anexo de responsabilidades específico se cargaron con una descripción
+breve (fuente "Descripción breve…") o remisión legal: CPPH, Directorio Consultivo y CODEI y Consejo
+Asesor de ENTUR, Unidad de Asesores (JG), IGE Adjunta y Unidad de Enlace Electoral, DG Estadística y
+Censos (IDECBA), DGACD, DGNMC, DGIPS, DGSGE, DGSGES, DGIDEPE, UCSYTRM, CBAS, CPEST, COMUNAS y las UAI
+de organismos.
+
+## Estado — Parte 2 COMPLETA
+**512 / 512 áreas (MIN/SEC/SS/DG/GG/ORG/VJG) con misiones y funciones de texto completo.**
+0 entradas vacías o truncadas. Fuentes: anexos de decretos de estructura (Boletín Oficial) y
+resoluciones propias de organismos (AGC, ASI, ENTUR, AGIP, CDNNYA, Sindicatura, APRA).
+
+---
+## Registro previo (Parte 1 — verificación de estructura)
 **Todos los decretos estructurales (⭐ con anexo) procesados** (14 → 224).
 Los decretos restantes sin anexo (40,41,45,48,53,57,60,62,63,73–76,82,85–88,98,101,103,106,112,114,116,123,141,146,158,161–168,170,175,176,180–182,194,197,200,205,210–212,226,227,228,236) son **designaciones/renuncias de personas** (titulares), anteriores al base de junio → stale. No tocan estructura.

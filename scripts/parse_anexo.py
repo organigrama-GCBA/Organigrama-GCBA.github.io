@@ -10,7 +10,7 @@ def load(path):
 def build_secs(txt):
     lines=txt.split('\n')
     # Solo numeraciones plausibles de sección: componentes de 1-2 dígitos.
-    hdr=re.compile(r'^(\d{1,2}(?:\.\d{1,2}){0,4})\b(.*)$')
+    hdr=re.compile(r'^(\d{1,2}(?:\.\d{1,2}){0,4})\.?\s*(.*)$')
     KEY=('Descripción de Responsabilidades','Descripcion de Responsabilidades',
          'Descripción de Acciones','Descripcion de Acciones','Objetivos')
     def is_header(s):
