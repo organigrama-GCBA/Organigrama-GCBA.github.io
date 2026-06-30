@@ -4001,6 +4001,34 @@ function App(){
                   </div>
                 </div>
               </div>
+              {/* Misiones y funciones (responsabilidad primaria / objetivos / acciones) */}
+              {(()=>{
+                const fn=(window.__FUNCIONES||{})[selected.id];
+                if(!fn)return null;
+                const blocks=[];
+                if(fn.responsabilidad)blocks.push(["Responsabilidad primaria",fn.responsabilidad]);
+                if(fn.objetivos)blocks.push(["Objetivos",fn.objetivos]);
+                if(fn.acciones)blocks.push(["Acciones / Descripción",fn.acciones]);
+                if(!blocks.length&&fn.texto)blocks.push(["",fn.texto]);
+                if(!blocks.length)return null;
+                return (
+                  <div style={{marginBottom:18}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+                      <div style={{width:3,height:16,borderRadius:2,background:color}}/>
+                      <span style={{fontSize:11,fontWeight:700,color:"#101E37",textTransform:"uppercase",letterSpacing:".06em"}}>Misiones y funciones</span>
+                      {fn.fuente&&<span style={{fontSize:10,background:"#EEF2F7",color:"#4A5568",fontWeight:600,padding:"1px 7px",borderRadius:20}}>{fn.fuente}</span>}
+                    </div>
+                    <div style={{background:"#fff",border:"1px solid #E8EDF2",borderRadius:9,padding:"12px 16px"}}>
+                      {blocks.map(([t,c],i)=>(
+                        <div key={i} style={{marginBottom:i<blocks.length-1?10:0}}>
+                          {t&&<div style={{fontSize:10,fontWeight:700,color:color,textTransform:"uppercase",letterSpacing:".05em",marginBottom:3}}>{t}</div>}
+                          <div style={{fontSize:12.5,color:"#2D3748",lineHeight:1.55,whiteSpace:"pre-wrap"}}>{c}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
               {/* Dependencias */}
               {(selected.children||[]).length>0&&(
                 <div>
@@ -4200,6 +4228,15 @@ function __loadLayout(){
       .catch(()=>{});
   }catch(e){ return Promise.resolve(); }
 }
+// Carga las misiones y funciones (responsabilidades/objetivos/acciones) por área.
+function __loadFunciones(){
+  try{
+    return fetch("data/funciones.json",{cache:"no-store"})
+      .then(r=>r.ok?r.json():null)
+      .then(f=>{ if(f&&typeof f==="object") window.__FUNCIONES=f; })
+      .catch(()=>{});
+  }catch(e){ return Promise.resolve(); }
+}
 (function(){
   try{
     fetch("data/organigrama.json",{cache:"no-store"})
@@ -4207,6 +4244,7 @@ function __loadLayout(){
       .then(d=>{ if(d&&d.id)window.__ORG_DEFAULT=sanitize(d); })
       .catch(()=>{})
       .then(__loadLayout)
+      .then(__loadFunciones)
       .finally(__mountApp);
   }catch(e){ __mountApp(); }
 })();
