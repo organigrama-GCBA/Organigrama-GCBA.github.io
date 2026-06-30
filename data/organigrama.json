@@ -1587,6 +1587,13 @@
           "tipo": "MIN",
           "children": [
             {
+              "id": "DGTALMI",
+              "nombre": "DG. Técnica, Administrativa y Legal",
+              "titular": "Fernando Jorge Codino",
+              "tipo": "DG",
+              "children": []
+            },
+            {
               "id": "SSPO",
               "nombre": "SS. Proyectos y Obras",
               "titular": "Facundo Lombardo",
@@ -1681,7 +1688,7 @@
                     },
                     {
                       "id": "DGGEF",
-                      "nombre": "DG. Gestión Económico-Financiero",
+                      "nombre": "DG. Gestión Económico-Financiera",
                       "titular": "Eduardo Javier Dottore",
                       "tipo": "DG",
                       "children": []
@@ -1741,7 +1748,7 @@
                 },
                 {
                   "id": "DGGIDT",
-                  "nombre": "DG. Gestión Integral del Tránsito dependiente",
+                  "nombre": "DG. Gestión Integral del Tránsito",
                   "titular": "Marcelo Ezequiel Dameno Aguilera",
                   "tipo": "DG",
                   "children": []
@@ -2559,13 +2566,6 @@
           "id": "DGLTAGIP",
           "nombre": "DG. Legal y Técnica",
           "titular": "Silvina Lima",
-          "tipo": "DG",
-          "children": []
-        },
-        {
-          "id": "DGTALMI",
-          "nombre": "DG. Técnica, Administrativa y Legal",
-          "titular": "Fernando Jorge Codino",
           "tipo": "DG",
           "children": []
         },
