@@ -32,11 +32,17 @@ Orden: del más viejo al más nuevo (número de decreto = orden cronológico).
 | 125 | 27/03 | Anexo Ratificaciones JGM (Ordenamiento Urbano) | ⏭️ Designaciones stale; estructura (SECOU) ya en base |
 | 137 ⭐ | 31/03 | Anexo organigrama Secretaría General | ⚠️ **CORREGIDO**: Protocolo y Ceremonial (DGPRYC) y Análisis Prospectivo (DGAPR) colgaban directo de SECGE → movidos bajo SS Relaciones Internacionales (como indica el anexo) |
 
+| 124 ⭐ | abr | Anexo organigrama Min. Espacio Público e Higiene (MEPHUGC) | ✅ Estructura DG coincide (superado por el 144, mismo ministerio) |
+| 144 ⭐ | may | Anexo organigrama MEPHUGC (versión más nueva) | ✅ Estructura DG coincide; sin cambios |
+| 173 ⭐ | 04/05 | Anexo Min. Hacienda y Finanzas + responsabilidades | ✅ Estructura DG coincide; cambios son responsabilidades |
+| 174 ⭐ | 04/05 | Min. Seguridad: mueve DG Alcaidías a SS Investigación y Estadística Criminal | ✅ Ya en base (DGALC→SSIYEC); resto responsabilidades |
+| 186 ⭐ | 14/05 | Procuración General + responsabilidades | ✅ Ya en base (DG Inteligencia Artificial presente) |
+
 ## Correcciones aplicadas al organigrama
 - **Decreto 39**: eliminada `SSANP` (SS. Análisis Prospectivo), suprimida por el decreto pero presente en el base.
 - **Decreto 137**: `DGPRYC` y `DGAPR` movidos de SECGE (directo) a `SSRIN` (SS. Relaciones Internacionales).
 - **Decreto 105**: `DGDIYDP` renombrada a "DG. Docencia, Investigación y Desarrollo Profesional".
 
 ## Pendientes (estructurales ⭐ con anexo, en orden)
-124, 144, 173, 174, 186, 193, 215, 216, 220, 224
+193, 215, 216, 220, 224
 y los decretos de junio (post-base) para titulares vigentes.
