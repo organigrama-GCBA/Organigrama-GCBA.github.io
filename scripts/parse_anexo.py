@@ -9,15 +9,37 @@ def load(path):
 
 def build_secs(txt):
     lines=txt.split('\n')
-    hdr=re.compile(r'^(\d+(?:\.\d+)*)\s*(.*)$')
+    # Solo numeraciones plausibles de sección: componentes de 1-2 dígitos.
+    hdr=re.compile(r'^(\d{1,2}(?:\.\d{1,2}){0,4})\b(.*)$')
     KEY=('Descripción de Responsabilidades','Descripcion de Responsabilidades',
          'Descripción de Acciones','Descripcion de Acciones','Objetivos')
+    def is_header(s):
+        m=hdr.match(s)
+        if not m: return None
+        num=m.group(1); rest=m.group(2).strip()
+        # standalone (sin punto) debe ser 1-9 (las secciones tope son de un dígito)
+        if '.' not in num and int(num)>9: return None
+        # si hay texto tras el número, debe ser un NOMBRE (empieza con letra mayúscula),
+        # no una continuación ("/97", ", respectivamente", "de los oficios...")
+        if rest:
+            letters=[c for c in rest if c.isalpha()]
+            if not letters or not all(c.isupper() for c in letters): return None
+        return (num,rest)
     secs=[]
     for i,l in enumerate(lines):
         s=l.strip()
-        m=hdr.match(s)
-        if not m: continue
-        num=m.group(1); rest=m.group(2).strip()
+        hh=is_header(s)
+        if not hh: continue
+        num,rest=hh
+        # Header de número "pelado" (sin nombre en la misma línea): válido solo si la
+        # línea siguiente es un nombre de área (MAYÚSCULAS / FUERA DE NIVEL) o una etiqueta.
+        # Evita que números sueltos del texto ("artículo 4 Ley...") partan el bloque.
+        if not rest:
+            nxt=''
+            for jj in range(i+1,min(i+4,len(lines))):
+                if lines[jj].strip(): nxt=lines[jj].strip(); break
+            ok = nxt.isupper() or 'FUERA DE NIVEL' in nxt or any(nxt.startswith(k) for k in KEY)
+            if not ok: continue
         name_parts=[rest] if rest else []
         j=i+1
         while j<len(lines):
@@ -25,7 +47,7 @@ def build_secs(txt):
             if not t:
                 j+=1; continue
             if any(t.startswith(k) for k in KEY): break
-            if hdr.match(t): break
+            if is_header(t): break
             if t.isupper() or 'FUERA DE NIVEL' in t or t.startswith('('):
                 name_parts.append(t); j+=1
             else:

@@ -140,6 +140,18 @@ de los anexos se guardan en `data/decretos/pdf/`.
 - Agregadas 9 áreas + nivel SEC. El anexo usa rótulos "Objetivos"/"Descripción de Acciones".
 - Pendiente: `DGACD` (DG Activos Digitales) — creada por Decreto 17/26, posterior al 298/25.
 
+### ⚠️ Reconstrucción con TEXTO COMPLETO (fix de truncado)
+Se detectó que las entradas de la **parte 1 estaban truncadas** (p.ej. una DG con solo
+"Implementar las diferentes"). Se reconstruyeron TODAS las áreas de cada ministerio con el
+texto íntegro del anexo, vía `scripts/rebuild_all.py` (auto-mapeo por nombre) + `batch3.py`
+(Jefatura) + `do_agip.py` (AGIP). Mejoras del extractor (`parse_anexo.py`, `merge_funciones.py`):
+- `build_secs` ya no confunde números del texto ("artículo 4", "Ley 70", "Decreto 1510")
+  con encabezados de sección (causaban cortes a mitad de frase).
+- `clean()` recorta firma digital, lema del año y sub-encabezados no numerados colados.
+Resultado: 0 entradas vacías/cortas; 399 áreas con funciones de texto completo.
+Ministerios reconstruidos: MMIGC, MDECGC, MJGC, MHFGC, MSGC, MCGC, MEDGC, MDHYHGC, SECGE,
+SECLYT, MSEGC (174/26), PG (186/26), SECGVC (215/26), MEPHUGC (124/26), SECCO; + Jefatura (265/25).
+
 ## Estado
 **Todos los decretos estructurales (⭐ con anexo) procesados** (14 → 224).
 Los decretos restantes sin anexo (40,41,45,48,53,57,60,62,63,73–76,82,85–88,98,101,103,106,112,114,116,123,141,146,158,161–168,170,175,176,180–182,194,197,200,205,210–212,226,227,228,236) son **designaciones/renuncias de personas** (titulares), anteriores al base de junio → stale. No tocan estructura.

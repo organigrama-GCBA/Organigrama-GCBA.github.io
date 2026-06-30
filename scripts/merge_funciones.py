@@ -3,12 +3,31 @@
 import io,re,json,sys
 import parse_anexo as P
 
+_HDR=re.compile(r'^(DEPARTAMENTO|DIRECCI[ÓO]N|DIVISI[ÓO]N|SECCI[ÓO]N|SUBGERENCIA|GERENCIA|'
+                r'SUBDIRECCI[ÓO]N|COORDINACI[ÓO]N|UNIDAD|SUBSECRETAR[ÍI]A|SECRETAR[ÍI]A)\b')
 def clean(s):
     if not s: return None
+    # 1) cortar firma digital / pie de página / referencias GEDO
+    s=re.split(r'(?:Date:\s*\d|Firmado digitalmente|Digitally signed|Comunicaciones Oficiales|'
+               r'Hoja Adicional de Firmas|A[ñn]o del \d|GOBIERNO DE LA CIUDAD|IF-20\d\d-\d|'
+               r'P[áa]gina \d+ de \d+|ANEXO\b|(?:[A-ZÑÁÉÍÓÚ]\s+){5,}|["“]\s*20\d\d\s*-)', s)[0]
+    # 2) cortar al primer sub-header EN MAYÚSCULAS que se haya colado (siguiente área)
+    out=[]
+    for ln in s.split('\n'):
+        t=ln.strip()
+        letters=[c for c in t if c.isalpha()]
+        allcaps=letters and all(c.isupper() for c in letters) and len(t)>4
+        if out and allcaps and _HDR.match(t.upper()):
+            break
+        out.append(ln)
+    s='\n'.join(out)
+    # 3) normalizar espacios y saltos
     s=re.sub(r'[ \t]+',' ',s)
     s=re.sub(r'\s*\n\s*',' ',s)
     s=re.sub(r'\s{2,}',' ',s)
-    return s.strip()
+    # 4) limpiar colas: marcadores romanos sueltos (AGIP) y restos
+    s=re.sub(r'\s+[IVX]{1,4}[A-Z]?\s*$','',s).strip()
+    return s or None
 
 def grab_acciones(blk):
     m=re.search(r'Descripci[óo]n de Acciones',blk,re.IGNORECASE)
@@ -48,14 +67,14 @@ def _part1():
 def merge(newentries):
     fun=json.load(io.open('data/funciones.json',encoding='utf-8'))
     p1=_part1()
-    added=[]; updated=[]; protected=[]
+    added=[]; updated=[]; over_p1=0
     for k,v in newentries.items():
-        if k in p1:                      # nunca pisar lo cargado por la parte 1
-            protected.append(k); continue
-        if k in fun: updated.append(k)
+        if k in fun:
+            updated.append(k)
+            if k in p1: over_p1+=1
         else: added.append(k)
         fun[k]=v
-    if protected: print('PROTEGIDAS parte1 (no tocadas):',len(protected),sorted(protected))
+    if over_p1: print('  (reemplazadas',over_p1,'entradas truncadas de la parte 1)')
     io.open('data/funciones.json','w',encoding='utf-8').write(
         json.dumps(fun,ensure_ascii=False,indent=1))
     print('ADDED',len(added),'UPDATED',len(updated),'TOTAL',len(fun))
