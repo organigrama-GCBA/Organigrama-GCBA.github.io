@@ -158,6 +158,21 @@ SECLYT, MSEGC (174/26), PG (186/26), SECGVC (215/26), MEPHUGC (124/26), SECCO; +
   internas de **APRA** (DG Control Ambiental, DG Evaluación Ambiental, UAI) por Resolución 239/APRA/25.
 - Nivel VJG por perfil/Ley de Ministerios.
 
+### Organismos con estructura propia (resoluciones / decretos específicos)
+- **Higiene (SECH)** — Decreto 115/26 (crea la Sec. de Higiene bajo Jefatura; anexo -ANX-3, sección 7):
+  SECH, Ente de Higiene Urbana (Ley 462), SS Higiene, DG Limpieza, DG Reciclado. (UAIEHU no figura.)
+- **Sindicatura (SGCBA)** — Resolución 28/SGCBA/26: UAI, Síndico Adjunto, GG Técnica Adm. y Legal,
+  GG Auditoría Jurisdicción I y II, GG Auditoría de Comunas (las GG tienen rango de DG). Tope por Ley 70.
+- **AGC** — Resolución 55-AGC/24: DG Habilitaciones, Higiene y Seguridad Alimentaria, Fiscalización y
+  Control, Fisc. y Control de Obras, Legal y Técnica, UAI y Unidades Operativas.
+- **ASI (ASINF)** — Resolución 118-ASINF/24: DG Integración de Sistemas, Infraestructura, Técnica Adm.
+  y Legal, Seguridad Informática, UAI.
+- **ENTUR** — Resolución 71-ENTUR/24: DG Técnica Adm. y Legal, Comunicación y Observatorio Turístico,
+  Desarrollo Turístico, Promoción Turística, UAI.
+- **CDNNYA** — Resolución 1798/CDNNYA/25: Presidencia, Vicepresidencia, UAI, DG Programas
+  Descentralizados, Servicios de Atención Permanente, Políticas/Programas/Atención en la Urgencia,
+  Legal Técnica y Administrativa, Responsabilidad Penal Juvenil.
+
 ## Estado
 **Todos los decretos estructurales (⭐ con anexo) procesados** (14 → 224).
 Los decretos restantes sin anexo (40,41,45,48,53,57,60,62,63,73–76,82,85–88,98,101,103,106,112,114,116,123,141,146,158,161–168,170,175,176,180–182,194,197,200,205,210–212,226,227,228,236) son **designaciones/renuncias de personas** (titulares), anteriores al base de junio → stale. No tocan estructura.
