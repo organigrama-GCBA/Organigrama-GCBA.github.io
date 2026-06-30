@@ -81,6 +81,18 @@ de los anexos se guardan en `data/decretos/pdf/`.
     `DGIP`, pero NO aparece en el anexo del 125/25 (DGIP solo tiene Gerencias Operativas por debajo).
     A revisar: posible creación posterior o ubicación a verificar.
 
+### Justicia (MJGC) — Decreto 35/26 (sanc. 26/01/2026)
+- Agregadas 16 áreas faltantes (las ya cargadas por la parte 1 no se pisaron).
+- Entes fuera de nivel cargados con su remisión legal (p.ej. USPRS "Ejercer las funciones
+  conferidas por la Ley 6.923", AGC "Ley 2.624", CEAMSE "Ordenanza 35.691").
+- **Pendientes (no están en el anexo del 35/26):**
+  - `DGAJG2` (DG. Asuntos Judiciales Generales): el anexo solo tiene la SS Asuntos Judiciales (4.5)
+    con DGs Acceso a la Justicia / Asistencia a la Víctima / Derechos Humanos; no figura esta DG.
+  - `IGEA` (Instituto de Gestión Electoral Adjunta) y `UEE` (Unidad de Enlace Electoral):
+    el IGE es ente con estructura propia; el 35/26 solo lo lista como fuera de nivel.
+  - DGs internas de **AGC** (`DGHP`, `DGHYSA`, `DGFYC`, `DGLYTAGC`, `DGFYCO`, `UAIAGC`): la AGC
+    (Ley 2.624) tiene estructura propia; el 35/26 solo lista la AGC como fuera de nivel.
+
 ## Estado
 **Todos los decretos estructurales (⭐ con anexo) procesados** (14 → 224).
 Los decretos restantes sin anexo (40,41,45,48,53,57,60,62,63,73–76,82,85–88,98,101,103,106,112,114,116,123,141,146,158,161–168,170,175,176,180–182,194,197,200,205,210–212,226,227,228,236) son **designaciones/renuncias de personas** (titulares), anteriores al base de junio → stale. No tocan estructura.
