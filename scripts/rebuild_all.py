@@ -55,6 +55,8 @@ CFG=[
    'COSI':{'responsabilidad':'Ejercer las funciones conferidas por la Ley N° 1.777 (Consejo de Coordinación Intercomunal).','fuente':'Decreto 215/26 / Ley 1.777'}}),
  ('MEPHUGC','124-26-ANX-1','Decreto 124/26',{
    'MEPHUGC':mn('Diseñar e implementar las políticas de espacio público e higiene urbana de la Ciudad: mantenimiento urbano, alumbrado, paisaje urbano, regeneración urbana, sistema pluvial, higiene urbana, recolección, reciclado y limpieza.')}),
+ ('SECME','298-25-COMU-RP','Decreto 298/25',{
+   'SECME':mn('Diseñar y conducir la política de medios y prensa del Gobierno de la Ciudad: comunicación social, planeamiento de medios, posicionamiento y gestión de eventos, y la operación de los medios públicos (Señal de Cable de la Ciudad y Radio de la Ciudad).')}),
  ('SECCO','298-25-COMU-RP','Decreto 298/25',{
    'SECCO':mn('Diseñar y conducir la estrategia de comunicación del Gobierno de la Ciudad: discurso y planificación comunicacional, contenidos, comunicación digital, medios y prensa, comunicación social y gestión de eventos.'),
    'SCCIU':'SEÑAL DE CABLE','LS1':'LS1 RADIO'}),
