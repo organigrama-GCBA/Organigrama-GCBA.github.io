@@ -4012,13 +4012,14 @@ function App(){
                 if(!blocks.length&&fn.texto)blocks.push(["",fn.texto]);
                 if(!blocks.length)return null;
                 return (
-                  <div style={{marginBottom:18}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+                  <details style={{marginBottom:18}}>
+                    <summary style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",cursor:"pointer",listStyle:"none",userSelect:"none",padding:"4px 0"}}>
                       <div style={{width:3,height:16,borderRadius:2,background:color}}/>
                       <span style={{fontSize:11,fontWeight:700,color:"#101E37",textTransform:"uppercase",letterSpacing:".06em"}}>Misiones y funciones</span>
                       {fn.fuente&&<span style={{fontSize:10,background:"#EEF2F7",color:"#4A5568",fontWeight:600,padding:"1px 7px",borderRadius:20}}>{fn.fuente}</span>}
-                    </div>
-                    <div style={{background:"#fff",border:"1px solid #E8EDF2",borderRadius:9,padding:"12px 16px"}}>
+                      <span style={{fontSize:10,fontWeight:600,color:"#A0AEC0",marginLeft:"auto"}}>▾ ver</span>
+                    </summary>
+                    <div style={{background:"#fff",border:"1px solid #E8EDF2",borderRadius:9,padding:"12px 16px",marginTop:8}}>
                       {blocks.map(([t,c],i)=>(
                         <div key={i} style={{marginBottom:i<blocks.length-1?10:0}}>
                           {t&&<div style={{fontSize:10,fontWeight:700,color:color,textTransform:"uppercase",letterSpacing:".05em",marginBottom:3}}>{t}</div>}
@@ -4026,7 +4027,7 @@ function App(){
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </details>
                 );
               })()}
               {/* Dependencias */}
