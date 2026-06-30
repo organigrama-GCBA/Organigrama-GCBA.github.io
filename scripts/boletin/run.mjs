@@ -31,6 +31,7 @@ const pdfParse = require("pdf-parse/lib/pdf-parse.js");
 // ── Rutas (relativas a la raíz del repo) ───────────────────────────────
 const ROOT = process.cwd();
 const ORG_PATH = path.join(ROOT, "data", "organigrama.json");
+const FUNCIONES_PATH = path.join(ROOT, "data", "funciones.json");
 
 // ── Parámetros ─────────────────────────────────────────────────────────
 const MODEL = process.env.CLAUDE_MODEL || "claude-opus-4-8";
@@ -54,6 +55,9 @@ const KEYWORDS = [
   "estructura orgánico funcional", "estructura organico funcional",
   "transfiérese", "transfierese", "absorbe", "pasa a depender",
   "dependiente de", "modificación de estructura",
+  // Misiones y funciones (para capturar responsabilidades primarias / objetivos)
+  "responsabilidad primaria", "responsabilidades primarias",
+  "objetivos", "descripción de acciones", "descripcion de acciones",
 ];
 
 // ── Utilidades de árbol ────────────────────────────────────────────────
@@ -166,7 +170,8 @@ function chunkText(t, max) {
 // ── 3) Tool / prompt para Claude ───────────────────────────────────────
 const INSTRUCCIONES = `Sos un analista jurídico-administrativo del Gobierno de la Ciudad de Buenos Aires (GCBA).
 Recibís fragmentos de DECRETOS del Poder Ejecutivo del Boletín Oficial (BOCBA) y un organigrama vigente.
-Tu tarea: extraer ÚNICAMENTE los cambios que el texto respalda de forma EXPLÍCITA y que afecten al organigrama.
+Tu tarea: extraer ÚNICAMENTE los cambios que el texto respalda de forma EXPLÍCITA y que afecten al
+organigrama (estructura/titulares) o a las MISIONES Y FUNCIONES (responsabilidades primarias y objetivos) de un área.
 
 FOCO: el organigrama que mantenemos llega hasta el nivel de Dirección General / Gerencia General
 y organismos. Te interesan los cambios de ESTRUCTURA (crear/suprimir/transferir/renombrar áreas) y
@@ -182,6 +187,13 @@ Tipos de cambio:
 - remove_node: se disuelve/suprime un área. target_id = id del área.
 - move_node: un área pasa a depender de otra. target_id = id del área que se mueve. nuevo_padre_id = id del nuevo padre.
 - rename: cambia el nombre/denominación de un área. target_id = id del área. nuevo_nombre = nombre nuevo.
+- set_funciones: el decreto APRUEBA o MODIFICA las "Responsabilidades Primarias" y/o los "Objetivos"
+  (misiones y funciones) de un área existente. target_id = id del área. responsabilidad = el texto
+  de la responsabilidad primaria; objetivos = el texto de los objetivos/descripción de acciones.
+  Transcribí el texto lo más fiel posible (podés unir viñetas en un solo párrafo). Usalo cuando el
+  fragmento traiga ese texto (típicamente en un Anexo de "Responsabilidades Primarias, Objetivos y
+  Descripción de Acciones"). Si el decreto solo dice "modifícanse las responsabilidades primarias de X"
+  SIN incluir el texto nuevo, NO uses set_funciones (no inventes el contenido).
 
 Reglas:
 - Usá SOLO los id que aparecen en el organigrama provisto. Si no podés mapear con seguridad un área del boletín a un id existente, NO inventes el id: usá tipo "set_titular"/"rename"/etc. solo cuando el match es claro; si dudás, omití el cambio.
@@ -203,11 +215,13 @@ const TOOL = {
         items: {
           type: "object",
           properties: {
-            tipo: { type: "string", enum: ["set_titular", "create_node", "remove_node", "move_node", "rename"] },
+            tipo: { type: "string", enum: ["set_titular", "create_node", "remove_node", "move_node", "rename", "set_funciones"] },
             target_id: { type: "string", description: "id del área afectada (o del padre, para create_node)" },
             nuevo_nombre: { type: "string" },
             nuevo_titular: { type: "string" },
             nuevo_padre_id: { type: "string" },
+            responsabilidad: { type: "string", description: "set_funciones: texto de la Responsabilidad Primaria del área" },
+            objetivos: { type: "string", description: "set_funciones: texto de los Objetivos / Descripción de Acciones del área" },
             nodo_nuevo: {
               type: "object",
               properties: {
@@ -248,12 +262,24 @@ async function extraerCambios(client, orgContext, chunk) {
   return block?.input?.cambios || [];
 }
 
-// ── 4) Aplicar cambios al árbol ────────────────────────────────────────
-function aplicar(root, cambios) {
+// ── 4) Aplicar cambios al árbol (organigrama) y a las funciones ─────────
+function aplicar(root, funciones, cambios) {
   const aplicados = [], omitidos = [];
   for (const c of cambios) {
     try {
-      if (c.tipo === "set_titular") {
+      if (c.tipo === "set_funciones") {
+        const n = findNode(root, c.target_id);
+        if (!n) throw new Error(`no existe el id ${c.target_id}`);
+        const resp = (c.responsabilidad || "").trim();
+        const obj = (c.objetivos || "").trim();
+        if (!resp && !obj) throw new Error("set_funciones sin responsabilidad ni objetivos");
+        const e = funciones[c.target_id] || {};
+        if (resp) e.responsabilidad = resp;
+        if (obj) e.objetivos = obj;
+        e.fuente = c.norma || e.fuente || "";
+        funciones[c.target_id] = e;
+        aplicados.push(c);
+      } else if (c.tipo === "set_titular") {
         const n = findNode(root, c.target_id);
         if (!n) throw new Error(`no existe el id ${c.target_id}`);
         n.titular = (c.nuevo_titular || "").trim();
@@ -307,6 +333,11 @@ function aplicar(root, cambios) {
 function resumen(titulo, fuente, aplicados, omitidos) {
   const linea = (c) => {
     const det = [];
+    if (c.tipo === "set_funciones") {
+      const r = (c.responsabilidad || "").trim(), o = (c.objetivos || "").trim();
+      if (r) det.push(`responsabilidad: "${r.slice(0, 120)}${r.length > 120 ? "…" : ""}"`);
+      if (o) det.push(`objetivos: "${o.slice(0, 80)}${o.length > 80 ? "…" : ""}"`);
+    }
     if (c.nuevo_titular !== undefined) det.push(`titular: "${c.nuevo_titular}"`);
     if (c.nuevo_nombre) det.push(`nombre: "${c.nuevo_nombre}"`);
     if (c.nuevo_padre_id) det.push(`nuevo padre: ${c.nuevo_padre_id}`);
@@ -372,6 +403,9 @@ async function main() {
 
   // Organigrama actual como contexto (estable -> se cachea entre llamadas)
   const root = JSON.parse(fs.readFileSync(ORG_PATH, "utf8"));
+  // Misiones y funciones actuales (se actualizan con set_funciones)
+  let funciones = {};
+  try { funciones = JSON.parse(fs.readFileSync(FUNCIONES_PATH, "utf8")) || {}; } catch { funciones = {}; }
   const flat = flatten(root, null, []);
   const orgContext =
     "Organigrama vigente (id | tipo | nombre | titular | depende_de):\n" +
@@ -423,7 +457,7 @@ async function main() {
   console.log(`Cambios propuestos por el modelo: ${cambios.length}`);
   if (!cambios.length) { setOutput("changed", "false"); console.log("Sin cambios."); return; }
 
-  const { aplicados, omitidos } = aplicar(root, cambios);
+  const { aplicados, omitidos } = aplicar(root, funciones, cambios);
   const md = resumen(titulo, fuente, aplicados, omitidos);
 
   // Resumen de auditoría versionado
@@ -433,10 +467,15 @@ async function main() {
   // Cuerpo del PR (fuera del repo, no se commitea)
   if (process.env.BODY_PATH) fs.writeFileSync(process.env.BODY_PATH, md);
 
-  if (aplicados.length) {
+  const huboFunciones = aplicados.some((c) => c.tipo === "set_funciones");
+  const huboArbol = aplicados.some((c) => c.tipo !== "set_funciones");
+  if (huboArbol) {
     fs.writeFileSync(ORG_PATH, JSON.stringify(root, null, 2) + "\n");
   }
-  console.log(`Aplicados: ${aplicados.length} · A revisar: ${omitidos.length}`);
+  if (huboFunciones) {
+    fs.writeFileSync(FUNCIONES_PATH, JSON.stringify(funciones, null, 1) + "\n");
+  }
+  console.log(`Aplicados: ${aplicados.length} (funciones: ${aplicados.filter((c)=>c.tipo==="set_funciones").length}) · A revisar: ${omitidos.length}`);
   setOutput("changed", aplicados.length ? "true" : "false");
 }
 
