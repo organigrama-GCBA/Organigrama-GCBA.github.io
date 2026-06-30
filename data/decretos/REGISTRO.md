@@ -102,6 +102,12 @@ de los anexos se guardan en `data/decretos/pdf/`.
   (Anexos III/IV de responsabilidades) → se cargan aparte.
 - Pendiente: internas de LOTBA/Banco Ciudad/OSBA (entes con estatuto propio, fuera de alcance).
 
+### Salud (MSGC) — Decreto 105/26 (sanc. 12/03/2026)
+- Agregadas 15 áreas faltantes (SS/DG/ORG/MIN); entes con su remisión legal (EAIT Ley 3.294,
+  FACOEP SE Ley 5.622).
+- Nota de parseo: el anexo usa rótulos en minúscula ("Descripción de responsabilidades primarias")
+  y a veces solo "Responsabilidades Primarias" → se hizo el extractor case-insensitive y flexible.
+
 ## Estado
 **Todos los decretos estructurales (⭐ con anexo) procesados** (14 → 224).
 Los decretos restantes sin anexo (40,41,45,48,53,57,60,62,63,73–76,82,85–88,98,101,103,106,112,114,116,123,141,146,158,161–168,170,175,176,180–182,194,197,200,205,210–212,226,227,228,236) son **designaciones/renuncias de personas** (titulares), anteriores al base de junio → stale. No tocan estructura.

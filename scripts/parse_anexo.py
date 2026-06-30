@@ -39,22 +39,25 @@ def body(lines,secs,idx):
     b=secs[idx+1][2] if idx+1<len(secs) else len(lines)
     return '\n'.join(lines[a:b])
 
+RP_LABEL=r'(?:Descripci[óo]n de\s+)?Responsabilidades?\s+Primarias?'
+ACC_LABEL=r'Descripci[óo]n de\s+Acciones'
+OBJ_LABEL=r'\n\s*Objetivos\s*\n'
+
 def parse_block(blk):
     def grab(label, stops):
-        m=re.search(label, blk)
+        m=re.search(label, blk, re.IGNORECASE)
         if not m: return None
         start=m.end()
         end=len(blk)
         for st in stops:
-            mm=re.search(st, blk[start:])
+            mm=re.search(st, blk[start:], re.IGNORECASE)
             if mm: end=min(end,start+mm.start())
         seg=blk[start:end].strip()
         seg=re.sub(r'[ \t]+',' ',seg)
         seg=re.sub(r'\n{2,}','\n',seg).strip()
         return seg or None
-    rp=grab(r'Descripci[óo]n de Responsabilidades Primarias',
-            [r'Descripci[óo]n de Acciones',r'\nObjetivos'])
-    ob=grab(r'\nObjetivos',[r'Descripci[óo]n de Acciones'])
+    rp=grab(RP_LABEL,[ACC_LABEL,OBJ_LABEL])
+    ob=grab(OBJ_LABEL,[ACC_LABEL])
     return rp,ob
 
 def get(lines,secs,num):

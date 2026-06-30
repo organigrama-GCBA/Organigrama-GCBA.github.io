@@ -14,8 +14,6 @@ MAP={
 fun=set(json.load(io.open('data/funciones.json',encoding='utf-8')))
 new={}
 for num,aid in MAP.items():
-    if aid in fun:
-        print('SKIP ya existe:',aid); continue
     new[aid]=M.entry_from(lines,secs,num,F)
 new['MJGC']={
  'responsabilidad':('Entender en el diseño e implementación de las políticas de justicia de la Ciudad, en la '

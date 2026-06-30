@@ -11,7 +11,7 @@ def clean(s):
     return s.strip()
 
 def grab_acciones(blk):
-    m=re.search(r'Descripci[óo]n de Acciones',blk)
+    m=re.search(r'Descripci[óo]n de Acciones',blk,re.IGNORECASE)
     if not m: return None
     seg=blk[m.end():]
     return clean(seg)
@@ -32,13 +32,21 @@ def entry_from(lines,secs,num,fuente):
     e['fuente']=fuente
     return e
 
+def _part1():
+    try: return set(json.load(io.open('scripts/_part1_ids.json',encoding='utf-8')))
+    except Exception: return set()
+
 def merge(newentries):
     fun=json.load(io.open('data/funciones.json',encoding='utf-8'))
-    added=[]; updated=[]
+    p1=_part1()
+    added=[]; updated=[]; protected=[]
     for k,v in newentries.items():
+        if k in p1:                      # nunca pisar lo cargado por la parte 1
+            protected.append(k); continue
         if k in fun: updated.append(k)
         else: added.append(k)
         fun[k]=v
+    if protected: print('PROTEGIDAS parte1 (no tocadas):',len(protected),sorted(protected))
     io.open('data/funciones.json','w',encoding='utf-8').write(
         json.dumps(fun,ensure_ascii=False,indent=1))
     print('ADDED',len(added),'UPDATED',len(updated),'TOTAL',len(fun))
