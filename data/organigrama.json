@@ -1883,7 +1883,7 @@
                 },
                 {
                   "id": "DGDIYDP",
-                  "nombre": "DG. Docencia, Investigación y Desarrollo Personal",
+                  "nombre": "DG. Docencia, Investigación y Desarrollo Profesional",
                   "titular": "Andrea María Andreacchio",
                   "tipo": "DG",
                   "children": []
@@ -2520,15 +2520,7 @@
                   "nombre": "DG. Integración de Sistemas",
                   "titular": "",
                   "tipo": "DG",
-                  "children": [
-                    {
-                      "id": "DGGCDCI",
-                      "nombre": "DG. Gestión de Calidad y Demanda Ciudadana",
-                      "titular": "",
-                      "tipo": "DG",
-                      "children": []
-                    }
-                  ]
+                  "children": []
                 },
                 {
                   "id": "DGIASINF",
@@ -3212,13 +3204,6 @@
           ]
         },
         {
-          "id": "DGPRYC",
-          "nombre": "DG. Protocolo y Ceremonial",
-          "titular": "Irene Wlodkowski",
-          "tipo": "DG",
-          "children": []
-        },
-        {
           "id": "SSRIN",
           "nombre": "SS. Relaciones Internacionales",
           "titular": "Ana Valeria Ciuti",
@@ -3237,22 +3222,22 @@
               "titular": "Matías Nahuel Muñoz",
               "tipo": "DG",
               "children": []
+            },
+            {
+              "id": "DGPRYC",
+              "nombre": "DG. Protocolo y Ceremonial",
+              "titular": "Irene Wlodkowski",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGAPR",
+              "nombre": "DG. Análisis Prospectivo",
+              "titular": "Nerio Pace",
+              "tipo": "DG",
+              "children": []
             }
           ]
-        },
-        {
-          "id": "SSANP",
-          "nombre": "SS. Análisis Prospectivo",
-          "titular": "Cecilia Virginia Rumi González",
-          "tipo": "SS",
-          "children": []
-        },
-        {
-          "id": "DGAPR",
-          "nombre": "DG. Análisis Prospectivo",
-          "titular": "Nerio Pace",
-          "tipo": "DG",
-          "children": []
         }
       ]
     },
@@ -3699,9 +3684,9 @@
               "children": []
             },
             {
-              "id": "DGCEME",
-              "nombre": "DG. Cementerios",
-              "titular": "Ignacio Salaberri",
+              "id": "DGCCTA",
+              "nombre": "DG. Competencias Comunales y Talleres",
+              "titular": "Claudio Alfredo Baranzelli",
               "tipo": "DG",
               "children": []
             }
@@ -3757,9 +3742,9 @@
               "children": []
             },
             {
-              "id": "DGCCTA",
-              "nombre": "DG. Competencias Comunales y Talleres",
-              "titular": "Claudio Alfredo Baranzelli",
+              "id": "DGGCDCI",
+              "nombre": "DG. Gestión de Calidad y Demanda Ciudadana",
+              "titular": "",
               "tipo": "DG",
               "children": []
             }
@@ -3779,16 +3764,16 @@
               "children": []
             },
             {
-              "id": "DGADJREC",
-              "nombre": "DG. Adjunta Registro del Estado Civil y Capacidad de las Personas",
-              "titular": "",
+              "id": "DGRC",
+              "nombre": "DG. Registro del Estado Civil y Capacidad de las Personas",
+              "titular": "Pablo Ezequiel Feito",
               "tipo": "DG",
               "children": []
             },
             {
-              "id": "DGRC",
-              "nombre": "DG. Registro del Estado Civil y Capacidad de las Personas",
-              "titular": "Pablo Ezequiel Feito",
+              "id": "DGCEME",
+              "nombre": "DG. Cementerios",
+              "titular": "Ignacio Salaberri",
               "tipo": "DG",
               "children": []
             }

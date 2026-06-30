@@ -272,7 +272,7 @@ function svgBox(x,y,node,W,H,dashed,fsN,fsT){
     const lhT=tt.fs*1.18;
     let yTit=y+mainH+(stripH-tt.lines.length*lhT)/2+tt.fs*0.82;
     tt.lines.forEach(l=>{
-      s+=`<text x="${fv(x+W/2)}" y="${fv(yTit)}" text-anchor="middle" font-size="${fv(tt.fs)}" font-weight="400" fill="rgba(255,255,255,0.88)" font-family="Open Sans,Inter,Arial,sans-serif">${l}</text>`;
+      s+=`<text x="${fv(x+W/2)}" y="${fv(yTit)}" text-anchor="middle" font-size="${fv(tt.fs)}" font-weight="700" fill="rgba(255,255,255,0.92)" font-family="Open Sans,Inter,Arial,sans-serif">${l}</text>`;
       yTit+=lhT;
     });
   }
@@ -627,7 +627,7 @@ window.__wrapTitular = wrapTitular;
   <div id="ed-toolbar">
     <span style="font-size:10px;font-weight:600;color:var(--ed-text3);text-transform:uppercase;letter-spacing:.06em;">Área:</span>
     <select id="ed-area-sel" style="min-width:240px;flex:1;max-width:380px;"></select>
-    <span style="font-size:10px;color:var(--ed-text3);margin-left:8px;">· clic = sel · Ctrl+clic = sumar nodo · Shift+clic = sumar rama · flechas = mover · <b style="color:var(--ed-accent);">Alt+arrastrar = sin pegar</b></span>
+    <span style="font-size:10px;color:var(--ed-text3);margin-left:8px;">· clic = sel · Ctrl+clic = sumar nodo · Shift+clic = sumar rama · arrastrar fondo = mover lienzo · Shift+arrastrar fondo = seleccionar · flechas = mover · <b style="color:var(--ed-accent);">Alt+arrastrar = sin pegar</b></span>
     <span style="font-size:10px;color:var(--ed-text3);margin-left:12px;" title="Aplica al nodo seleccionado (o a todos si no hay selección). Vacío/0 = automático.">Texto:</span>
     <input id="ed-fs" type="number" min="6" max="72" step="0.5" value="11" title="Tamaño de letra. Aplica a los nodos seleccionados (o a todos). 0 = automático."
         style="width:52px;background:var(--ed-surface2);border:1px solid var(--ed-border2);border-radius:5px;padding:3px 6px;font-size:11px;color:var(--ed-text1);font-family:inherit;"/>
@@ -803,6 +803,12 @@ window.__wrapTitular = wrapTitular;
   let edRenderState={nodes:[],links:[],drawLinks:()=>{},drawWPs:()=>{}};
   // Cleanup de listeners registrados en renderCanvas previo (lasso); evita acumular handlers.
   let edLassoCleanup=null;
+  // ── Deshacer (undo) ──────────────────────────────────────
+  // Pila de estados "confirmados" (posiciones + líneas + árbol). Cada cambio
+  // empuja un snapshot vía showSaved(); deshacer vuelve al snapshot anterior.
+  let edUndoStack=[];
+  let edUndoArea=null;        // área del baseline actual de la pila
+  let edUndoSuspend=false;    // evita re-empujar mientras restauramos
 
   // ── LocalStorage helpers ─────────────────────────────────
   function readLS(key){try{const v=JSON.parse(localStorage.getItem(key)||"{}");return(v&&typeof v==="object"&&!Array.isArray(v))?v:{};}catch{return{};}}
@@ -1295,7 +1301,7 @@ window.__wrapTitular = wrapTitular;
       .attr("rx",3).style("display","none").style("pointer-events","none");
 
     const onLassoDown=function(e){
-      if(e.button!==0)return;
+      if(e.button!==0||!e.shiftKey)return;   // lasso = Shift+arrastre (clic izq solo = pan)
       const tgt=e.target;
       if(tgt.closest&&(tgt.closest(".c-node")||tgt.closest(".lhit")||tgt.closest(".wp-dot")))return;
       const svgR=svgEl.getBoundingClientRect();
@@ -1527,7 +1533,7 @@ window.__wrapTitular = wrapTitular;
         let yT=mainH+(stripH-tt.lines.length*lhT)/2+tt.fs*0.82;
         tt.lines.forEach(l=>{
           g2.append("text").attr("x",_nw/2).attr("y",yT)
-            .attr("text-anchor","middle").attr("font-size",tt.fs).attr("font-weight",400)
+            .attr("text-anchor","middle").attr("font-size",tt.fs).attr("font-weight",700)
             .attr("fill","rgba(255,255,255,0.88)").attr("font-family","Open Sans,Inter,sans-serif").text(l);
           yT+=lhT;
         });
@@ -1552,8 +1558,27 @@ window.__wrapTitular = wrapTitular;
           const startW=p.w||NW,startH=p.h||NH;
           const nodeId=d.id;
           const handleEl=this;
+          // Si el nodo es parte de una selección múltiple, redimensionar TODOS
+          // los seleccionados a la vez (mismo delta), manteniendo la selección.
+          const multi=edSelectedIds.has(d.id)&&edSelectedIds.size>1;
+          const group=multi?[...edSelectedIds]:[d.id];
+          const startSizes={};
+          group.forEach(gid=>{const gp=edPositions[gid];if(gp)startSizes[gid]={w:gp.w||NW,h:gp.h||NH};});
+          let rafPending=false;
 
           function onMove(ev){
+            if(multi){
+              ev.stopPropagation();
+              const dxm=ev.clientX-startX, dym=ev.clientY-startY;
+              group.forEach(gid=>{
+                const gp=edPositions[gid], ss=startSizes[gid];
+                if(!gp||!ss)return;
+                gp.w=Math.max(60,Math.min(800,ss.w+dxm));
+                gp.h=Math.max(24,Math.min(400,ss.h+dym));
+              });
+              if(!rafPending){rafPending=true;requestAnimationFrame(()=>{rafPending=false;savePosForArea();renderCanvas();});}
+              return;
+            }
             const liveEl=document.querySelector(`.c-node[data-id="${nodeId}"]`)||handleEl.parentNode;
             const par=d3.select(liveEl);
             ev.stopPropagation();
@@ -1602,7 +1627,7 @@ window.__wrapTitular = wrapTitular;
                 par.append("text")
                   .attr("x",p.w/2).attr("y",yT)
                   .attr("text-anchor","middle")
-                  .style("font-size",tt.fs+"px").attr("font-weight",400)
+                  .style("font-size",tt.fs+"px").attr("font-weight",700)
                   .attr("fill","rgba(255,255,255,0.88)")
                   .attr("font-family","Open Sans,sans-serif").text(l);
                 yT+=lhT;
@@ -1642,6 +1667,8 @@ window.__wrapTitular = wrapTitular;
 
     // Publicar estado para que las funciones globales (nudge, selectAllNodes, etc.) lo puedan leer
     edRenderState={nodes,links,drawLinks,drawWPs};
+    edEnsureBaseline();
+    edUpdateUndoBtn();
   }
 
   // ── Selección & Inspector ─────────────────────────────────
@@ -1660,7 +1687,7 @@ window.__wrapTitular = wrapTitular;
     const actions=document.getElementById("ed-actions");
     const idEl=document.getElementById("ed-ins-id");
     if(!node){
-      body.innerHTML='<div class="ed-ins-empty"><div class="ico">⬡</div><p>Clic = seleccionar uno<br>Ctrl+clic = sumar / quitar nodo<br>Shift+clic = sumar rama entera<br>Arrastre en fondo = lasso</p></div>';
+      body.innerHTML='<div class="ed-ins-empty"><div class="ico">⬡</div><p>Clic = seleccionar uno<br>Ctrl+clic = sumar / quitar nodo<br>Shift+clic = sumar rama entera<br>Arrastre en fondo = mover lienzo<br>Shift+arrastre = seleccionar (lasso)</p></div>';
       actions.style.display="none";if(idEl)idEl.textContent="";return;
     }
     if(idEl)idEl.textContent=node.id;
@@ -1839,10 +1866,60 @@ window.__wrapTitular = wrapTitular;
   }
 
   function showSaved(){
+    edPushUndo();
     const el=document.getElementById("ed-saved-msg");
     if(!el)return;
     el.style.opacity="1";clearTimeout(el._t);
     el._t=setTimeout(()=>el.style.opacity="0",2000);
+  }
+
+  // ── Implementación de Deshacer ──────────────────────────
+  const _clone=(o)=>JSON.parse(JSON.stringify(o));
+  function edSnapshot(){
+    return {pos:_clone(edPositions),wp:_clone(edWaypoints),midy:_clone(edLinkMidY),data:_clone(edData)};
+  }
+  // Garantiza un baseline en la pila al entrar a un área (antes de cualquier cambio).
+  function edEnsureBaseline(){
+    if(edUndoSuspend)return;
+    if(edUndoArea!==edViewId){
+      edUndoStack=[edSnapshot()];
+      edUndoArea=edViewId;
+    }
+  }
+  // Empuja el estado actual (post-cambio) si difiere del tope.
+  function edPushUndo(){
+    if(edUndoSuspend||!edViewId||!edData)return;
+    if(edUndoArea!==edViewId){edUndoStack=[edSnapshot()];edUndoArea=edViewId;return;}
+    const snap=edSnapshot();
+    const top=edUndoStack[edUndoStack.length-1];
+    if(top&&JSON.stringify(top)===JSON.stringify(snap))return;
+    edUndoStack.push(snap);
+    if(edUndoStack.length>60)edUndoStack.shift();
+    edUpdateUndoBtn();
+  }
+  function edUpdateUndoBtn(){
+    const b=document.getElementById("ed-btn-undo");
+    if(!b)return;
+    const can=edUndoStack.length>1;
+    b.disabled=!can;b.style.opacity=can?"1":"0.45";b.style.cursor=can?"pointer":"default";
+  }
+  function edUndo(){
+    if(edUndoStack.length<=1)return;
+    edUndoStack.pop();                                   // descartar estado actual
+    const snap=edUndoStack[edUndoStack.length-1];        // volver al anterior
+    edUndoSuspend=true;
+    edPositions=_clone(snap.pos);
+    edWaypoints=_clone(snap.wp);
+    edLinkMidY=_clone(snap.midy);
+    edData=_clone(snap.data);
+    savePosForArea();saveWPForArea();saveMidYForArea();
+    window.dispatchEvent(new CustomEvent("editorDataChanged",{detail:_clone(edData)}));
+    renderSidebar();renderCanvas();renderInspector(null);
+    edUndoSuspend=false;
+    edUpdateUndoBtn();
+    const el=document.getElementById("ed-saved-msg");
+    if(el){el.textContent="↩ Deshecho";el.style.opacity="1";clearTimeout(el._t);
+      el._t=setTimeout(()=>{el.style.opacity="0";el.textContent="✓ Guardado";},1800);}
   }
 
   function resetLayout(){
@@ -1950,9 +2027,12 @@ window.__wrapTitular = wrapTitular;
       layoutMode="jg";
     } else {
       // ── Vista área (SEC/etc): root + columnas + apilado vertical ──
-      // Se excluyen los ministerios: cada uno tiene su propia página (si no, la
-      // vista de Jefatura de Gabinete mostraría todo el gobierno).
-      const reg=regular.filter(c=>c.tipo!=="MIN");
+      // Se excluyen los ministerios SALVO cuando el área que se mira ES la
+      // Jefatura de Gabinete (cuyos hijos son justamente los ministerios): en
+      // ese caso hay que ubicarlos, si no quedan sin posición y se van fuera del
+      // lienzo. En otras áreas cada ministerio tiene su propia página.
+      const verGabinete=nodeIsGabinete(viewRoot);
+      const reg=verGabinete?regular:regular.filter(c=>c.tipo!=="MIN");
       // Cada hijo se vuelve una columna. Sus hijos no-dashed se apilan abajo.
       const colInfo=reg.map(c=>({
         parent:c,
@@ -2018,6 +2098,22 @@ window.__wrapTitular = wrapTitular;
         }
         layoutMode="columns";
       }
+    }
+
+    // Red de seguridad: cualquier nodo VISIBLE que no haya recibido posición
+    // (casos raros: punteados anidados, etc.) se acomoda en una grilla al pie
+    // en vez de quedarse con coordenadas viejas que lo tiran fuera del lienzo.
+    const _vis=visibleNodes();
+    const _falt=_vis.filter(n=>!positions[n.id]);
+    if(_falt.length){
+      const fw=140,perRow=Math.max(1,Math.floor((AW+HGAP)/(fw+HGAP)));
+      const usados=_falt.length<perRow?_falt.length:perRow;
+      const baseX=(AW-(usados*(fw+HGAP)-HGAP))/2+fw/2;
+      let baseY=Math.max(...Object.values(positions).map(p=>p.y+(p.h||40)),AH*0.5)+VGAP*2;
+      _falt.forEach((n,i)=>{
+        const r=Math.floor(i/perRow),c=i%perRow;
+        positions[n.id]={x:baseX+c*(fw+HGAP),y:baseY+r*46,w:fw,h:40};
+      });
     }
 
     // Aplicar — pisamos solo las posiciones de los nodos que calculamos
@@ -2107,6 +2203,7 @@ window.__wrapTitular = wrapTitular;
   wire("ed-btn-autolayout",()=>autoLayoutA3());
   wire("ed-btn-clearlines",()=>clearLines());
   wire("ed-btn-reset",()=>resetLayout());
+  wire("ed-btn-undo",()=>edUndo());
 
   // Tamaño de letra: aplica el valor del input a los nodos seleccionados
   // (o a todos si no hay selección). 0/“auto” vuelve al tamaño automático.
@@ -2290,18 +2387,32 @@ window.__wrapTitular = wrapTitular;
   });
 
   _edSvg.addEventListener("mousedown",function(e){
-    // Pan con: clic derecho, clic medio, o espacio+clic izquierdo.
-    // El clic izquierdo sin modificador queda para el lasso (mousedown handler aparte).
-    const isPan=e.button===1||e.button===2||(e.button===0&&_spaceDown);
-    if(!isPan)return;
-    e.preventDefault();e.stopPropagation();
-    _panStart={cx:e.clientX,cy:e.clientY,tx:edTransform.x,ty:edTransform.y};
-    _edCanvas.style.cursor="grabbing";
+    // Pan (mover el lienzo): clic derecho, clic medio, espacio+clic izq, o
+    // clic izquierdo arrastrando sobre el FONDO (sin Shift). Shift+arrastre en
+    // el fondo queda para el lasso de selección; arrastre sobre un nodo lo mueve.
+    const onNode=e.target.closest&&(e.target.closest(".c-node")||e.target.closest(".lhit")||e.target.closest(".wp-dot")||e.target.closest(".resize-handle"));
+    const hardPan=e.button===1||e.button===2||(e.button===0&&_spaceDown);
+    const softPan=e.button===0&&!_spaceDown&&!e.shiftKey&&!onNode;
+    if(!hardPan&&!softPan)return;
+    if(hardPan){
+      e.preventDefault();e.stopPropagation();
+      _panStart={cx:e.clientX,cy:e.clientY,tx:edTransform.x,ty:edTransform.y,moved:true,soft:false};
+      _edCanvas.style.cursor="grabbing";
+    }else{
+      // soft: no bloqueamos el click (deselección) hasta confirmar arrastre real
+      _panStart={cx:e.clientX,cy:e.clientY,tx:edTransform.x,ty:edTransform.y,moved:false,soft:true};
+    }
   },{passive:false});
 
   window.addEventListener("mousemove",function(e){
     if(!_panStart)return;
     if(!document.getElementById("ed-pane").classList.contains("visible")){_panStart=null;return;}
+    if(_panStart.soft&&!_panStart.moved){
+      const md=Math.abs(e.clientX-_panStart.cx)+Math.abs(e.clientY-_panStart.cy);
+      if(md<4)return;            // todavía es un clic, no un arrastre
+      _panStart.moved=true;
+      _edCanvas.style.cursor="grabbing";
+    }
     const t=d3.zoomIdentity.translate(
       _panStart.tx+(e.clientX-_panStart.cx),
       _panStart.ty+(e.clientY-_panStart.cy)
@@ -2312,8 +2423,15 @@ window.__wrapTitular = wrapTitular;
 
   window.addEventListener("mouseup",function(e){
     if(_panStart){
+      const wasPan=_panStart.moved;
       _panStart=null;
       _edCanvas.style.cursor=_spaceDown?"grab":"";
+      if(wasPan){
+        // Tras panear, suprimir el "click" que dispararía la deselección.
+        const swallow=ev=>{ev.stopPropagation();ev.preventDefault();};
+        _edSvg.addEventListener("click",swallow,{capture:true,once:true});
+        setTimeout(()=>_edSvg.removeEventListener("click",swallow,{capture:true}),0);
+      }
     }
   });
 
@@ -3883,6 +4001,34 @@ function App(){
                   </div>
                 </div>
               </div>
+              {/* Misiones y funciones (responsabilidad primaria / objetivos / acciones) */}
+              {(()=>{
+                const fn=(window.__FUNCIONES||{})[selected.id];
+                if(!fn)return null;
+                const blocks=[];
+                if(fn.responsabilidad)blocks.push(["Responsabilidad primaria",fn.responsabilidad]);
+                if(fn.objetivos)blocks.push(["Objetivos",fn.objetivos]);
+                if(fn.acciones)blocks.push(["Acciones / Descripción",fn.acciones]);
+                if(!blocks.length&&fn.texto)blocks.push(["",fn.texto]);
+                if(!blocks.length)return null;
+                return (
+                  <div style={{marginBottom:18}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+                      <div style={{width:3,height:16,borderRadius:2,background:color}}/>
+                      <span style={{fontSize:11,fontWeight:700,color:"#101E37",textTransform:"uppercase",letterSpacing:".06em"}}>Misiones y funciones</span>
+                      {fn.fuente&&<span style={{fontSize:10,background:"#EEF2F7",color:"#4A5568",fontWeight:600,padding:"1px 7px",borderRadius:20}}>{fn.fuente}</span>}
+                    </div>
+                    <div style={{background:"#fff",border:"1px solid #E8EDF2",borderRadius:9,padding:"12px 16px"}}>
+                      {blocks.map(([t,c],i)=>(
+                        <div key={i} style={{marginBottom:i<blocks.length-1?10:0}}>
+                          {t&&<div style={{fontSize:10,fontWeight:700,color:color,textTransform:"uppercase",letterSpacing:".05em",marginBottom:3}}>{t}</div>}
+                          <div style={{fontSize:12.5,color:"#2D3748",lineHeight:1.55,whiteSpace:"pre-wrap"}}>{c}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
               {/* Dependencias */}
               {(selected.children||[]).length>0&&(
                 <div>
@@ -4058,12 +4204,47 @@ function App(){
 function __mountApp(){
   ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 }
+// Auto-carga del layout (posiciones/líneas/tamaños) guardado en la nube.
+// Solo si el dispositivo no tiene layout propio todavía (dispositivo nuevo):
+// así los retoques visuales viajan junto con data/organigrama.json.
+function __loadLayout(){
+  try{
+    const hay=localStorage.getItem("gcba_org_positions_v1")
+            ||localStorage.getItem("gcba_org_waypoints_v1")
+            ||localStorage.getItem("gcba_org_midy_v1")
+            ||localStorage.getItem("gcba_org_nodesize_v1");
+    if(hay) return Promise.resolve();
+    return fetch("data/layout.json",{cache:"no-store"})
+      .then(r=>r.ok?r.json():null)
+      .then(L=>{
+        if(!L||typeof L!=="object") return;
+        if(L.positions) localStorage.setItem("gcba_org_positions_v1",JSON.stringify(L.positions));
+        if(L.waypoints) localStorage.setItem("gcba_org_waypoints_v1",JSON.stringify(L.waypoints));
+        if(L.midy)      localStorage.setItem("gcba_org_midy_v1",JSON.stringify(L.midy));
+        if(L.nodesize)  localStorage.setItem("gcba_org_nodesize_v1",JSON.stringify(L.nodesize));
+        // Marcar la versión para que loadData() no borre el layout recién traído.
+        localStorage.setItem(VERSION_KEY,APP_VERSION);
+      })
+      .catch(()=>{});
+  }catch(e){ return Promise.resolve(); }
+}
+// Carga las misiones y funciones (responsabilidades/objetivos/acciones) por área.
+function __loadFunciones(){
+  try{
+    return fetch("data/funciones.json",{cache:"no-store"})
+      .then(r=>r.ok?r.json():null)
+      .then(f=>{ if(f&&typeof f==="object") window.__FUNCIONES=f; })
+      .catch(()=>{});
+  }catch(e){ return Promise.resolve(); }
+}
 (function(){
   try{
     fetch("data/organigrama.json",{cache:"no-store"})
       .then(r=>r.ok?r.json():Promise.reject(r.status))
       .then(d=>{ if(d&&d.id)window.__ORG_DEFAULT=sanitize(d); })
       .catch(()=>{})
+      .then(__loadLayout)
+      .then(__loadFunciones)
       .finally(__mountApp);
   }catch(e){ __mountApp(); }
 })();
@@ -4142,9 +4323,12 @@ function __mountApp(){
 </div>
 <script>
 (function(){
+  var REPO="lubelrivero-design/Organigrama-GCBA";
   var fab=document.getElementById("bol-fab"), modal=document.getElementById("bol-modal"),
       list=document.getElementById("bol-list");
+  var items=[];
   function esc(s){return String(s==null?"":s).replace(/[&<>]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;"}[c];});}
+  function token(){ try{return localStorage.getItem("gh_token")||"";}catch(e){return"";} }
   // Render mínimo de markdown del resumen (negritas, código, itálicas, títulos, viñetas)
   function md(t){
     return esc(t)
@@ -4160,24 +4344,232 @@ function __mountApp(){
   document.getElementById("bol-close").onclick=function(){modal.style.display="none";};
   modal.onclick=function(e){if(e.target===modal)modal.style.display="none";};
 
+  function prNumber(url){ var m=/\/pull\/(\d+)/.exec(url||""); return m?m[1]:null; }
+
+  function render(){
+    if(!items.length){
+      fab.style.display="none";
+      list.innerHTML='<div style="font:400 13px \'Open Sans\',sans-serif;color:#718096;text-align:center;padding:12px;">No hay cambios pendientes. 🎉</div>';
+      return;
+    }
+    fab.textContent="📥 Boletín: "+items.length+" pendiente"+(items.length>1?"s":"");
+    fab.style.display="block";
+    list.innerHTML=items.map(function(it,i){
+      return '<div class="bol-card" data-i="'+i+'" style="border:1px solid #E2E8F0;border-radius:8px;padding:12px 14px;margin-bottom:12px;">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">'
+          +'<strong style="font:700 13px \'Open Sans\',sans-serif;color:#101E37;">'+esc(it.titulo||("Boletín "+it.fecha))+'</strong>'
+          +'<div style="display:flex;gap:8px;white-space:nowrap;">'
+            +'<a href="'+esc(it.url)+'" target="_blank" rel="noopener" '
+              +'style="background:#268948;color:#fff;text-decoration:none;border-radius:7px;padding:7px 14px;font:600 12px \'Open Sans\',sans-serif;">Aprobar →</a>'
+            +'<button class="bol-reject" data-i="'+i+'" '
+              +'style="background:#fff;color:#9B1C1C;border:1px solid #E2B8B8;border-radius:7px;padding:7px 12px;font:600 12px \'Open Sans\',sans-serif;cursor:pointer;">Rechazar</button>'
+          +'</div>'
+        +'</div>'
+        +'<div style="font:400 12px/1.5 \'Open Sans\',sans-serif;color:#2D3748;">'+md(it.resumen||"")+'</div>'
+      +'</div>';
+    }).join("");
+    Array.prototype.forEach.call(list.querySelectorAll(".bol-reject"),function(b){
+      b.onclick=function(){ reject(parseInt(b.dataset.i,10)); };
+    });
+  }
+
+  // Rechazar = cerrar el PR en GitHub (y borrar su rama) con el token guardado.
+  // Al cerrarse, el workflow del índice regenera cambios-pendientes.json.
+  function reject(i){
+    var it=items[i]; if(!it)return;
+    var num=prNumber(it.url);
+    if(!num){ alert("No pude identificar el PR de este cambio."); return; }
+    var tk=token();
+    if(!tk){
+      alert("Para rechazar desde la app necesitás el token de GitHub.\nAbrí “☁️ Nube → 🔑 Token de GitHub” y pegá un token con permiso de Pull requests: Read and write.");
+      return;
+    }
+    if(!confirm("¿Rechazar este cambio? Se cerrará el Pull Request y no se aplicará.")) return;
+    var headers={ "Authorization":"Bearer "+tk, "Accept":"application/vnd.github+json" };
+    fetch("https://api.github.com/repos/"+REPO+"/pulls/"+num,{
+      method:"PATCH", headers:headers, body:JSON.stringify({state:"closed"})
+    }).then(function(r){
+      if(!r.ok) return r.json().then(function(j){ throw new Error((j&&j.message)||("HTTP "+r.status)); });
+      if(it.fecha){ // borrar la rama boletin/<fecha> (best-effort)
+        fetch("https://api.github.com/repos/"+REPO+"/git/refs/heads/boletin/"+it.fecha,{method:"DELETE",headers:headers}).catch(function(){});
+      }
+      items.splice(i,1);
+      render();
+    }).catch(function(e){
+      var m=String(e&&e.message||e);
+      if(/401|403|bad credentials|not accessible/i.test(m))
+        alert("Token inválido o sin permiso. Necesita Pull requests: Read and write en este repo.");
+      else alert("No se pudo rechazar: "+m);
+    });
+  }
+
   fetch("data/cambios-pendientes.json",{cache:"no-store"})
     .then(function(r){return r.ok?r.json():[];})
-    .then(function(items){
-      if(!Array.isArray(items)||!items.length)return;
-      fab.textContent="📥 Boletín: "+items.length+" pendiente"+(items.length>1?"s":"");
-      fab.style.display="block";
-      list.innerHTML=items.map(function(it){
-        return '<div style="border:1px solid #E2E8F0;border-radius:8px;padding:12px 14px;margin-bottom:12px;">'
-          +'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">'
-            +'<strong style="font:700 13px \'Open Sans\',sans-serif;color:#101E37;">'+esc(it.titulo||("Boletín "+it.fecha))+'</strong>'
-            +'<a href="'+esc(it.url)+'" target="_blank" rel="noopener" '
-              +'style="background:#268948;color:#fff;text-decoration:none;border-radius:7px;padding:7px 14px;font:600 12px \'Open Sans\',sans-serif;white-space:nowrap;">Aprobar en GitHub →</a>'
-          +'</div>'
-          +'<div style="font:400 12px/1.5 \'Open Sans\',sans-serif;color:#2D3748;">'+md(it.resumen||"")+'</div>'
-        +'</div>';
-      }).join("");
+    .then(function(data){
+      items=Array.isArray(data)?data:[];
+      if(!items.length)return;   // nada pendiente: no mostrar el FAB
+      render();
     })
     .catch(function(){});
+})();
+</script>
+
+<!-- ── ☁️ Guardar / Traer de la nube (multi-dispositivo) ──────────────────
+     Sube los cambios (organigrama + layout) al repo vía la API de GitHub
+     usando un token personal guardado en este navegador (localStorage).
+     "Traer" lee los archivos del propio sitio (sin token) y recarga.
+     Así lo que editás queda guardado y accesible desde cualquier compu. -->
+<div id="cloud-fab" title="Guardar / traer de la nube" style="display:none;position:fixed;bottom:16px;right:16px;z-index:9000;
+  background:#004F86;color:#fff;border:none;border-radius:24px;padding:10px 16px;
+  font:600 13px 'Open Sans',sans-serif;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.3);">☁️ Nube</div>
+<div id="cloud-modal" style="display:none;position:fixed;inset:0;z-index:9001;background:rgba(0,0,0,.5);">
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,92vw);
+    max-height:88vh;overflow:auto;background:#fff;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.4);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #E2E8F0;position:sticky;top:0;background:#fff;">
+      <strong style="font:700 15px 'Open Sans',sans-serif;color:#101E37;">☁️ Guardar en la nube</strong>
+      <button id="cloud-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#718096;">✕</button>
+    </div>
+    <div style="padding:16px 18px;">
+      <p style="font:400 13px/1.6 'Open Sans',sans-serif;color:#2D3748;margin:0 0 12px;">
+        Guarda tus cambios en GitHub para verlos desde cualquier computadora.
+        <b>Guardar</b> sube lo que editaste; <b>Traer</b> baja la última versión guardada a esta compu.
+      </p>
+      <div style="display:flex;gap:10px;margin:0 0 16px;">
+        <button id="cloud-save" style="flex:1;background:#004F86;color:#fff;border:none;border-radius:8px;padding:11px;font:600 13px 'Open Sans',sans-serif;cursor:pointer;">⬆️ Guardar en la nube</button>
+        <button id="cloud-pull" style="flex:1;background:#268948;color:#fff;border:none;border-radius:8px;padding:11px;font:600 13px 'Open Sans',sans-serif;cursor:pointer;">⬇️ Traer de la nube</button>
+      </div>
+      <div id="cloud-status" style="display:none;font:500 12px/1.5 'Open Sans',sans-serif;border-radius:8px;padding:9px 12px;margin:0 0 16px;"></div>
+
+      <details id="cloud-tokbox" style="border-top:1px solid #E2E8F0;padding-top:12px;">
+        <summary style="font:600 12px 'Open Sans',sans-serif;color:#4A5568;cursor:pointer;">🔑 Token de GitHub <span id="cloud-tokstate"></span></summary>
+        <p style="font:400 12px/1.6 'Open Sans',sans-serif;color:#718096;margin:8px 0;">
+          Necesario una sola vez por navegador para poder <b>guardar</b>. Crealo en GitHub →
+          <i>Settings → Developer settings → Fine-grained tokens</i>, con permiso
+          <b>Contents: Read and write</b> solo sobre este repositorio. Se guarda únicamente en esta compu.
+        </p>
+        <div style="display:flex;gap:8px;">
+          <input id="cloud-token" type="password" placeholder="github_pat_…" autocomplete="off"
+            style="flex:1;border:1px solid #CBD5E0;border-radius:7px;padding:8px 10px;font:400 12px 'Open Sans',sans-serif;">
+          <button id="cloud-tok-save" style="background:#101E37;color:#fff;border:none;border-radius:7px;padding:8px 12px;font:600 12px 'Open Sans',sans-serif;cursor:pointer;">Guardar</button>
+          <button id="cloud-tok-clear" style="background:#fff;color:#9B1C1C;border:1px solid #E2B8B8;border-radius:7px;padding:8px 12px;font:600 12px 'Open Sans',sans-serif;cursor:pointer;">Borrar</button>
+        </div>
+      </details>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var REPO="lubelrivero-design/Organigrama-GCBA", BRANCH="main";
+  var API="https://api.github.com/repos/"+REPO+"/contents/";
+  var TOK_KEY="gh_token";
+  var fab=document.getElementById("cloud-fab"), modal=document.getElementById("cloud-modal");
+  var st=document.getElementById("cloud-status"), tokState=document.getElementById("cloud-tokstate");
+  var tokInput=document.getElementById("cloud-token");
+
+  function token(){ try{return localStorage.getItem(TOK_KEY)||"";}catch(e){return"";} }
+  function setStatus(msg,kind){
+    st.style.display="block";
+    st.innerHTML=msg;
+    if(kind==="ok"){st.style.background="#E6F4EA";st.style.color="#1E6B33";}
+    else if(kind==="err"){st.style.background="#FDECEC";st.style.color="#9B1C1C";}
+    else{st.style.background="#EEF2F7";st.style.color="#2D3748";}
+  }
+  function refreshTok(){
+    tokState.textContent = token() ? "✅ guardado" : "— sin token";
+  }
+  // base64 seguro para UTF-8 (acentos)
+  function b64(str){ return btoa(unescape(encodeURIComponent(str))); }
+
+  // Mostrar el botón solo con sesión de editor (⚙ + clave). Polling simple.
+  function chequearLogin(){ fab.style.display = (window._gcbaEditorAuth===true) ? "block" : "none"; }
+  setInterval(chequearLogin,600); chequearLogin();
+
+  fab.onclick=function(){ modal.style.display="block"; refreshTok(); };
+  document.getElementById("cloud-close").onclick=function(){ modal.style.display="none"; };
+  modal.onclick=function(e){ if(e.target===modal) modal.style.display="none"; };
+
+  document.getElementById("cloud-tok-save").onclick=function(){
+    var v=(tokInput.value||"").trim();
+    if(!v){ setStatus("Pegá un token antes de guardar.","err"); return; }
+    try{ localStorage.setItem(TOK_KEY,v); }catch(e){}
+    tokInput.value=""; refreshTok(); setStatus("Token guardado en este navegador.","ok");
+  };
+  document.getElementById("cloud-tok-clear").onclick=function(){
+    try{ localStorage.removeItem(TOK_KEY); }catch(e){}
+    refreshTok(); setStatus("Token borrado de este navegador.","info");
+  };
+
+  // PUT de un archivo (crea o actualiza) vía la API Contents de GitHub.
+  function putFile(path,contentStr,message){
+    var headers={ "Authorization":"Bearer "+token(), "Accept":"application/vnd.github+json" };
+    // 1) obtener sha actual (si existe) para poder actualizar
+    return fetch(API+path+"?ref="+BRANCH,{headers:headers,cache:"no-store"})
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(meta){
+        var body={ message:message, content:b64(contentStr), branch:BRANCH };
+        if(meta&&meta.sha) body.sha=meta.sha;
+        return fetch(API+path,{ method:"PUT", headers:headers, body:JSON.stringify(body) });
+      })
+      .then(function(r){
+        if(r.ok) return true;
+        return r.json().then(function(j){ throw new Error((j&&j.message)||("HTTP "+r.status)); });
+      });
+  }
+
+  document.getElementById("cloud-save").onclick=function(){
+    if(!token()){ setStatus("Falta el token. Abrí “🔑 Token de GitHub” acá abajo.","err"); return; }
+    var org=localStorage.getItem("gcba_org_v2");
+    if(!org){ setStatus("No hay cambios locales para guardar.","err"); return; }
+    var tree; try{ tree=JSON.parse(org); }catch(e){ setStatus("El organigrama local está corrupto.","err"); return; }
+    var orgStr=JSON.stringify(tree,null,2)+"\n";
+    var layout={
+      positions: JSON.parse(localStorage.getItem("gcba_org_positions_v1")||"{}"),
+      waypoints: JSON.parse(localStorage.getItem("gcba_org_waypoints_v1")||"{}"),
+      midy:      JSON.parse(localStorage.getItem("gcba_org_midy_v1")||"{}"),
+      nodesize:  JSON.parse(localStorage.getItem("gcba_org_nodesize_v1")||"{}")
+    };
+    var layoutStr=JSON.stringify(layout,null,2)+"\n";
+    var stamp=new Date().toISOString().slice(0,16).replace("T"," ");
+    setStatus("⏳ Guardando en la nube…","info");
+    putFile("data/organigrama.json",orgStr,"App: actualizar organigrama ("+stamp+")")
+      .then(function(){ return putFile("data/layout.json",layoutStr,"App: actualizar layout ("+stamp+")"); })
+      .then(function(){
+        setStatus("✅ Guardado. En ~1 min queda publicado; en otra compu tocá <b>Traer de la nube</b>.","ok");
+      })
+      .catch(function(e){
+        var m=String(e&&e.message||e);
+        if(/401|403|bad credentials|not accessible/i.test(m))
+          setStatus("❌ Token inválido o sin permiso <b>Contents: Read and write</b> en este repo.","err");
+        else setStatus("❌ No se pudo guardar: "+m,"err");
+      });
+  };
+
+  document.getElementById("cloud-pull").onclick=function(){
+    if(!confirm("Esto reemplaza lo que tenés en esta computadora con la última versión guardada en la nube. ¿Seguir?")) return;
+    setStatus("⏳ Trayendo de la nube…","info");
+    Promise.all([
+      fetch("data/organigrama.json",{cache:"no-store"}).then(function(r){return r.ok?r.json():Promise.reject("organigrama");}),
+      fetch("data/layout.json",{cache:"no-store"}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;})
+    ]).then(function(res){
+      var tree=res[0], L=res[1];
+      if(!tree||!tree.id) throw new Error("respuesta inválida");
+      var prev=localStorage.getItem("gcba_org_v2");
+      if(prev) localStorage.setItem("gcba_org_v2_backup_"+Date.now(),prev);
+      localStorage.setItem("gcba_org_v2",JSON.stringify(tree));
+      if(L&&typeof L==="object"){
+        localStorage.setItem("gcba_org_positions_v1",JSON.stringify(L.positions||{}));
+        localStorage.setItem("gcba_org_waypoints_v1",JSON.stringify(L.waypoints||{}));
+        localStorage.setItem("gcba_org_midy_v1",JSON.stringify(L.midy||{}));
+        localStorage.setItem("gcba_org_nodesize_v1",JSON.stringify(L.nodesize||{}));
+      }
+      setStatus("✅ Traído. Recargando…","ok");
+      setTimeout(function(){ location.reload(); },700);
+    }).catch(function(e){
+      setStatus("❌ No se pudo traer: "+String(e&&e.message||e),"err");
+    });
+  };
+
+  refreshTok();
 })();
 </script>
 
