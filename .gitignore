@@ -8,3 +8,7 @@ boletin-*.txt
 # Importador PDF
 scripts/importar-pdf/node_modules/
 scripts/importar-pdf/package-lock.json
+
+# Python
+scripts/__pycache__/
+scripts/*.pyc

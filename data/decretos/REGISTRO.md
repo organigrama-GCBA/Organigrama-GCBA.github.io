@@ -50,6 +50,25 @@ Orden: del más viejo al más nuevo (número de decreto = orden cronológico).
 - **Decreto 105**: `DGDIYDP` renombrada a "DG. Docencia, Investigación y Desarrollo Profesional".
 - **Decreto 215**: `DGCEME` (Cementerios) → SS Servicios; `DGCCTA` (Competencias Comunales y Talleres) → SS Gestión Comunal; `DGGCDCI` (Gestión de Calidad y Demanda Ciudadana) mal colgada bajo DGISIS → SS Vinculación Ciudadana; eliminada `DGADJREC` (DG Adjunta Registro Estado Civil).
 
+## Parte 2 — Misiones y funciones (carga de `data/funciones.json`)
+
+Fuente por ministerio: el último decreto de estructura con **Anexo II (Responsabilidades
+Primarias, Objetivos y Descripción de Acciones)**, yendo de junio 2026 hacia atrás. Los PDF
+de los anexos se guardan en `data/decretos/pdf/`.
+
+### Movilidad e Infraestructura (MMIGC) — Decreto 376/25 (sanc. 26/09/2025)
+- Cargadas 25 áreas (MIN/SEC/SS/DG/ORG). Las Gerencias/Subgerencias Operativas quedan fuera de alcance.
+- Nivel MIN tomado del perfil institucional oficial (el anexo no trae texto a nivel ministerio).
+- `DGGEF` (DG. Gestión Económico-Financiera) y entes `AUSA`/`SBASE`: el decreto solo trae
+  "Descripción de Acciones"/"Objetivos" (sin Responsabilidad Primaria) → cargados en esos campos.
+- **Correcciones estructurales aplicadas:**
+  - **`DGTALMI` movida de MJGGC → MMIGC.** Estaba como hija directa de Jefatura de Gabinete,
+    pero el id ("MI" = Ministerio de Infraestructura) y el decreto la ubican bajo este ministerio.
+    Jefatura NO tiene DGTAL propia (su función técnico-administrativa-legal la cubre `SSCTAL`→`DGTAS`);
+    cada ministerio tiene su propia DGTAL dentro de su subárbol y a MMIGC le faltaba.
+  - `DGGEF`: nombre corregido "Económico-Financiero" → "Económico-Financiera" (decreto 376/25).
+  - `DGGIDT`: quitado el sufijo sobrante "dependiente" → "DG. Gestión Integral del Tránsito".
+
 ## Estado
 **Todos los decretos estructurales (⭐ con anexo) procesados** (14 → 224).
 Los decretos restantes sin anexo (40,41,45,48,53,57,60,62,63,73–76,82,85–88,98,101,103,106,112,114,116,123,141,146,158,161–168,170,175,176,180–182,194,197,200,205,210–212,226,227,228,236) son **designaciones/renuncias de personas** (titulares), anteriores al base de junio → stale. No tocan estructura.
