@@ -151,6 +151,15 @@ body{margin:0;font-family:'Open Sans','Inter',-apple-system,sans-serif;backgroun
 @media(max-width:480px){
   .app-header{padding:0 8px!important;gap:4px!important;}
 }
+/* Sección colapsable "Misiones y funciones" */
+.fn-summary{border-radius:8px;transition:background .12s;}
+.fn-summary::-webkit-details-marker{display:none;}
+.fn-summary::marker{content:"";}
+.fn-summary:hover{background:#F1F5F9;}
+.fn-chevron{display:inline-block;transition:transform .18s ease;}
+.fn-details[open] .fn-chevron{transform:rotate(180deg);}
+.fn-verlabel::after{content:"ver";}
+.fn-details[open] .fn-verlabel::after{content:"ocultar";}
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -4012,12 +4021,15 @@ function App(){
                 if(!blocks.length&&fn.texto)blocks.push(["",fn.texto]);
                 if(!blocks.length)return null;
                 return (
-                  <details style={{marginBottom:18}}>
-                    <summary style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",cursor:"pointer",listStyle:"none",userSelect:"none",padding:"4px 0"}}>
+                  <details className="fn-details" style={{marginBottom:18}}>
+                    <summary className="fn-summary" style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",cursor:"pointer",listStyle:"none",userSelect:"none",padding:"7px 10px"}}>
                       <div style={{width:3,height:16,borderRadius:2,background:color}}/>
                       <span style={{fontSize:11,fontWeight:700,color:"#101E37",textTransform:"uppercase",letterSpacing:".06em"}}>Misiones y funciones</span>
                       {fn.fuente&&<span style={{fontSize:10,background:"#EEF2F7",color:"#4A5568",fontWeight:600,padding:"1px 7px",borderRadius:20}}>{fn.fuente}</span>}
-                      <span style={{fontSize:10,fontWeight:600,color:"#A0AEC0",marginLeft:"auto"}}>▾ ver</span>
+                      <span style={{display:"flex",alignItems:"center",gap:4,fontSize:10,fontWeight:600,color:"#718096",marginLeft:"auto"}}>
+                        <span className="fn-verlabel"/>
+                        <span className="fn-chevron">▾</span>
+                      </span>
                     </summary>
                     <div style={{background:"#fff",border:"1px solid #E8EDF2",borderRadius:9,padding:"12px 16px",marginTop:8}}>
                       {blocks.map(([t,c],i)=>(
