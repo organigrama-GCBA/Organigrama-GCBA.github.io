@@ -28,10 +28,15 @@ Orden: del más viejo al más nuevo (número de decreto = orden cronológico).
 | 94 | 04/03 | Designaciones de personas (anexo = lista) | ⏭️ Designación stale |
 | 105 ⭐ | 12/03 | Estructura Min. Salud (todo en anexo) | ⏳ Pendiente: verificar contra anexo |
 | 136 | 01/04 | Designaciones de personas (anexo = lista) | ⏭️ Designación stale |
+| 105 ⭐ | 12/03 | Anexo organigrama Min. Salud | ✅ Estructura DG/SS coincide (difs. solo en sub-niveles fuera de alcance). Corrijo nombre: "Desarrollo Personal"→"Profesional" |
+| 125 | 27/03 | Anexo Ratificaciones JGM (Ordenamiento Urbano) | ⏭️ Designaciones stale; estructura (SECOU) ya en base |
+| 137 ⭐ | 31/03 | Anexo organigrama Secretaría General | ⚠️ **CORREGIDO**: Protocolo y Ceremonial (DGPRYC) y Análisis Prospectivo (DGAPR) colgaban directo de SECGE → movidos bajo SS Relaciones Internacionales (como indica el anexo) |
 
 ## Correcciones aplicadas al organigrama
 - **Decreto 39**: eliminada `SSANP` (SS. Análisis Prospectivo), suprimida por el decreto pero presente en el base.
+- **Decreto 137**: `DGPRYC` y `DGAPR` movidos de SECGE (directo) a `SSRIN` (SS. Relaciones Internacionales).
+- **Decreto 105**: `DGDIYDP` renombrada a "DG. Docencia, Investigación y Desarrollo Profesional".
 
 ## Pendientes (estructurales ⭐ con anexo, en orden)
-105 (anexo Salud), 124, 125, 137, 144, 173, 174, 186, 193, 215, 216, 220, 224
+124, 144, 173, 174, 186, 193, 215, 216, 220, 224
 y los decretos de junio (post-base) para titulares vigentes.

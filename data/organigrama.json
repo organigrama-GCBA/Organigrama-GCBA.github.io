@@ -1883,7 +1883,7 @@
                 },
                 {
                   "id": "DGDIYDP",
-                  "nombre": "DG. Docencia, Investigación y Desarrollo Personal",
+                  "nombre": "DG. Docencia, Investigación y Desarrollo Profesional",
                   "titular": "Andrea María Andreacchio",
                   "tipo": "DG",
                   "children": []
@@ -3212,13 +3212,6 @@
           ]
         },
         {
-          "id": "DGPRYC",
-          "nombre": "DG. Protocolo y Ceremonial",
-          "titular": "Irene Wlodkowski",
-          "tipo": "DG",
-          "children": []
-        },
-        {
           "id": "SSRIN",
           "nombre": "SS. Relaciones Internacionales",
           "titular": "Ana Valeria Ciuti",
@@ -3237,15 +3230,22 @@
               "titular": "Matías Nahuel Muñoz",
               "tipo": "DG",
               "children": []
+            },
+            {
+              "id": "DGPRYC",
+              "nombre": "DG. Protocolo y Ceremonial",
+              "titular": "Irene Wlodkowski",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGAPR",
+              "nombre": "DG. Análisis Prospectivo",
+              "titular": "Nerio Pace",
+              "tipo": "DG",
+              "children": []
             }
           ]
-        },
-        {
-          "id": "DGAPR",
-          "nombre": "DG. Análisis Prospectivo",
-          "titular": "Nerio Pace",
-          "tipo": "DG",
-          "children": []
         }
       ]
     },
