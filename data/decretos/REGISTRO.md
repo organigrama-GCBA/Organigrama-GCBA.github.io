@@ -108,6 +108,22 @@ de los anexos se guardan en `data/decretos/pdf/`.
 - Nota de parseo: el anexo usa rótulos en minúscula ("Descripción de responsabilidades primarias")
   y a veces solo "Responsabilidades Primarias" → se hizo el extractor case-insensitive y flexible.
 
+### Cultura (MCGC) — Decreto 134/26 (sanc. 31/03/2026)
+- Agregadas SSPDC, SSPCU, SSGCULT, EATC (Teatro Colón, Ley 2.855) y nivel MIN.
+- Pendiente: `MCGC-CPPH` (Comisión Preservación Patrimonio Histórico) no figura en el 134/26.
+
+### Secretaría General (SECGE) — Decreto 137/26 (sanc. 31/03/2026)
+- Agregadas las 8 áreas (SS Relaciones Internacionales/Institucionales y sus DGs) + nivel SEC.
+
+### Secretaría Legal y Técnica (SECLYT) — Decreto 3/25 (sanc. 03/01/2025)
+- Agregadas las 10 áreas + nivel SEC. El PDF tenía numeración glitcheada → mapeo por nombre.
+
+### Desarrollo Humano y Hábitat (MDHYHGC) — Decreto 58/26 (sanc. 11/02/2026)
+- Agregadas las 9 áreas faltantes (IVC Ley 1.251, SS y DGs) + nivel MIN.
+
+> Mejora de herramienta: se agregó mapeo por NOMBRE normalizado (`parse_anexo.get_by_name`)
+> para anexos con numeración corrupta en el PDF.
+
 ## Estado
 **Todos los decretos estructurales (⭐ con anexo) procesados** (14 → 224).
 Los decretos restantes sin anexo (40,41,45,48,53,57,60,62,63,73–76,82,85–88,98,101,103,106,112,114,116,123,141,146,158,161–168,170,175,176,180–182,194,197,200,205,210–212,226,227,228,236) son **designaciones/renuncias de personas** (titulares), anteriores al base de junio → stale. No tocan estructura.

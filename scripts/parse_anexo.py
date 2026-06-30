@@ -66,6 +66,23 @@ def get(lines,secs,num):
             return name,parse_block(body(lines,secs,k))
     return None,(None,None)
 
+import unicodedata
+def norm(s):
+    s=unicodedata.normalize('NFD',s or '').encode('ascii','ignore').decode().upper()
+    return re.sub(r'[^A-Z0-9]','',s)
+
+def get_by_name(lines,secs,substr):
+    """Devuelve (name, (rp,ob)) de la sección cuyo nombre normalizado contiene substr."""
+    key=norm(substr)
+    cands=[]
+    for k,(n,name,_) in enumerate(secs):
+        if name and key in norm(name):
+            cands.append((len(norm(name)),k,name))
+    if not cands: return None,(None,None)
+    cands.sort()  # el match más ajustado (nombre más corto) primero
+    _,k,name=cands[0]
+    return name,parse_block(body(lines,secs,k))
+
 if __name__=='__main__':
     path=sys.argv[1]
     nums=sys.argv[2:]

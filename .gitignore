@@ -12,3 +12,4 @@ scripts/importar-pdf/package-lock.json
 # Python
 scripts/__pycache__/
 scripts/*.pyc
+scripts/_part1*.json

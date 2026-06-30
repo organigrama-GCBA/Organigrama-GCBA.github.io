@@ -16,21 +16,30 @@ def grab_acciones(blk):
     seg=blk[m.end():]
     return clean(seg)
 
-def entry_from(lines,secs,num,fuente):
-    name,(rp,ob)=P.get(lines,secs,num)
-    rp=clean(rp); ob=clean(ob)
-    e={}
+def _mk(rp,ob,acc_block,fuente):
+    rp=clean(rp); ob=clean(ob); e={}
     if rp: e['responsabilidad']=rp
     if ob: e['objetivos']=ob
-    if not rp and not ob:
-        # solo hay Descripción de Acciones
-        for k,(n,nm,_) in enumerate(secs):
-            if n==num:
-                ac=grab_acciones(P.body(lines,secs,k))
-                if ac: e['acciones']=ac
-                break
+    if not rp and not ob and acc_block is not None:
+        ac=grab_acciones(acc_block)
+        if ac: e['acciones']=ac
     e['fuente']=fuente
     return e
+
+def entry_from(lines,secs,num,fuente):
+    name,(rp,ob)=P.get(lines,secs,num)
+    blk=None
+    for k,(n,nm,_) in enumerate(secs):
+        if n==num: blk=P.body(lines,secs,k); break
+    return _mk(rp,ob,blk,fuente)
+
+def entry_by_name(lines,secs,substr,fuente):
+    name,(rp,ob)=P.get_by_name(lines,secs,substr)
+    blk=None
+    key=P.norm(substr)
+    for k,(n,nm,_) in enumerate(secs):
+        if nm and key in P.norm(nm): blk=P.body(lines,secs,k); break
+    return name,_mk(rp,ob,blk,fuente)
 
 def _part1():
     try: return set(json.load(io.open('scripts/_part1_ids.json',encoding='utf-8')))
