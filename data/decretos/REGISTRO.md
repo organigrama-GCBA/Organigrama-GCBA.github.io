@@ -69,6 +69,18 @@ de los anexos se guardan en `data/decretos/pdf/`.
   - `DGGEF`: nombre corregido "Económico-Financiero" → "Económico-Financiera" (decreto 376/25).
   - `DGGIDT`: quitado el sufijo sobrante "dependiente" → "DG. Gestión Integral del Tránsito".
 
+### Desarrollo Económico (MDECGC) — Decreto 125/25 (sanc. 11/03/2025)
+- Es el último anexo de estructura del ministerio (de junio 2026 hacia atrás): ya reemplazó
+  la DG Economía e Innovación Social por la **DG Ciencia y Tecnología (DGCTEC)** que tenía el 52/25.
+- Cargadas 18 áreas del cuerpo del ministerio (MIN/SS/DG/ORG).
+- **Pendientes (no están en este decreto):**
+  - Áreas internas del **Ente de Turismo (ENTUR)** (`UAIENTUR`, `ENTUR-DC`, `DGTALET`, `DGCOT`,
+    `EAIT-CODEI`, `DGDTU`, `DGPTU`): el ENTUR es ente fuera de nivel con estructura propia (Ley 2.627);
+    el decreto 125/25 solo lo lista como tal ("Ejercer las funciones conferidas por la Ley Nº 2627").
+  - `DGIPS` (DG. Innovación y Simplificación de Procesos): figura en el organigrama como hija de
+    `DGIP`, pero NO aparece en el anexo del 125/25 (DGIP solo tiene Gerencias Operativas por debajo).
+    A revisar: posible creación posterior o ubicación a verificar.
+
 ## Estado
 **Todos los decretos estructurales (⭐ con anexo) procesados** (14 → 224).
 Los decretos restantes sin anexo (40,41,45,48,53,57,60,62,63,73–76,82,85–88,98,101,103,106,112,114,116,123,141,146,158,161–168,170,175,176,180–182,194,197,200,205,210–212,226,227,228,236) son **designaciones/renuncias de personas** (titulares), anteriores al base de junio → stale. No tocan estructura.
