@@ -3053,6 +3053,13 @@
                   "children": []
                 }
               ]
+            },
+            {
+              "id": "DGGAN",
+              "nombre": "DG. Gestión Animal",
+              "tipo": "DG",
+              "titular": "",
+              "children": []
             }
           ]
         },
