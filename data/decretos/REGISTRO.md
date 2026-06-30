@@ -38,11 +38,18 @@ Orden: del más viejo al más nuevo (número de decreto = orden cronológico).
 | 174 ⭐ | 04/05 | Min. Seguridad: mueve DG Alcaidías a SS Investigación y Estadística Criminal | ✅ Ya en base (DGALC→SSIYEC); resto responsabilidades |
 | 186 ⭐ | 14/05 | Procuración General + responsabilidades | ✅ Ya en base (DG Inteligencia Artificial presente) |
 
+| 193 | 20/05 | Renuncias + designaciones (Desarrollo Económico) | ⏭️ Stale |
+| 215 ⭐ | 05/06 | **Sec. Gobierno y Vínculo Ciudadano**: mueve Cementerios y Competencias Comunales; suprime DG Adjunta Registro Estado Civil; crea DG Gestión de Calidad y Demanda Ciudadana | ⚠️ **CORREGIDO** (4 cambios, ver abajo) |
+| 216 | 08/06 | Renuncia + designa Jarvis (OSBA) | ⏭️ Stale (ya en Boletín) |
+| 220 ⭐ | jun | Anexo organigrama Min. Educación | ✅ Estructura DG coincide |
+| 224 | jun | Anexo renuncias (Sec. Gob. y Vínculo Ciudadano) | ⏭️ Stale |
+
 ## Correcciones aplicadas al organigrama
 - **Decreto 39**: eliminada `SSANP` (SS. Análisis Prospectivo), suprimida por el decreto pero presente en el base.
 - **Decreto 137**: `DGPRYC` y `DGAPR` movidos de SECGE (directo) a `SSRIN` (SS. Relaciones Internacionales).
 - **Decreto 105**: `DGDIYDP` renombrada a "DG. Docencia, Investigación y Desarrollo Profesional".
+- **Decreto 215**: `DGCEME` (Cementerios) → SS Servicios; `DGCCTA` (Competencias Comunales y Talleres) → SS Gestión Comunal; `DGGCDCI` (Gestión de Calidad y Demanda Ciudadana) mal colgada bajo DGISIS → SS Vinculación Ciudadana; eliminada `DGADJREC` (DG Adjunta Registro Estado Civil).
 
-## Pendientes (estructurales ⭐ con anexo, en orden)
-193, 215, 216, 220, 224
-y los decretos de junio (post-base) para titulares vigentes.
+## Estado
+**Todos los decretos estructurales (⭐ con anexo) procesados** (14 → 224).
+Los decretos restantes sin anexo (40,41,45,48,53,57,60,62,63,73–76,82,85–88,98,101,103,106,112,114,116,123,141,146,158,161–168,170,175,176,180–182,194,197,200,205,210–212,226,227,228,236) son **designaciones/renuncias de personas** (titulares), anteriores al base de junio → stale. No tocan estructura.
