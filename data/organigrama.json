@@ -2987,13 +2987,6 @@
               "children": []
             },
             {
-              "id": "DGGAN",
-              "nombre": "DG. Gestión Animal",
-              "titular": "Carolina Laura De Sande",
-              "tipo": "DG",
-              "children": []
-            },
-            {
               "id": "DGACRA",
               "nombre": "DG. Áreas de Conservación y Restauración Ambiental",
               "titular": "Ignacio Martín Suarez De La Rosa",
@@ -3034,6 +3027,13 @@
                   "titular": "María Luján Azcurra",
                   "tipo": "ORG",
                   "dashed": true,
+                  "children": []
+                },
+                {
+                  "id": "UCSYTRM",
+                  "nombre": "Unidad de Coordinación Sanidad y Tenencia Responsable de Mascotas",
+                  "titular": "Carolina Laura De Sande",
+                  "tipo": "ORG",
                   "children": []
                 }
               ]
@@ -3344,15 +3344,7 @@
           "nombre": "DG Gestión y Evaluación Estratégica",
           "titular": "Maximiliano José Domingo Costantinis",
           "tipo": "DG",
-          "children": [
-            {
-              "id": "UCSYTRM",
-              "nombre": "Unidad de Coordinación Sanidad y Tenencia Responsable de Mascotas",
-              "titular": "Carolina Laura De Sande",
-              "tipo": "ORG",
-              "children": []
-            }
-          ]
+          "children": []
         },
         {
           "id": "SSAIN",
