@@ -1262,14 +1262,21 @@
                   "nombre": "SS. Asuntos Judiciales",
                   "titular": "Fernando Calvo",
                   "tipo": "SS",
-                  "children": []
-                },
-                {
-                  "id": "DGAJG2",
-                  "nombre": "DG. Asuntos Judiciales Generales",
-                  "titular": "Micaela Soledad Del Gaudio",
-                  "tipo": "DG",
                   "children": [
+                    {
+                      "id": "DGAJU",
+                      "nombre": "DG. Acceso a la Justicia",
+                      "titular": "Janine Weideman",
+                      "tipo": "DG",
+                      "children": []
+                    },
+                    {
+                      "id": "DGAV",
+                      "nombre": "DG. Asistencia a la Victima",
+                      "titular": "Felicitas María De Lasa",
+                      "tipo": "DG",
+                      "children": []
+                    },
                     {
                       "id": "DGDHU",
                       "nombre": "DG. Derechos Humanos",
@@ -1293,20 +1300,6 @@
                           "children": []
                         }
                       ]
-                    },
-                    {
-                      "id": "DGAJU",
-                      "nombre": "DG. Acceso a la Justicia",
-                      "titular": "Janine Weideman",
-                      "tipo": "DG",
-                      "children": []
-                    },
-                    {
-                      "id": "DGAV",
-                      "nombre": "DG. Asistencia a la Victima",
-                      "titular": "Felicitas María De Lasa",
-                      "tipo": "DG",
-                      "children": []
                     }
                   ]
                 },
@@ -2826,25 +2819,33 @@
           "children": []
         },
         {
-          "id": "DGAJTF",
-          "nombre": "DG. Asuntos Judiciales Tributarios y Fiscales",
-          "titular": "María Cristina Cuello",
-          "tipo": "DG",
-          "children": []
-        },
-        {
           "id": "DGAJG",
           "nombre": "PG Adjunta Asuntos Judiciales",
           "titular": "Sergio Rubén Brodsky",
           "tipo": "ORG",
-          "children": []
-        },
-        {
-          "id": "DGAJDEP",
-          "nombre": "DG. Asuntos Judiciales del Empleo Público",
-          "titular": "Rubén Argentino Luna",
-          "tipo": "DG",
-          "children": []
+          "children": [
+            {
+              "id": "DGAJG2",
+              "nombre": "DG. Asuntos Judiciales Generales",
+              "titular": "Micaela Soledad Del Gaudio",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGAJTF",
+              "nombre": "DG. Asuntos Judiciales Tributarios y Fiscales",
+              "titular": "María Cristina Cuello",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGAJDEP",
+              "nombre": "DG. Asuntos Judiciales del Empleo Público",
+              "titular": "Rubén Argentino Luna",
+              "tipo": "DG",
+              "children": []
+            }
+          ]
         }
       ]
     },
