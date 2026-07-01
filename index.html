@@ -3749,6 +3749,14 @@ function App(){
     window.dispatchEvent(new CustomEvent("orgDataChanged",{detail:data}));
   },[data]);
 
+  // Refrescar el área seleccionada cuando cambian los datos (drag, mover, editar),
+  // así el panel de detalle se actualiza al instante sin recargar (F5).
+  useEffect(()=>{
+    if(!selected)return;
+    const fresh=findNode(data,selected.id);
+    if(fresh&&fresh!==selected)setSelected(fresh);
+  },[data]);
+
   // Escuchar cambios del editor D3
   useEffect(()=>{
     const h=e=>{setData(e.detail);saveData(e.detail);};
