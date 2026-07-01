@@ -3255,26 +3255,69 @@ function PanelItem({node,onSelect,selectedId,depth=0}){
   </>;
 }
 
-// Tarjeta de dependencia (grid del panel de detalle) con drag & drop:
-// arrastrar sobre otra → depende de ella (medio) o se reordena (izq/der).
-function DepCard({ch,onSelect,onDnD}){
-  const [dz,setDz]=React.useState(null);
-  const zoneAt=(e)=>{const r=e.currentTarget.getBoundingClientRect();const x=(e.clientX-r.left)/r.width;return x<0.3?"before":x>0.7?"after":"child";};
-  const ind=dz==="child"?{boxShadow:"0 0 0 2px #336ACC inset",background:"rgba(51,106,204,.06)"}
-    :dz==="before"?{boxShadow:"-3px 0 0 0 #336ACC inset"}
-    :dz==="after"?{boxShadow:"3px 0 0 0 #336ACC inset"}:null;
+// Grilla de dependencias con arrastre por POINTER EVENTS (mouse + touch):
+// arrastrar una tarjeta sobre otra → depende de ella (centro) o se reordena (izq/der).
+function DepGrid({items,onSelect,onDnD}){
+  const [ind,setInd]=React.useState(null);        // {overId, zone} para el resaltado
+  const [dragId,setDragId]=React.useState(null);  // id que se está arrastrando
+  const st=React.useRef({id:null,x:0,y:0,started:false,over:null});
+  const suppressClick=React.useRef(false);
+  const onMove=(e)=>{
+    const s=st.current; if(!s.id)return;
+    if(!s.started){
+      if(Math.abs(e.clientX-s.x)+Math.abs(e.clientY-s.y)<6)return;
+      s.started=true; setDragId(s.id); document.body.style.userSelect="none";
+    }
+    if(e.cancelable)e.preventDefault();
+    const el=document.elementFromPoint(e.clientX,e.clientY);
+    const card=el&&el.closest&&el.closest("[data-cardid]");
+    if(!card||card.getAttribute("data-cardid")===s.id){ s.over=null; setInd(null); return; }
+    const oid=card.getAttribute("data-cardid");
+    const r=card.getBoundingClientRect();
+    const x=(e.clientX-r.left)/r.width;
+    const zone=x<0.3?"before":x>0.7?"after":"child";
+    s.over={id:oid,zone};
+    setInd(cur=>(cur&&cur.overId===oid&&cur.zone===zone)?cur:{overId:oid,zone});
+  };
+  const onUp=()=>{
+    const s=st.current;
+    window.removeEventListener("pointermove",onMove);
+    window.removeEventListener("pointerup",onUp);
+    window.removeEventListener("pointercancel",onUp);
+    document.body.style.userSelect="";
+    if(s.started&&s.over&&s.over.id!==s.id&&onDnD){ suppressClick.current=true; onDnD(s.id,s.over.id,s.over.zone||"child"); }
+    st.current={id:null,x:0,y:0,started:false,over:null};
+    setDragId(null); setInd(null);
+  };
+  const onDown=(e,id)=>{
+    if(e.button!==undefined&&e.button!==0)return;
+    st.current={id,x:e.clientX,y:e.clientY,started:false,over:null};
+    window.addEventListener("pointermove",onMove,{passive:false});
+    window.addEventListener("pointerup",onUp);
+    window.addEventListener("pointercancel",onUp);
+  };
+  const click=(ch)=>{ if(suppressClick.current){suppressClick.current=false;return;} onSelect(ch); };
   return(
-    <div
-      draggable
-      onDragStart={e=>{e.stopPropagation();e.dataTransfer.setData("text/gcba-id",ch.id);e.dataTransfer.effectAllowed="move";}}
-      onDragOver={e=>{if(!onDnD)return;e.preventDefault();e.stopPropagation();e.dataTransfer.dropEffect="move";const z=zoneAt(e);setDz(p=>p===z?p:z);}}
-      onDragLeave={()=>setDz(null)}
-      onDrop={e=>{e.preventDefault();e.stopPropagation();const id=e.dataTransfer.getData("text/gcba-id");const z=zoneAt(e);setDz(null);if(onDnD&&id&&id!==ch.id)onDnD(id,ch.id,z);}}
-      onClick={()=>onSelect(ch)}
-      title="Arrastrá para reordenar o soltá encima para que dependa de otra área"
-      style={{borderRadius:9,background:"#fff",border:"1px solid #E8EDF2",cursor:"pointer",overflow:"hidden",transition:"box-shadow .12s",boxShadow:"0 1px 3px rgba(0,0,0,.04)",...(ind||{})}}
-      onMouseEnter={e=>{if(!dz){e.currentTarget.style.boxShadow="0 4px 14px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-1px)";}}}
-      onMouseLeave={e=>{if(!dz){e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.04)";e.currentTarget.style.transform="";}}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:8}}>
+      {items.map(ch=>(
+        <DepCard key={ch.id} ch={ch} onDown={e=>onDown(e,ch.id)} onClick={()=>click(ch)}
+          ind={ind&&ind.overId===ch.id?ind.zone:null} dragging={dragId===ch.id}/>
+      ))}
+    </div>
+  );
+}
+function DepCard({ch,onDown,onClick,ind,dragging}){
+  const box=ind==="child"?{boxShadow:"0 0 0 2px #336ACC inset",background:"rgba(51,106,204,.06)"}
+    :ind==="before"?{boxShadow:"-3px 0 0 0 #336ACC inset"}
+    :ind==="after"?{boxShadow:"3px 0 0 0 #336ACC inset"}
+    :{boxShadow:"0 1px 3px rgba(0,0,0,.04)"};
+  return(
+    <div data-cardid={ch.id}
+      onPointerDown={onDown}
+      onClick={onClick}
+      title="Arrastrá (mantené apretado y movés) para reordenar o soltar sobre otra área"
+      style={{borderRadius:9,background:"#fff",border:"1px solid #E8EDF2",cursor:"grab",overflow:"hidden",
+        transition:"box-shadow .12s",touchAction:"none",opacity:dragging?0.45:1,...box}}>
       <div style={{height:4,background:getColor(ch),opacity:ch.dashed?.6:1}}/>
       <div style={{padding:"10px 12px"}}>
         <div style={{fontSize:9,fontWeight:700,color:getColor(ch),textTransform:"uppercase",letterSpacing:".05em",marginBottom:4,opacity:ch.dashed?.7:1}}>
@@ -4117,11 +4160,7 @@ function App(){
                       </span>
                     </div>
                   </div>
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:8}}>
-                    {(selected.children||[]).map(ch=>(
-                      <DepCard key={ch.id} ch={ch} onSelect={navTo} onDnD={dndMove}/>
-                    ))}
-                  </div>
+                  <DepGrid items={selected.children||[]} onSelect={navTo} onDnD={dndMove}/>
                 </div>
               )}
             </div>
