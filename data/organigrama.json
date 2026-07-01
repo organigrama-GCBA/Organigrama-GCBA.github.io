@@ -3192,6 +3192,20 @@
       "tipo": "SEC",
       "children": [
         {
+          "id": "DGPRYC",
+          "nombre": "DG. Protocolo y Ceremonial",
+          "titular": "Irene Wlodkowski",
+          "tipo": "DG",
+          "children": []
+        },
+        {
+          "id": "DGAPR",
+          "nombre": "DG. Análisis Prospectivo",
+          "titular": "Nerio Pace",
+          "tipo": "DG",
+          "children": []
+        },
+        {
           "id": "SSRINS",
           "nombre": "SS. Relaciones Institucionales",
           "titular": "Mariano Lomolino",
@@ -3230,20 +3244,6 @@
               "id": "DGCBI",
               "nombre": "DG. Cooperación Bilateral",
               "titular": "Matías Nahuel Muñoz",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "DGPRYC",
-              "nombre": "DG. Protocolo y Ceremonial",
-              "titular": "Irene Wlodkowski",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "DGAPR",
-              "nombre": "DG. Análisis Prospectivo",
-              "titular": "Nerio Pace",
               "tipo": "DG",
               "children": []
             }
