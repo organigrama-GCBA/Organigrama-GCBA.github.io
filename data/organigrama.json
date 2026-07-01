@@ -674,13 +674,6 @@
               "children": []
             },
             {
-              "id": "DGEGE",
-              "nombre": "DG. Educación de Gestión Estatal",
-              "titular": "Nancy Elizabeth Rosana Sorfo",
-              "tipo": "DG",
-              "children": []
-            },
-            {
               "id": "SSPIE",
               "nombre": "SS. Planeamiento e Innovación Educativa",
               "titular": "Oscar Mauricio Ghillione",
@@ -722,6 +715,13 @@
               "titular": "Inés Cruzalegui",
               "tipo": "SS",
               "children": [
+                {
+                  "id": "DGEGE",
+                  "nombre": "DG. Educación de Gestión Estatal",
+                  "titular": "Nancy Elizabeth Rosana Sorfo",
+                  "tipo": "DG",
+                  "children": []
+                },
                 {
                   "id": "DGSFD",
                   "nombre": "DG. Sistema de Formación Docente",
