@@ -2644,29 +2644,6 @@
           ]
         },
         {
-          "id": "SECOU",
-          "nombre": "Secretaría Ordenamiento Urbano",
-          "titular": "Pedro Martín Comin Villanueva",
-          "tipo": "SEC",
-          "children": [
-            {
-              "id": "SSOUR",
-              "nombre": "SS. del Ordenamiento Urbano",
-              "titular": "Agustín Barcos",
-              "tipo": "SS",
-              "children": [
-                {
-                  "id": "DGFIS",
-                  "nombre": "DG. Fiscalización",
-                  "titular": "Mario Javier Carmona",
-                  "tipo": "DG",
-                  "children": []
-                }
-              ]
-            }
-          ]
-        },
-        {
           "id": "CBAS",
           "nombre": "Corporación Buenos Aires Sur S.A.U. Ley N°470",
           "titular": "Karina Andrea Burijson",
