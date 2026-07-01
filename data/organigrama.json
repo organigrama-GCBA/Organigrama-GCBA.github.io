@@ -1881,15 +1881,22 @@
                   "titular": "Cecilia María Klappenbach",
                   "tipo": "DG",
                   "children": []
+                },
+                {
+                  "id": "DGLTMSGC",
+                  "nombre": "DG. Legal y Técnica",
+                  "titular": "Carolina Fitzpatrick",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGCSJ",
+                  "nombre": "DG. Competencias Sanitarias Jurisdiccionales",
+                  "titular": "María Florencia Flax Marcó",
+                  "tipo": "DG",
+                  "children": []
                 }
               ]
-            },
-            {
-              "id": "DGLTMSGC",
-              "nombre": "DG. Legal y Técnica",
-              "titular": "Carolina Fitzpatrick",
-              "tipo": "DG",
-              "children": []
             },
             {
               "id": "UAIMS",
@@ -1948,13 +1955,6 @@
                   "children": []
                 }
               ]
-            },
-            {
-              "id": "DGCSJ",
-              "nombre": "DG. Competencias Sanitarias Jurisdiccionales",
-              "titular": "María Florencia Flax Marcó",
-              "tipo": "DG",
-              "children": []
             },
             {
               "id": "SSAPAC",
