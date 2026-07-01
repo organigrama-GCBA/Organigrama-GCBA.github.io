@@ -1953,6 +1953,14 @@
                   "titular": "María Eugenia Botteri Domecq",
                   "tipo": "DG",
                   "children": []
+                },
+                {
+                  "id": "FACOEP SE",
+                  "nombre": "Facturación y Cobranza de los Efectores Públicos S.E. Ley N° 5622 (FACOEP SE)",
+                  "titular": "Enrique Jesús Botti",
+                  "tipo": "ORG",
+                  "dashed": true,
+                  "children": []
                 }
               ]
             },
@@ -1977,14 +1985,6 @@
                   "children": []
                 }
               ]
-            },
-            {
-              "id": "FACOEP SE",
-              "nombre": "Facturación y Cobranza de los Efectores Públicos S.E. Ley N° 5622 (FACOEP SE)",
-              "titular": "Enrique Jesús Botti",
-              "tipo": "ORG",
-              "dashed": true,
-              "children": []
             }
           ]
         },
