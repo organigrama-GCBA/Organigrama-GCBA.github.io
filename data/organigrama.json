@@ -145,7 +145,16 @@
               "titular": "Gerardo Luis Grieco Martínez",
               "tipo": "ORG",
               "dashed": true,
-              "children": []
+              "children": [
+                {
+                  "id": "EATC-UAI",
+                  "nombre": "Unidad de Auditoría Interna",
+                  "titular": "Cristian Leopoldo Ludovisi",
+                  "tipo": "ORG",
+                  "dashed": true,
+                  "children": []
+                }
+              ]
             },
             {
               "id": "CTBA",
@@ -219,6 +228,14 @@
                   "nombre": "DG. Promoción Turística",
                   "titular": "Lila Araceli Baciagalupo",
                   "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DEJENTUR",
+                  "nombre": "Consejo Asesor",
+                  "titular": "",
+                  "tipo": "ORG",
+                  "dashed": true,
                   "children": []
                 }
               ]
@@ -637,6 +654,13 @@
                   "id": "DGPTE",
                   "nombre": "DG. Proyectos y Tecnología Educativa",
                   "titular": "Mariano Alfredo Perez Alfaro",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGSGE",
+                  "nombre": "DG. Sistemas de Gestión Escolar",
+                  "titular": "María Gimena Corcull",
                   "tipo": "DG",
                   "children": []
                 }
@@ -1144,6 +1168,13 @@
                   "id": "DGANFA",
                   "nombre": "DG. Análisis Fiscal",
                   "titular": "Manuel Esteban Balestretti",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGLTAGIP",
+                  "nombre": "DG. Legal y Técnica",
+                  "titular": "Silvina Lima",
                   "tipo": "DG",
                   "children": []
                 }
@@ -2307,14 +2338,6 @@
           ]
         },
         {
-          "id": "EATC-UAI",
-          "nombre": "Unidad de Auditoría Interna",
-          "titular": "Cristian Leopoldo Ludovisi",
-          "tipo": "ORG",
-          "dashed": true,
-          "children": []
-        },
-        {
           "id": "UAIMJG",
           "nombre": "Unidad de Auditoría Interna",
           "titular": "María Florencia Fernández Camarda",
@@ -2442,13 +2465,6 @@
                   "children": []
                 },
                 {
-                  "id": "DGSGE",
-                  "nombre": "DG. Sistemas de Gestión Escolar",
-                  "titular": "María Gimena Corcull",
-                  "tipo": "DG",
-                  "children": []
-                },
-                {
                   "id": "DGSGES",
                   "nombre": "DG. Sistemas de Gestión",
                   "titular": "Mariana Cecilia Tonina",
@@ -2556,13 +2572,6 @@
           ]
         },
         {
-          "id": "DGLTAGIP",
-          "nombre": "DG. Legal y Técnica",
-          "titular": "Silvina Lima",
-          "tipo": "DG",
-          "children": []
-        },
-        {
           "id": "SSCTAL",
           "nombre": "SS. Coordinación Técnica, Administrativa y Legal",
           "titular": "María Luján Domenech",
@@ -2633,14 +2642,6 @@
               "children": []
             }
           ]
-        },
-        {
-          "id": "DEJENTUR",
-          "nombre": "Consejo Asesor",
-          "titular": "",
-          "tipo": "ORG",
-          "dashed": true,
-          "children": []
         },
         {
           "id": "SECOU",
