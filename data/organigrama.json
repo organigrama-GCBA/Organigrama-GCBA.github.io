@@ -17,43 +17,6 @@
           "tipo": "MIN",
           "children": [
             {
-              "id": "SSPDC",
-              "nombre": "SS. Patrimonio y Desarrollo Cultural",
-              "titular": "Leonardo Martín Bellante",
-              "tipo": "SS",
-              "children": [
-                {
-                  "id": "DGPMYCH",
-                  "nombre": "DG. Patrimonio, Museos y Casco Histórico",
-                  "titular": "Pedro Ramón Aparicio",
-                  "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DGDCC",
-                  "nombre": "DG. Desarrollo Cultural y Creativo",
-                  "titular": "Carolina Paola Cordero",
-                  "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DGEART",
-                  "nombre": "DG. Enseñanza Artística",
-                  "titular": "Mariano Stolkiner",
-                  "tipo": "DG",
-                  "children": []
-                }
-              ]
-            },
-            {
-              "id": "UAIMC",
-              "nombre": "Unidad de Auditoría Interna",
-              "titular": "María Belén Borches",
-              "tipo": "ORG",
-              "dashed": true,
-              "children": []
-            },
-            {
               "id": "DGTALMC",
               "nombre": "DG. Técnica, Administrativa y Legal",
               "titular": "Agustín De Leo",
@@ -68,23 +31,23 @@
               "children": []
             },
             {
-              "id": "SSPCU",
-              "nombre": "SS. Políticas Culturales",
-              "titular": "Robert Vicent Cortina",
-              "tipo": "SS",
+              "id": "DGMAMBA",
+              "nombre": "Museo de Arte Moderno de Buenos Aires",
+              "titular": "Victoria Eugenia Noorthoom",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "CTBA",
+              "nombre": "DG. Complejo Teatral Ciudad de Buenos Aires",
+              "titular": "Alberto Atilio Ligaluppi",
+              "tipo": "DG",
               "children": []
             },
             {
               "id": "DGIPEC",
               "nombre": "DG. Investigación y Proyectos Estratégicos Culturales",
               "titular": "Guillermo Andrés Brea",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "DGMAMBA",
-              "nombre": "Museo de Arte Moderno de Buenos Aires",
-              "titular": "Victoria Eugenia Noorthoom",
               "tipo": "DG",
               "children": []
             },
@@ -132,6 +95,50 @@
               ]
             },
             {
+              "id": "SSPDC",
+              "nombre": "SS. Patrimonio y Desarrollo Cultural",
+              "titular": "Leonardo Martín Bellante",
+              "tipo": "SS",
+              "children": [
+                {
+                  "id": "DGPMYCH",
+                  "nombre": "DG. Patrimonio, Museos y Casco Histórico",
+                  "titular": "Pedro Ramón Aparicio",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGDCC",
+                  "nombre": "DG. Desarrollo Cultural y Creativo",
+                  "titular": "Carolina Paola Cordero",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGEART",
+                  "nombre": "DG. Enseñanza Artística",
+                  "titular": "Mariano Stolkiner",
+                  "tipo": "DG",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "SSPCU",
+              "nombre": "SS. Políticas Culturales",
+              "titular": "Robert Vicent Cortina",
+              "tipo": "SS",
+              "children": []
+            },
+            {
+              "id": "UAIMC",
+              "nombre": "Unidad de Auditoría Interna",
+              "titular": "María Belén Borches",
+              "tipo": "ORG",
+              "dashed": true,
+              "children": []
+            },
+            {
               "id": "MCGC-CPPH",
               "nombre": "Comisión Preservación Patrimonio Histórico Cultural CBA",
               "titular": "",
@@ -145,22 +152,6 @@
               "titular": "Gerardo Luis Grieco Martínez",
               "tipo": "ORG",
               "dashed": true,
-              "children": [
-                {
-                  "id": "EATC-UAI",
-                  "nombre": "Unidad de Auditoría Interna",
-                  "titular": "Cristian Leopoldo Ludovisi",
-                  "tipo": "ORG",
-                  "dashed": true,
-                  "children": []
-                }
-              ]
-            },
-            {
-              "id": "CTBA",
-              "nombre": "DG. Complejo Teatral Ciudad de Buenos Aires",
-              "titular": "Alberto Atilio Ligaluppi",
-              "tipo": "DG",
               "children": []
             }
           ]
@@ -172,78 +163,44 @@
           "tipo": "MIN",
           "children": [
             {
-              "id": "ENTUR",
-              "nombre": "Ente de Turismo de la Ciudad de Buenos Aires Ley N° 2.627",
-              "titular": "Valentin Díaz Gilligan",
-              "tipo": "ORG",
-              "dashed": true,
-              "children": [
-                {
-                  "id": "UAIENTUR",
-                  "nombre": "Unidad de Auditoría Interna",
-                  "titular": "Damián Alberto Buonocore",
-                  "tipo": "ORG",
-                  "dashed": true,
-                  "children": []
-                },
-                {
-                  "id": "ENTUR-DC",
-                  "nombre": "Directorio Consultivo",
-                  "titular": "",
-                  "tipo": "ORG",
-                  "dashed": true,
-                  "children": []
-                },
-                {
-                  "id": "DGTALET",
-                  "nombre": "DG. Técnica, Administrativa y Legal",
-                  "titular": "Martín Andres Galante",
-                  "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DGCOT",
-                  "nombre": "DG. Comunicación y Observatorio Turístico",
-                  "titular": "Lucia Aranda",
-                  "tipo": "DG",
-                  "children": [
-                    {
-                      "id": "EAIT-CODEI",
-                      "nombre": "Comité de Docencia e Investigación (CODEI)",
-                      "titular": "",
-                      "tipo": "ORG",
-                      "children": []
-                    }
-                  ]
-                },
-                {
-                  "id": "DGDTU",
-                  "nombre": "DG. Desarrollo Turístico",
-                  "titular": "María Eugenia Wehbe",
-                  "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DGPTU",
-                  "nombre": "DG. Promoción Turística",
-                  "titular": "Lila Araceli Baciagalupo",
-                  "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DEJENTUR",
-                  "nombre": "Consejo Asesor",
-                  "titular": "",
-                  "tipo": "ORG",
-                  "dashed": true,
-                  "children": []
-                }
-              ]
+              "id": "DGIP",
+              "nombre": "DG. Innovación Productiva",
+              "titular": "Juan Manuel Blardone Perosa",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGICAS",
+              "nombre": "DG. Industrias Creativas, Audiovisuales y Software",
+              "titular": "Sabrina Nicole Slauscius",
+              "tipo": "DG",
+              "children": []
             },
             {
               "id": "DGPEN",
               "nombre": "DG. Políticas Energéticas",
               "titular": "Patricia Valentina Fagundez",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGCTEC",
+              "nombre": "DG. Ciencia y Tecnología",
+              "titular": "Geraldine Gueron",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGTALMDEC",
+              "nombre": "DG. Técnica, Administrativa y Legal",
+              "titular": "Alejandro Félix Capato",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGPYCGE",
+              "nombre": "DG. Planificación y Control de Gestión",
+              "titular": "Emilio Carlos Lafferriere",
               "tipo": "DG",
               "children": []
             },
@@ -271,58 +228,6 @@
                   "id": "DGPICE",
                   "nombre": "DG. Promoción de Inversiones y Comercio Exterior",
                   "titular": "Florencia Rosalía Cambre",
-                  "tipo": "DG",
-                  "children": []
-                }
-              ]
-            },
-            {
-              "id": "CESBA",
-              "nombre": "Consejo Económico y Social de la Ciudad de Buenos Aires",
-              "titular": "Manuel Salvador Socías",
-              "tipo": "ORG",
-              "dashed": true,
-              "children": []
-            },
-            {
-              "id": "DGCTEC",
-              "nombre": "DG. Ciencia y Tecnología",
-              "titular": "Geraldine Gueron",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "UAIMDEC",
-              "nombre": "Unidad de Auditoría Interna",
-              "titular": "Andrés Ángel Perrone",
-              "tipo": "ORG",
-              "dashed": true,
-              "children": []
-            },
-            {
-              "id": "DGTALMDEC",
-              "nombre": "DG. Técnica, Administrativa y Legal",
-              "titular": "Alejandro Félix Capato",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "DGPYCGE",
-              "nombre": "DG. Planificación y Control de Gestión",
-              "titular": "Emilio Carlos Lafferriere",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "DGIP",
-              "nombre": "DG. Innovación Productiva",
-              "titular": "Juan Manuel Blardone Perosa",
-              "tipo": "DG",
-              "children": [
-                {
-                  "id": "DGIPS",
-                  "nombre": "DG. Innovación y Simplificación de Procesos",
-                  "titular": "Rodrigo Nicolás Bouzas",
                   "tipo": "DG",
                   "children": []
                 }
@@ -358,10 +263,72 @@
               ]
             },
             {
-              "id": "DGICAS",
-              "nombre": "DG. Industrias Creativas, Audiovisuales y Software",
-              "titular": "Sabrina Nicole Slauscius",
-              "tipo": "DG",
+              "id": "UAIMDEC",
+              "nombre": "Unidad de Auditoría Interna",
+              "titular": "Andrés Ángel Perrone",
+              "tipo": "ORG",
+              "dashed": true,
+              "children": []
+            },
+            {
+              "id": "ENTUR",
+              "nombre": "Ente de Turismo de la Ciudad de Buenos Aires Ley N° 2.627",
+              "titular": "Valentin Díaz Gilligan",
+              "tipo": "ORG",
+              "dashed": true,
+              "children": [
+                {
+                  "id": "UAIENTUR",
+                  "nombre": "Unidad de Auditoría Interna",
+                  "titular": "Damián Alberto Buonocore",
+                  "tipo": "ORG",
+                  "dashed": true,
+                  "children": []
+                },
+                {
+                  "id": "ENTUR-DC",
+                  "nombre": "Directorio Consultivo",
+                  "titular": "",
+                  "tipo": "ORG",
+                  "dashed": true,
+                  "children": []
+                },
+                {
+                  "id": "DGTALET",
+                  "nombre": "DG. Técnica, Administrativa y Legal",
+                  "titular": "Martín Andres Galante",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGCOT",
+                  "nombre": "DG. Comunicación y Observatorio Turístico",
+                  "titular": "Lucia Aranda",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGDTU",
+                  "nombre": "DG. Desarrollo Turístico",
+                  "titular": "María Eugenia Wehbe",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGPTU",
+                  "nombre": "DG. Promoción Turística",
+                  "titular": "Lila Araceli Baciagalupo",
+                  "tipo": "DG",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "CESBA",
+              "nombre": "Consejo Económico y Social de la Ciudad de Buenos Aires",
+              "titular": "Manuel Salvador Socías",
+              "tipo": "ORG",
+              "dashed": true,
               "children": []
             }
           ]
@@ -372,72 +339,6 @@
           "titular": "Gabriel Sebastián Mraida",
           "tipo": "MIN",
           "children": [
-            {
-              "id": "IVC",
-              "nombre": "Instituto de Vivienda de la Ciudad",
-              "titular": "Leonardo Coppola",
-              "tipo": "ORG",
-              "dashed": true,
-              "children": []
-            },
-            {
-              "id": "SSPMA",
-              "nombre": "SS. Personas Mayores",
-              "titular": "María De Las Mercedes Joury",
-              "tipo": "SS",
-              "children": [
-                {
-                  "id": "DGEPL",
-                  "nombre": "DG. Economía Plateada",
-                  "titular": "Gonzalo Martín Straface",
-                  "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DGPPPM",
-                  "nombre": "DG. Promoción de Derechos para Personas Mayores",
-                  "titular": "Agustín Rafael Fernandez Bertuzzi",
-                  "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DGPCPM",
-                  "nombre": "DG. Políticas Comunitarias para Personas Mayores",
-                  "titular": "Luis Ignacio Cabrera",
-                  "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DGPAPM",
-                  "nombre": "DG. Políticas Asistenciales para Personas Mayores",
-                  "titular": "Ana Belén Rimoldi",
-                  "tipo": "DG",
-                  "children": []
-                }
-              ]
-            },
-            {
-              "id": "SSDPH",
-              "nombre": "SS. Desarrollo del Potencial Humano",
-              "titular": "María Fernanda Reyes",
-              "tipo": "SS",
-              "children": [
-                {
-                  "id": "DGAPPYT",
-                  "nombre": "DG. Articulación Público Privada y Territorial",
-                  "titular": "Gabriel Maximiliano Sahonero",
-                  "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DGESSL",
-                  "nombre": "DG. Economía Social y Sociolaboral",
-                  "titular": "Nicolás Caldarola",
-                  "tipo": "DG",
-                  "children": []
-                }
-              ]
-            },
             {
               "id": "SSATO",
               "nombre": "SS. Abordaje Territorial y Obras",
@@ -469,51 +370,22 @@
               ]
             },
             {
-              "id": "DGTALMDHYHGC",
-              "nombre": "DG. Técnica, Administrativa y Legal",
-              "titular": "Ramón Busto",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "UAIMDHYH",
-              "nombre": "Unidad de Auditoría Interna",
-              "titular": "Hebe Martínez",
-              "tipo": "ORG",
-              "dashed": true,
-              "children": []
-            },
-            {
-              "id": "DGIDBI",
-              "nombre": "DG. Innovación para el Desarrollo del Bienestar Integral",
-              "titular": "Pamela Abril Sanchez",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "SSRAIS",
-              "nombre": "SS. Red de Atención e Inclusión Social",
-              "titular": "Ángeles María Mc Loughlin",
+              "id": "SSDPH",
+              "nombre": "SS. Desarrollo del Potencial Humano",
+              "titular": "María Fernanda Reyes",
               "tipo": "SS",
               "children": [
                 {
-                  "id": "DGCISAI",
-                  "nombre": "DG. Centros de Inclusión Social y Abordaje Integral",
-                  "titular": "Laura Antonela Rodriguez Franchi",
+                  "id": "DGAPPYT",
+                  "nombre": "DG. Articulación Público Privada y Territorial",
+                  "titular": "Gabriel Maximiliano Sahonero",
                   "tipo": "DG",
                   "children": []
                 },
                 {
-                  "id": "DGEHA",
-                  "nombre": "DG. Estrategias Habitacionales",
-                  "titular": "Gabriela De Los Angeles Peisina",
-                  "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DGREA",
-                  "nombre": "DG. Red de Atención",
-                  "titular": "Agostina Russo",
+                  "id": "DGESSL",
+                  "nombre": "DG. Economía Social y Sociolaboral",
+                  "titular": "Nicolás Caldarola",
                   "tipo": "DG",
                   "children": []
                 }
@@ -563,10 +435,105 @@
               ]
             },
             {
+              "id": "SSRAIS",
+              "nombre": "SS. Red de Atención e Inclusión Social",
+              "titular": "Ángeles María Mc Loughlin",
+              "tipo": "SS",
+              "children": [
+                {
+                  "id": "DGCISAI",
+                  "nombre": "DG. Centros de Inclusión Social y Abordaje Integral",
+                  "titular": "Laura Antonela Rodriguez Franchi",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGEHA",
+                  "nombre": "DG. Estrategias Habitacionales",
+                  "titular": "Gabriela De Los Angeles Peisina",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGREA",
+                  "nombre": "DG. Red de Atención",
+                  "titular": "Agostina Russo",
+                  "tipo": "DG",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "SSPMA",
+              "nombre": "SS. Personas Mayores",
+              "titular": "María De Las Mercedes Joury",
+              "tipo": "SS",
+              "children": [
+                {
+                  "id": "DGEPL",
+                  "nombre": "DG. Economía Plateada",
+                  "titular": "Gonzalo Martín Straface",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGPPPM",
+                  "nombre": "DG. Promoción de Derechos para Personas Mayores",
+                  "titular": "Agustín Rafael Fernandez Bertuzzi",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGPCPM",
+                  "nombre": "DG. Políticas Comunitarias para Personas Mayores",
+                  "titular": "Luis Ignacio Cabrera",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGPAPM",
+                  "nombre": "DG. Políticas Asistenciales para Personas Mayores",
+                  "titular": "Ana Belén Rimoldi",
+                  "tipo": "DG",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "DGTALMDHYHGC",
+              "nombre": "DG. Técnica, Administrativa y Legal",
+              "titular": "Ramón Busto",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "UAIMDHYH",
+              "nombre": "Unidad de Auditoría Interna",
+              "titular": "Hebe Martínez",
+              "tipo": "ORG",
+              "dashed": true,
+              "children": []
+            },
+            {
+              "id": "DGIDBI",
+              "nombre": "DG. Innovación para el Desarrollo del Bienestar Integral",
+              "titular": "Pamela Abril Sanchez",
+              "tipo": "DG",
+              "children": []
+            },
+            {
               "id": "DGCGDH",
               "nombre": "DG. Coordinación y Gestión del Desarrollo Humano",
               "titular": "Julieta Meroño",
               "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "IVC",
+              "nombre": "Instituto de Vivienda de la Ciudad",
+              "titular": "Leonardo Coppola",
+              "tipo": "ORG",
+              "dashed": true,
               "children": []
             }
           ]
@@ -656,13 +623,6 @@
                   "titular": "Mariano Alfredo Perez Alfaro",
                   "tipo": "DG",
                   "children": []
-                },
-                {
-                  "id": "DGSGE",
-                  "nombre": "DG. Infraestructura y Tecnología Educativa",
-                  "titular": "María Gimena Corcull",
-                  "tipo": "DG",
-                  "children": []
                 }
               ]
             },
@@ -670,6 +630,13 @@
               "id": "DGAHPEF",
               "nombre": "DG. Agencia de Habilidades para el Futuro",
               "titular": "Gustavo Fabián Álvarez",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGEGE",
+              "nombre": "DG. Educación de Gestión Estatal",
+              "titular": "Nancy Elizabeth Rosana Sorfo",
               "tipo": "DG",
               "children": []
             },
@@ -715,13 +682,6 @@
               "titular": "Inés Cruzalegui",
               "tipo": "SS",
               "children": [
-                {
-                  "id": "DGEGE",
-                  "nombre": "DG. Educación de Gestión Estatal",
-                  "titular": "Nancy Elizabeth Rosana Sorfo",
-                  "tipo": "DG",
-                  "children": []
-                },
                 {
                   "id": "DGSFD",
                   "nombre": "DG. Sistema de Formación Docente",
@@ -979,24 +939,23 @@
                   "children": []
                 },
                 {
+                  "id": "DGOGPP",
+                  "nombre": "DG. Oficina de Gestión Pública y Presupuesto (OGEPU)",
+                  "titular": "Antonella Mitidieri",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
                   "id": "DGCG",
                   "nombre": "DG. Contaduría",
                   "titular": "Lucia Griselda Gabelli",
                   "tipo": "DG",
-                  "children": [
-                    {
-                      "id": "DGCGADJ",
-                      "nombre": "DG. Contaduría Adjunta",
-                      "titular": "Ramon Gauto",
-                      "tipo": "DG",
-                      "children": []
-                    }
-                  ]
+                  "children": []
                 },
                 {
-                  "id": "DGOGPP",
-                  "nombre": "DG. Oficina de Gestión Pública y Presupuesto (OGEPU)",
-                  "titular": "Antonella Mitidieri",
+                  "id": "DGCGADJ",
+                  "nombre": "DG. Contaduría Adjunta",
+                  "titular": "Ramon Gauto",
                   "tipo": "DG",
                   "children": []
                 }
@@ -1145,7 +1104,7 @@
                 {
                   "id": "UAIAGIP",
                   "nombre": "Unidad de Auditoria Interna",
-                  "titular": "José Fernando La Hoz",
+                  "titular": "Nancy Viviana Charlin",
                   "tipo": "ORG",
                   "dashed": true,
                   "children": []
@@ -1155,14 +1114,15 @@
                   "nombre": "DG. Rentas",
                   "titular": "Maria Guadalupe Morera",
                   "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DGR-Adjunta",
-                  "nombre": "DG. Rentas Adjunta",
-                  "titular": "Vanesa Soledad Murad",
-                  "tipo": "DG",
-                  "children": []
+                  "children": [
+                    {
+                      "id": "DGR-Adjunta",
+                      "nombre": "DG. Rentas Adjunta",
+                      "titular": "Vanesa Soledad Murad",
+                      "tipo": "DG",
+                      "children": []
+                    }
+                  ]
                 },
                 {
                   "id": "DGANFA",
@@ -1189,6 +1149,20 @@
           "tipo": "MIN",
           "children": [
             {
+              "id": "DGCSGE",
+              "nombre": "DG. Control de Seguimiento y Gestión",
+              "titular": "Sergio Sebastián Stoyanchaqui",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGTALMJ",
+              "nombre": "DG. Técnica, Administrativa y Legal",
+              "titular": "Ricardo Christian Pardo",
+              "tipo": "DG",
+              "children": []
+            },
+            {
               "id": "SSRG",
               "nombre": "SS. Relaciones Gubernamentales",
               "titular": "Natalia Gambaro",
@@ -1214,6 +1188,57 @@
                   "titular": "Javier Ignacio Tejerizo",
                   "tipo": "DG",
                   "children": []
+                }
+              ]
+            },
+            {
+              "id": "SECTE",
+              "nombre": "Secretaría de Trabajo y Empleo",
+              "titular": "Ezequiel Edgardo Jarvis",
+              "tipo": "SEC",
+              "children": [
+                {
+                  "id": "SSTYE",
+                  "nombre": "SS. de Trabajo y Empleo",
+                  "titular": "Horacio Esteban Bueno",
+                  "tipo": "SS",
+                  "children": [
+                    {
+                      "id": "DGEMP",
+                      "nombre": "DG. Empleo",
+                      "titular": "Mónica Paola Tijeras",
+                      "tipo": "DG",
+                      "children": []
+                    },
+                    {
+                      "id": "DGPDT",
+                      "nombre": "DG. Protección del Trabajo",
+                      "titular": "José Fernando Cohen",
+                      "tipo": "DG",
+                      "children": []
+                    },
+                    {
+                      "id": "DGRDT",
+                      "nombre": "DG. Relaciones de Trabajo",
+                      "titular": "Adrián Alfonso Jalife",
+                      "tipo": "DG",
+                      "children": []
+                    },
+                    {
+                      "id": "DGAGRCE",
+                      "nombre": "DG. Asuntos Gremiales y Relación con Cámaras Empresariales",
+                      "titular": "Alicia María Vazquez",
+                      "tipo": "DG",
+                      "children": []
+                    },
+                    {
+                      "id": "DGIPS",
+                      "nombre": "DG. Innovación y Simplificación de Procesos",
+                      "titular": "Rodrigo Nicolás Bouzas",
+                      "tipo": "DG",
+                      "children": []
+                    }
+                  ]
                 }
               ]
             },
@@ -1335,29 +1360,6 @@
                   ]
                 },
                 {
-                  "id": "DGGAP",
-                  "nombre": "DG. Gestión Administrativa Penitenciaria",
-                  "titular": "Pablo Norberto Porreca",
-                  "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DGAI",
-                  "nombre": "DG. Administración de Infracciones",
-                  "titular": "Gustavo Alejandro May",
-                  "tipo": "DG",
-                  "children": [
-                    {
-                      "id": "UADMCF",
-                      "nombre": "Unidad Administrativa de Control de Faltas",
-                      "titular": "",
-                      "tipo": "ORG",
-                      "dashed": true,
-                      "children": []
-                    }
-                  ]
-                },
-                {
                   "id": "SSRMARC",
                   "nombre": "SS. Registro y Métodos Alternativos de Resolución de Conflictos",
                   "titular": "Hernán Emilio Najenson",
@@ -1392,8 +1394,55 @@
                       "children": []
                     }
                   ]
+                },
+                {
+                  "id": "DGGAP",
+                  "nombre": "DG. Gestión Administrativa Penitenciaria",
+                  "titular": "Pablo Norberto Porreca",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGAI",
+                  "nombre": "DG. Administración de Infracciones",
+                  "titular": "Gustavo Alejandro May",
+                  "tipo": "DG",
+                  "children": [
+                    {
+                      "id": "UADMCF",
+                      "nombre": "Unidad Administrativa de Control de Faltas",
+                      "titular": "",
+                      "tipo": "ORG",
+                      "dashed": true,
+                      "children": []
+                    }
+                  ]
                 }
               ]
+            },
+            {
+              "id": "UAIMJ",
+              "nombre": "Unidad de Auditoria Interna MJGC",
+              "titular": "Sandra Karina Ibendhal",
+              "tipo": "ORG",
+              "dashed": true,
+              "children": []
+            },
+            {
+              "id": "MC",
+              "nombre": "Corporación Mercado Central de Buenos Aires",
+              "titular": "",
+              "tipo": "ORG",
+              "dashed": true,
+              "children": []
+            },
+            {
+              "id": "CAPM",
+              "nombre": "Coorporación Antiguo Puerto Madero S.A.",
+              "titular": "",
+              "tipo": "ORG",
+              "dashed": true,
+              "children": []
             },
             {
               "id": "AGC",
@@ -1417,11 +1466,10 @@
                   "children": []
                 },
                 {
-                  "id": "UAIAGC",
-                  "nombre": "Unidad de Auditoria Interna AGC",
-                  "titular": "Manuela Maria Cantarelli",
-                  "tipo": "ORG",
-                  "dashed": true,
+                  "id": "DGFYCO",
+                  "nombre": "DG. Fiscalización y Control de Obras",
+                  "titular": "María Belén Taccone",
+                  "tipo": "DG",
                   "children": []
                 },
                 {
@@ -1455,51 +1503,22 @@
                   "children": []
                 },
                 {
+                  "id": "UAIAGC",
+                  "nombre": "Unidad de Auditoria Interna AGC",
+                  "titular": "Manuela Maria Cantarelli",
+                  "tipo": "ORG",
+                  "dashed": true,
+                  "children": []
+                },
+                {
                   "id": "CAAGC",
                   "nombre": "Unidad Coordinación Administrativa",
                   "titular": "Joaquin María Rovira",
                   "tipo": "ORG",
                   "dashed": true,
                   "children": []
-                },
-                {
-                  "id": "DGFYCO",
-                  "nombre": "DG. Fiscalización y Control de Obras",
-                  "titular": "María Belén Taccone",
-                  "tipo": "DG",
-                  "children": []
                 }
               ]
-            },
-            {
-              "id": "RPCYCPJ",
-              "nombre": "Organismo del Registro Público de Comercio y Contralor de Personas Juridicas",
-              "titular": "",
-              "tipo": "ORG",
-              "dashed": true,
-              "children": []
-            },
-            {
-              "id": "DGCSGE",
-              "nombre": "DG. Control de Seguimiento y Gestión",
-              "titular": "Sergio Sebastián Stoyanchaqui",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "UAIMJ",
-              "nombre": "Unidad de Auditoria Interna MJGC",
-              "titular": "Sandra Karina Ibendhal",
-              "tipo": "ORG",
-              "dashed": true,
-              "children": []
-            },
-            {
-              "id": "DGTALMJ",
-              "nombre": "DG. Técnica, Administrativa y Legal",
-              "titular": "Ricardo Christian Pardo",
-              "tipo": "DG",
-              "children": []
             },
             {
               "id": "IGE",
@@ -1527,22 +1546,6 @@
               ]
             },
             {
-              "id": "ACUMAR",
-              "nombre": "Autoridad Cuenca Matanza - Riachuelo (ACUMAR)",
-              "titular": "",
-              "tipo": "ORG",
-              "dashed": true,
-              "children": []
-            },
-            {
-              "id": "MC",
-              "nombre": "Corporación Mercado Central de Buenos Aires",
-              "titular": "",
-              "tipo": "ORG",
-              "dashed": true,
-              "children": []
-            },
-            {
               "id": "CEAMSE",
               "nombre": "Coordinación Ecológica Área Metropolitana Sociedad del Estado",
               "titular": "",
@@ -1551,56 +1554,20 @@
               "children": []
             },
             {
-              "id": "CAPM",
-              "nombre": "Coorporación Antiguo Puerto Madero S.A.",
+              "id": "ACUMAR",
+              "nombre": "Autoridad Cuenca Matanza - Riachuelo (ACUMAR)",
               "titular": "",
               "tipo": "ORG",
               "dashed": true,
               "children": []
             },
             {
-              "id": "SECTE",
-              "nombre": "Secretaría de Trabajo y Empleo",
-              "titular": "Ezequiel Edgardo Jarvis",
-              "tipo": "SEC",
-              "children": [
-                {
-                  "id": "SSTYE",
-                  "nombre": "SS. de Trabajo y Empleo",
-                  "titular": "Horacio Esteban Bueno",
-                  "tipo": "SS",
-                  "children": [
-                    {
-                      "id": "DGEMP",
-                      "nombre": "DG. Empleo",
-                      "titular": "Mónica Paola Tijeras",
-                      "tipo": "DG",
-                      "children": []
-                    },
-                    {
-                      "id": "DGPDT",
-                      "nombre": "DG. Protección del Trabajo",
-                      "titular": "José Fernando Cohen",
-                      "tipo": "DG",
-                      "children": []
-                    },
-                    {
-                      "id": "DGRDT",
-                      "nombre": "DG. Relaciones de Trabajo",
-                      "titular": "Adrián Alfonso Jalife",
-                      "tipo": "DG",
-                      "children": []
-                    },
-                    {
-                      "id": "DGAGRCE",
-                      "nombre": "DG. Asuntos Gremiales y Relación con Cámaras Empresariales",
-                      "titular": "Alicia María Vazquez",
-                      "tipo": "DG",
-                      "children": []
-                    }
-                  ]
-                }
-              ]
+              "id": "RPCYCPJ",
+              "nombre": "Organismo del Registro Público de Comercio y Contralor de Personas Juridicas",
+              "titular": "",
+              "tipo": "ORG",
+              "dashed": true,
+              "children": []
             }
           ]
         },
@@ -1616,6 +1583,42 @@
               "titular": "Fernando Jorge Codino",
               "tipo": "DG",
               "children": []
+            },
+            {
+              "id": "DGCRIN",
+              "nombre": "DG. Comunicación y Relaciones Institucionales",
+              "titular": "Hernán Worthalter",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "SSPUR",
+              "nombre": "SS. de Planeamiento Urbano",
+              "titular": "Josefina Ducos",
+              "tipo": "SS",
+              "children": [
+                {
+                  "id": "DGARQU",
+                  "nombre": "DG. de Arquitectura",
+                  "titular": "Ricardo César Fernández",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGANU",
+                  "nombre": "DG. Antropología Urbana",
+                  "titular": "Aníbal Francisco Del Olmo",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGPLUR",
+                  "nombre": "DG. de Planeamiento Urbano",
+                  "titular": "Sandra Mariel Tuya",
+                  "tipo": "DG",
+                  "children": []
+                }
+              ]
             },
             {
               "id": "SSPO",
@@ -1638,22 +1641,6 @@
                   "children": []
                 }
               ]
-            },
-            {
-              "id": "AUSA",
-              "nombre": "Autopistas Urbanas (AUSA)",
-              "titular": "Juan Pablo Fasanella",
-              "tipo": "ORG",
-              "dashed": true,
-              "children": []
-            },
-            {
-              "id": "SBASE",
-              "nombre": "Subterráneos de Buenos Aires S.A.U. (SBASE)",
-              "titular": "Javier Ignacio Ibañez",
-              "tipo": "ORG",
-              "dashed": true,
-              "children": []
             },
             {
               "id": "SECT",
@@ -1722,42 +1709,6 @@
               ]
             },
             {
-              "id": "SSPUR",
-              "nombre": "SS. de Planeamiento Urbano",
-              "titular": "Josefina Ducos",
-              "tipo": "SS",
-              "children": [
-                {
-                  "id": "DGARQU",
-                  "nombre": "DG. de Arquitectura",
-                  "titular": "Ricardo César Fernández",
-                  "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DGANU",
-                  "nombre": "DG. Antropología Urbana",
-                  "titular": "Aníbal Francisco Del Olmo",
-                  "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DGPLUR",
-                  "nombre": "DG. de Planeamiento Urbano",
-                  "titular": "Sandra Mariel Tuya",
-                  "tipo": "DG",
-                  "children": []
-                }
-              ]
-            },
-            {
-              "id": "UAIMMI",
-              "nombre": "Unidad de Auditoría Interna MI",
-              "titular": "Fabián Marcelo Pettigrew",
-              "tipo": "ORG",
-              "children": []
-            },
-            {
               "id": "SECTR",
               "nombre": "Secretaría de tránsito",
               "titular": "Darío Fabian Antiñolo",
@@ -1780,10 +1731,26 @@
               ]
             },
             {
-              "id": "DGCRIN",
-              "nombre": "DG. Comunicación y Relaciones Institucionales",
-              "titular": "Hernán Worthalter",
-              "tipo": "DG",
+              "id": "SBASE",
+              "nombre": "Subterráneos de Buenos Aires S.A.U. (SBASE)",
+              "titular": "Javier Ignacio Ibañez",
+              "tipo": "ORG",
+              "dashed": true,
+              "children": []
+            },
+            {
+              "id": "UAIMMI",
+              "nombre": "Unidad de Auditoría Interna MI",
+              "titular": "Fabián Marcelo Pettigrew",
+              "tipo": "ORG",
+              "children": []
+            },
+            {
+              "id": "AUSA",
+              "nombre": "Autopistas Urbanas (AUSA)",
+              "titular": "Juan Pablo Fasanella",
+              "tipo": "ORG",
+              "dashed": true,
               "children": []
             }
           ]
@@ -1829,6 +1796,13 @@
                       "titular": "Martín Rodrigo Pascual Ortiz",
                       "tipo": "ORG",
                       "children": []
+                    },
+                    {
+                      "id": "EAIT-CODEI",
+                      "nombre": "Comité de Docencia e Investigación (CODEI)",
+                      "titular": "",
+                      "tipo": "ORG",
+                      "children": []
                     }
                   ]
                 },
@@ -1843,6 +1817,28 @@
                   "id": "DGESAME",
                   "nombre": "DG. Sistema de Atención Médica de Emergencia (SAME)",
                   "titular": "Alberto Crescenti",
+                  "tipo": "DG",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "SSAPAC",
+              "nombre": "SS. Atención Primaria, Ambulatoria y Comunitaria",
+              "titular": "Gabriel Armando Battistella",
+              "tipo": "SS",
+              "children": [
+                {
+                  "id": "DGATP",
+                  "nombre": "DG. Atención Primaria",
+                  "titular": "Diego Jorge Vacchino",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGSCOM",
+                  "nombre": "DG. Salud Comunitaria",
+                  "titular": "Florencia Ayelén Quiroga",
                   "tipo": "DG",
                   "children": []
                 }
@@ -1881,22 +1877,15 @@
                   "titular": "Cecilia María Klappenbach",
                   "tipo": "DG",
                   "children": []
-                },
-                {
-                  "id": "DGLTMSGC",
-                  "nombre": "DG. Legal y Técnica",
-                  "titular": "Carolina Fitzpatrick",
-                  "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DGCSJ",
-                  "nombre": "DG. Competencias Sanitarias Jurisdiccionales",
-                  "titular": "María Florencia Flax Marcó",
-                  "tipo": "DG",
-                  "children": []
                 }
               ]
+            },
+            {
+              "id": "DGLTMSGC",
+              "nombre": "DG. Legal y Técnica",
+              "titular": "Carolina Fitzpatrick",
+              "tipo": "DG",
+              "children": []
             },
             {
               "id": "UAIMS",
@@ -1965,26 +1954,11 @@
               ]
             },
             {
-              "id": "SSAPAC",
-              "nombre": "SS. Atención Primaria, Ambulatoria y Comunitaria",
-              "titular": "Gabriel Armando Battistella",
-              "tipo": "SS",
-              "children": [
-                {
-                  "id": "DGATP",
-                  "nombre": "DG. Atención Primaria",
-                  "titular": "Diego Jorge Vacchino",
-                  "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DGSCOM",
-                  "nombre": "DG. Salud Comunitaria",
-                  "titular": "Florencia Ayelén Quiroga",
-                  "tipo": "DG",
-                  "children": []
-                }
-              ]
+              "id": "DGCSJ",
+              "nombre": "DG. Competencias Sanitarias Jurisdiccionales",
+              "titular": "María Florencia Flax Marcó",
+              "tipo": "DG",
+              "children": []
             }
           ]
         },
@@ -2215,43 +2189,6 @@
               "tipo": "SEC",
               "children": [
                 {
-                  "id": "SSCH",
-                  "nombre": "SS. Capital Humano",
-                  "titular": "Natalia Gabriela Calviño",
-                  "tipo": "SS",
-                  "children": [
-                    {
-                      "id": "DGARHC",
-                      "nombre": "DG. Administración de Recursos Humanos y Compensaciones",
-                      "titular": "Emanuel Maximiliano Gil",
-                      "tipo": "DG",
-                      "children": []
-                    },
-                    {
-                      "id": "DGGDCH",
-                      "nombre": "DG. Gestión del Capital Humano",
-                      "titular": "Andrés Nicolás Monsalvo",
-                      "tipo": "DG",
-                      "children": []
-                    }
-                  ]
-                },
-                {
-                  "id": "SSTI",
-                  "nombre": "SS. Tecnología e Informática",
-                  "titular": "Gastón Leopoldo Navarro",
-                  "tipo": "SS",
-                  "children": [
-                    {
-                      "id": "DGADTI",
-                      "nombre": "DG. Activos Digitales, Tecnología e Informática",
-                      "titular": "Andrés Fernando Sisti",
-                      "tipo": "DG",
-                      "children": []
-                    }
-                  ]
-                },
-                {
                   "id": "SSGA",
                   "nombre": "SS. Gestión Administrativa",
                   "titular": "Claudio Alberto Panichetti",
@@ -2282,6 +2219,43 @@
                       "id": "DGINFRA",
                       "nombre": "DG. Infraestructura",
                       "titular": "Jacqueline Ana Forschner",
+                      "tipo": "DG",
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "id": "SSTI",
+                  "nombre": "SS. Tecnología e Informática",
+                  "titular": "Gastón Leopoldo Navarro",
+                  "tipo": "SS",
+                  "children": [
+                    {
+                      "id": "DGADTI",
+                      "nombre": "DG. Activos Digitales, Tecnología e Informática",
+                      "titular": "Andrés Fernando Sisti",
+                      "tipo": "DG",
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "id": "SSCH",
+                  "nombre": "SS. Capital Humano",
+                  "titular": "Natalia Gabriela Calviño",
+                  "tipo": "SS",
+                  "children": [
+                    {
+                      "id": "DGARHC",
+                      "nombre": "DG. Administración de Recursos Humanos y Compensaciones",
+                      "titular": "Emanuel Maximiliano Gil",
+                      "tipo": "DG",
+                      "children": []
+                    },
+                    {
+                      "id": "DGGDCH",
+                      "nombre": "DG. Gestión del Capital Humano",
+                      "titular": "Andrés Nicolás Monsalvo",
                       "tipo": "DG",
                       "children": []
                     }
@@ -2336,6 +2310,14 @@
               "children": []
             }
           ]
+        },
+        {
+          "id": "EATC-UAI",
+          "nombre": "Unidad de Auditoría Interna",
+          "titular": "Cristian Leopoldo Ludovisi",
+          "tipo": "ORG",
+          "dashed": true,
+          "children": []
         },
         {
           "id": "UAIMJG",
@@ -2445,22 +2427,29 @@
           "tipo": "SEC",
           "children": [
             {
+              "id": "DGPCGU",
+              "nombre": "DG. Planificación y Coordinación Gubernamental",
+              "titular": "Noelia Ayelén Paggi",
+              "tipo": "DG",
+              "children": []
+            },
+            {
               "id": "SSIA",
               "nombre": "SS. Innovación Administrativa",
               "titular": "Jorge Rafael Miguez",
               "tipo": "SS",
               "children": [
                 {
-                  "id": "DGPCGU",
-                  "nombre": "DG. Planificación y Coordinación Gubernamental",
-                  "titular": "Noelia Ayelén Paggi",
+                  "id": "DGGEDOC",
+                  "nombre": "DG. Gestión Documental",
+                  "titular": "María Florencia Nestasio",
                   "tipo": "DG",
                   "children": []
                 },
                 {
-                  "id": "DGGEDOC",
-                  "nombre": "DG. Gestión Documental",
-                  "titular": "María Florencia Nestasio",
+                  "id": "DGSGE",
+                  "nombre": "DG. Sistemas de Gestión Escolar",
+                  "titular": "María Gimena Corcull",
                   "tipo": "DG",
                   "children": []
                 },
@@ -2534,9 +2523,10 @@
                 {
                   "id": "DGISIS",
                   "nombre": "DG. Integración de Sistemas",
-                  "titular": "",
+                  "titular": "Jorge Ariel González",
                   "tipo": "DG",
-                  "children": []
+                  "children": [],
+                  "dashed": false
                 },
                 {
                   "id": "DGIASINF",
@@ -2644,6 +2634,29 @@
           ]
         },
         {
+          "id": "SECOU",
+          "nombre": "Secretaría Ordenamiento Urbano",
+          "titular": "Pedro Martín Comin Villanueva",
+          "tipo": "SEC",
+          "children": [
+            {
+              "id": "SSOUR",
+              "nombre": "SS. del Ordenamiento Urbano",
+              "titular": "Agustín Barcos",
+              "tipo": "SS",
+              "children": [
+                {
+                  "id": "DGFIS",
+                  "nombre": "DG. Fiscalización",
+                  "titular": "Mario Javier Carmona",
+                  "tipo": "DG",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
           "id": "CBAS",
           "nombre": "Corporación Buenos Aires Sur S.A.U. Ley N°470",
           "titular": "Karina Andrea Burijson",
@@ -2657,34 +2670,6 @@
           "titular": "Fabián Alejandro Turnes",
           "tipo": "SEC",
           "children": [
-            {
-              "id": "DGPRDE",
-              "nombre": "DG. Promoción Deportiva",
-              "titular": "Hernán Pablo Poggi",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "DGDSYDD",
-              "nombre": "DG. Deporte Social y Desarrollo Deportivo",
-              "titular": "Juan Martín Costa",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "DGINFRAES",
-              "nombre": "DG. Infraestructura",
-              "titular": "Jorge Mariano Rusconi",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "DGDEAR",
-              "nombre": "DG. Deporte de Elite y Alto Rendimiento",
-              "titular": "Marcelo Tristán Bosch",
-              "tipo": "DG",
-              "children": []
-            },
             {
               "id": "SSACABA",
               "nombre": "SS. Autódromo de la Ciudad Autónoma de Buenos Aires",
@@ -2718,31 +2703,36 @@
                   "titular": "Claudio Alberto Viola",
                   "tipo": "DG",
                   "children": []
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "SECOU",
-          "nombre": "Secretaría Ordenamiento Urbano",
-          "tipo": "SEC",
-          "titular": "Pedro Martín Comin Villanueva",
-          "children": [
-            {
-              "id": "SSOUR",
-              "nombre": "SS. del Ordenamiento Urbano",
-              "tipo": "SS",
-              "titular": "Agustín Barcos",
-              "children": [
+                },
                 {
-                  "id": "DGFIS",
-                  "nombre": "DG. Fiscalización",
+                  "id": "DGINFRAES",
+                  "nombre": "DG. Infraestructura",
+                  "titular": "Jorge Mariano Rusconi",
                   "tipo": "DG",
-                  "titular": "Mario Javier Carmona",
                   "children": []
                 }
               ]
+            },
+            {
+              "id": "DGDEAR",
+              "nombre": "DG. Deporte de Elite y Alto Rendimiento",
+              "titular": "Marcelo Tristán Bosch",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGDSYDD",
+              "nombre": "DG. Deporte Social y Desarrollo Deportivo",
+              "titular": "Juan Martín Costa",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGPRDE",
+              "nombre": "DG. Promoción Deportiva",
+              "titular": "Hernán Pablo Poggi",
+              "tipo": "DG",
+              "children": []
             }
           ]
         }
@@ -2891,6 +2881,14 @@
           "nombre": "Gerencia General Auditoría Jurisdicción II",
           "titular": "Noemí Beatriz Cesari",
           "tipo": "GG",
+          "children": []
+        },
+        {
+          "id": "COMUNAS",
+          "nombre": "Comunas",
+          "titular": "",
+          "tipo": "ORG",
+          "dashed": true,
           "children": []
         },
         {
@@ -3142,7 +3140,7 @@
         {
           "id": "UAICDNNYA",
           "nombre": "Unidad de Auditoría Interna CDNNYA",
-          "titular": "Marianela Aldana Navasa",
+          "titular": "Marianela Aldana Navasal",
           "tipo": "ORG",
           "dashed": true,
           "children": []
@@ -3184,20 +3182,6 @@
       "tipo": "SEC",
       "children": [
         {
-          "id": "DGPRYC",
-          "nombre": "DG. Protocolo y Ceremonial",
-          "titular": "Irene Wlodkowski",
-          "tipo": "DG",
-          "children": []
-        },
-        {
-          "id": "DGAPR",
-          "nombre": "DG. Análisis Prospectivo",
-          "titular": "Nerio Pace",
-          "tipo": "DG",
-          "children": []
-        },
-        {
           "id": "SSRINS",
           "nombre": "SS. Relaciones Institucionales",
           "titular": "Mariano Lomolino",
@@ -3236,6 +3220,20 @@
               "id": "DGCBI",
               "nombre": "DG. Cooperación Bilateral",
               "titular": "Matías Nahuel Muñoz",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGPRYC",
+              "nombre": "DG. Protocolo y Ceremonial",
+              "titular": "Irene Wlodkowski",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGAPR",
+              "nombre": "DG. Análisis Prospectivo",
+              "titular": "Nerio Pace",
               "tipo": "DG",
               "children": []
             }
@@ -3802,14 +3800,6 @@
               "children": []
             }
           ]
-        },
-        {
-          "id": "COMUNAS",
-          "nombre": "Comunas",
-          "titular": "",
-          "tipo": "ORG",
-          "dashed": true,
-          "children": []
         }
       ]
     }
