@@ -3236,41 +3236,61 @@ function EmpresaPanelItem({emp}){
   );
 }
 
-function PanelItem({node,onSelect,selectedId,depth=0,onDnD}){
-  const [dz,setDz]=React.useState(null); // "before" | "child" | "after"
+function PanelItem({node,onSelect,selectedId,depth=0}){
   if(!node) return null;
   if(node._isEmpresa) return <EmpresaPanelItem emp={node}/>;
   const isSelected=node.id===selectedId;
   const color=getColor(node);
-  // Calcula la zona de drop según la posición vertical del mouse en la fila.
-  const zoneAt=(e)=>{
-    const r=e.currentTarget.getBoundingClientRect();
-    const y=(e.clientY-r.top)/r.height;
-    return y<0.28?"before":y>0.72?"after":"child";
-  };
-  const ind=dz==="child"?{background:"rgba(51,106,204,.14)",boxShadow:"inset 0 0 0 2px #336ACC"}
-    :dz==="before"?{boxShadow:"inset 0 3px 0 0 #336ACC"}
-    :dz==="after"?{boxShadow:"inset 0 -3px 0 0 #336ACC"}:null;
   return<>
-    <div
-      draggable
-      onDragStart={e=>{e.stopPropagation();e.dataTransfer.setData("text/gcba-id",node.id);e.dataTransfer.effectAllowed="move";}}
-      onDragOver={e=>{if(!onDnD)return;e.preventDefault();e.stopPropagation();e.dataTransfer.dropEffect="move";const z=zoneAt(e);setDz(p=>p===z?p:z);}}
-      onDragLeave={()=>setDz(null)}
-      onDrop={e=>{e.preventDefault();e.stopPropagation();const id=e.dataTransfer.getData("text/gcba-id");const z=zoneAt(e);setDz(null);if(onDnD&&id&&id!==node.id)onDnD(id,node.id,z);}}
-      onClick={()=>onSelect(node)}
-      title="Arrastrá para reordenar o soltá encima para que dependa de otra área"
-      style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",
+    <div onClick={()=>onSelect(node)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",
       paddingLeft:12+depth*14,cursor:"pointer",background:isSelected?"#EBF4FF":"transparent",
-      borderLeft:isSelected?"3px solid #336ACC":"3px solid transparent",transition:"background .1s",...(ind||{})}}>
+      borderLeft:isSelected?"3px solid #336ACC":"3px solid transparent",transition:"all .1s"}}>
       <div style={{width:8,height:8,borderRadius:2,background:color,flexShrink:0,
         border:node.dashed?"2px dashed rgba(0,0,0,.25)":"none"}}/>
       <span style={{fontSize:12,color:isSelected?"#101E37":"#2D3748",fontWeight:isSelected?600:400,flex:1,
         whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{node.nombre}</span>
       <TypeBadge tipo={node.tipo} tipoLabel={node.tipoLabel}/>
     </div>
-    {(node.children||[]).map(c=><PanelItem key={c.id} node={c} onSelect={onSelect} selectedId={selectedId} depth={depth+1} onDnD={onDnD}/>)}
+    {(node.children||[]).map(c=><PanelItem key={c.id} node={c} onSelect={onSelect} selectedId={selectedId} depth={depth+1}/>)}
   </>;
+}
+
+// Tarjeta de dependencia (grid del panel de detalle) con drag & drop:
+// arrastrar sobre otra → depende de ella (medio) o se reordena (izq/der).
+function DepCard({ch,onSelect,onDnD}){
+  const [dz,setDz]=React.useState(null);
+  const zoneAt=(e)=>{const r=e.currentTarget.getBoundingClientRect();const x=(e.clientX-r.left)/r.width;return x<0.3?"before":x>0.7?"after":"child";};
+  const ind=dz==="child"?{boxShadow:"0 0 0 2px #336ACC inset",background:"rgba(51,106,204,.06)"}
+    :dz==="before"?{boxShadow:"-3px 0 0 0 #336ACC inset"}
+    :dz==="after"?{boxShadow:"3px 0 0 0 #336ACC inset"}:null;
+  return(
+    <div
+      draggable
+      onDragStart={e=>{e.stopPropagation();e.dataTransfer.setData("text/gcba-id",ch.id);e.dataTransfer.effectAllowed="move";}}
+      onDragOver={e=>{if(!onDnD)return;e.preventDefault();e.stopPropagation();e.dataTransfer.dropEffect="move";const z=zoneAt(e);setDz(p=>p===z?p:z);}}
+      onDragLeave={()=>setDz(null)}
+      onDrop={e=>{e.preventDefault();e.stopPropagation();const id=e.dataTransfer.getData("text/gcba-id");const z=zoneAt(e);setDz(null);if(onDnD&&id&&id!==ch.id)onDnD(id,ch.id,z);}}
+      onClick={()=>onSelect(ch)}
+      title="Arrastrá para reordenar o soltá encima para que dependa de otra área"
+      style={{borderRadius:9,background:"#fff",border:"1px solid #E8EDF2",cursor:"pointer",overflow:"hidden",transition:"box-shadow .12s",boxShadow:"0 1px 3px rgba(0,0,0,.04)",...(ind||{})}}
+      onMouseEnter={e=>{if(!dz){e.currentTarget.style.boxShadow="0 4px 14px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-1px)";}}}
+      onMouseLeave={e=>{if(!dz){e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.04)";e.currentTarget.style.transform="";}}}>
+      <div style={{height:4,background:getColor(ch),opacity:ch.dashed?.6:1}}/>
+      <div style={{padding:"10px 12px"}}>
+        <div style={{fontSize:9,fontWeight:700,color:getColor(ch),textTransform:"uppercase",letterSpacing:".05em",marginBottom:4,opacity:ch.dashed?.7:1}}>
+          {getLabel(ch)}{ch.dashed?" · Func.":""}
+        </div>
+        <div style={{fontSize:12,fontWeight:600,color:"#2D3748",lineHeight:1.35,marginBottom:ch.titular?4:0}}>{ch.nombre}</div>
+        {ch.titular&&<div style={{fontSize:10.5,color:"#718096",lineHeight:1.3}}>{ch.titular}</div>}
+        {(ch.children||[]).length>0&&(
+          <div style={{marginTop:6,display:"flex",alignItems:"center",gap:4}}>
+            <div style={{width:14,height:2,background:"#E2E8F0",borderRadius:2}}/>
+            <span style={{fontSize:9.5,color:"#A0AEC0",fontWeight:500}}>{ch.children.length} dependencia{ch.children.length!==1?"s":""}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function DragCanvas({children}){
@@ -3978,13 +3998,13 @@ function App(){
           <div style={{flex:1,overflow:"auto",overflowX:"hidden"}}>
             {filtered
               ?(<>
-                {filtered.filter(n=>n&&!n._isEmpresa).map(n=><PanelItem key={n.id} node={n} onSelect={navTo} selectedId={selected?.id} depth={0} onDnD={dndMove}/>)}
+                {filtered.filter(n=>n&&!n._isEmpresa).map(n=><PanelItem key={n.id} node={n} onSelect={navTo} selectedId={selected?.id} depth={0}/>)}
                 {filtered.some(n=>n._isEmpresa)&&<>
                   <div style={{padding:"6px 12px 4px",fontSize:9,fontWeight:700,color:"#9AABB8",textTransform:"uppercase",letterSpacing:".07em",borderTop:"1px solid #F0F4F8",marginTop:4}}>Empresas del Estado</div>
                   {filtered.filter(n=>n._isEmpresa).map(n=><PanelItem key={n.id} node={n} onSelect={navTo} selectedId={selected?.id} depth={0}/>)}
                 </>}
               </>)
-              :<PanelItem node={data} onSelect={navTo} selectedId={selected?.id} onDnD={dndMove}/>
+              :<PanelItem node={data} onSelect={navTo} selectedId={selected?.id}/>
             }
           </div>
           <div style={{padding:"10px 12px",borderTop:"1px solid #E2E8F0",background:"#F3F6F9"}}>
@@ -4099,30 +4119,7 @@ function App(){
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:8}}>
                     {(selected.children||[]).map(ch=>(
-                      <div key={ch.id} onClick={()=>navTo(ch)}
-                        style={{borderRadius:9,background:"#fff",border:"1px solid #E8EDF2",
-                          cursor:"pointer",overflow:"hidden",transition:"all .15s",
-                          boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}
-                        onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 4px 14px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-1px)";}}
-                        onMouseLeave={e=>{e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.04)";e.currentTarget.style.transform="";}}>
-                        {/* Color strip */}
-                        <div style={{height:4,background:getColor(ch),opacity:ch.dashed?.6:1}}/>
-                        <div style={{padding:"10px 12px"}}>
-                          <div style={{fontSize:9,fontWeight:700,color:getColor(ch),textTransform:"uppercase",letterSpacing:".05em",marginBottom:4,opacity:ch.dashed?.7:1}}>
-                            {getLabel(ch)}{ch.dashed?" · Func.":""}
-                          </div>
-                          <div style={{fontSize:12,fontWeight:600,color:"#2D3748",lineHeight:1.35,marginBottom:ch.titular?4:0}}>
-                            {ch.nombre}
-                          </div>
-                          {ch.titular&&<div style={{fontSize:10.5,color:"#718096",lineHeight:1.3}}>{ch.titular}</div>}
-                          {(ch.children||[]).length>0&&(
-                            <div style={{marginTop:6,display:"flex",alignItems:"center",gap:4}}>
-                              <div style={{width:14,height:2,background:"#E2E8F0",borderRadius:2}}/>
-                              <span style={{fontSize:9.5,color:"#A0AEC0",fontWeight:500}}>{ch.children.length} dependencia{ch.children.length!==1?"s":""}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                      <DepCard key={ch.id} ch={ch} onSelect={navTo} onDnD={dndMove}/>
                     ))}
                   </div>
                 </div>
