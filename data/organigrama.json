@@ -2422,18 +2422,18 @@
           "tipo": "SEC",
           "children": [
             {
-              "id": "DGPCGU",
-              "nombre": "DG. Planificación y Coordinación Gubernamental",
-              "titular": "Noelia Ayelén Paggi",
-              "tipo": "DG",
-              "children": []
-            },
-            {
               "id": "SSIA",
               "nombre": "SS. Innovación Administrativa",
               "titular": "Jorge Rafael Miguez",
               "tipo": "SS",
               "children": [
+                {
+                  "id": "DGPCGU",
+                  "nombre": "DG. Planificación y Coordinación Gubernamental",
+                  "titular": "Noelia Ayelén Paggi",
+                  "tipo": "DG",
+                  "children": []
+                },
                 {
                   "id": "DGGEDOC",
                   "nombre": "DG. Gestión Documental",
