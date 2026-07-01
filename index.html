@@ -3067,6 +3067,24 @@ function updateNode(t,id,fn){if(t.id===id)return fn(t);return{...t,children:(t.c
 function removeNode(t,id){return{...t,children:(t.children||[]).filter(c=>c.id!==id).map(c=>removeNode(c,id))};}
 function addChild(t,pid,child){return updateNode(t,pid,n=>({...n,children:[...(n.children||[]),child]}));}
 function moveNode(t,nodeId,newPid){const n=findNode(t,nodeId);if(!n)return t;return addChild(removeNode(t,nodeId),newPid,n);}
+// Mueve dragId respecto de targetId: mode "child" (pasa a depender de target),
+// "before"/"after" (queda como hermano antes/después). Evita ciclos.
+function moveNodeRel(t,dragId,targetId,mode){
+  if(!dragId||!targetId||dragId===targetId)return t;
+  const dragNode=findNode(t,dragId);
+  if(!dragNode)return t;
+  if(findNode(dragNode,targetId))return t;           // target dentro del arrastrado → ciclo
+  const tree=removeNode(t,dragId);
+  if(mode==="child")return addChild(tree,targetId,dragNode);
+  const pid=findParentId(tree,targetId);
+  if(!pid)return addChild(tree,targetId,dragNode);    // target es la raíz → hijo
+  return updateNode(tree,pid,p=>{
+    const kids=[...(p.children||[])];
+    const idx=kids.findIndex(c=>c&&c.id===targetId);
+    if(idx<0)kids.push(dragNode); else kids.splice(mode==="after"?idx+1:idx,0,dragNode);
+    return{...p,children:kids};
+  });
+}
 
 // ── Colores ──────────────────────────────────────────────
 const COLORS={
@@ -3218,22 +3236,40 @@ function EmpresaPanelItem({emp}){
   );
 }
 
-function PanelItem({node,onSelect,selectedId,depth=0}){
+function PanelItem({node,onSelect,selectedId,depth=0,onDnD}){
+  const [dz,setDz]=React.useState(null); // "before" | "child" | "after"
   if(!node) return null;
   if(node._isEmpresa) return <EmpresaPanelItem emp={node}/>;
   const isSelected=node.id===selectedId;
   const color=getColor(node);
+  // Calcula la zona de drop según la posición vertical del mouse en la fila.
+  const zoneAt=(e)=>{
+    const r=e.currentTarget.getBoundingClientRect();
+    const y=(e.clientY-r.top)/r.height;
+    return y<0.28?"before":y>0.72?"after":"child";
+  };
+  const ind=dz==="child"?{background:"rgba(51,106,204,.14)",boxShadow:"inset 0 0 0 2px #336ACC"}
+    :dz==="before"?{boxShadow:"inset 0 3px 0 0 #336ACC"}
+    :dz==="after"?{boxShadow:"inset 0 -3px 0 0 #336ACC"}:null;
   return<>
-    <div onClick={()=>onSelect(node)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",
+    <div
+      draggable
+      onDragStart={e=>{e.stopPropagation();e.dataTransfer.setData("text/gcba-id",node.id);e.dataTransfer.effectAllowed="move";}}
+      onDragOver={e=>{if(!onDnD)return;e.preventDefault();e.stopPropagation();e.dataTransfer.dropEffect="move";const z=zoneAt(e);setDz(p=>p===z?p:z);}}
+      onDragLeave={()=>setDz(null)}
+      onDrop={e=>{e.preventDefault();e.stopPropagation();const id=e.dataTransfer.getData("text/gcba-id");const z=zoneAt(e);setDz(null);if(onDnD&&id&&id!==node.id)onDnD(id,node.id,z);}}
+      onClick={()=>onSelect(node)}
+      title="Arrastrá para reordenar o soltá encima para que dependa de otra área"
+      style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",
       paddingLeft:12+depth*14,cursor:"pointer",background:isSelected?"#EBF4FF":"transparent",
-      borderLeft:isSelected?"3px solid #336ACC":"3px solid transparent",transition:"all .1s"}}>
+      borderLeft:isSelected?"3px solid #336ACC":"3px solid transparent",transition:"background .1s",...(ind||{})}}>
       <div style={{width:8,height:8,borderRadius:2,background:color,flexShrink:0,
         border:node.dashed?"2px dashed rgba(0,0,0,.25)":"none"}}/>
       <span style={{fontSize:12,color:isSelected?"#101E37":"#2D3748",fontWeight:isSelected?600:400,flex:1,
         whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{node.nombre}</span>
       <TypeBadge tipo={node.tipo} tipoLabel={node.tipoLabel}/>
     </div>
-    {(node.children||[]).map(c=><PanelItem key={c.id} node={c} onSelect={onSelect} selectedId={selectedId} depth={depth+1}/>)}
+    {(node.children||[]).map(c=><PanelItem key={c.id} node={c} onSelect={onSelect} selectedId={selectedId} depth={depth+1} onDnD={onDnD}/>)}
   </>;
 }
 
@@ -3749,6 +3785,11 @@ function App(){
     setData(d=>{const nd=moveNode(d,selected.id,np);saveData(nd);return nd;});
     setModal(null);
   }
+  // Drag & drop en el árbol: reparentar (child) o reordenar (before/after)
+  const dndMove=withAuth((dragId,targetId,mode)=>{
+    if(!dragId||!targetId||dragId===targetId)return;
+    setData(d=>{const nd=moveNodeRel(d,dragId,targetId,mode);saveData(nd);return nd;});
+  });
   function reset(){
     if(!confirm("¿Restablecer todos los datos al original?"))return;
     localStorage.removeItem("gcba_org_v2");
@@ -3937,13 +3978,13 @@ function App(){
           <div style={{flex:1,overflow:"auto",overflowX:"hidden"}}>
             {filtered
               ?(<>
-                {filtered.filter(n=>n&&!n._isEmpresa).map(n=><PanelItem key={n.id} node={n} onSelect={navTo} selectedId={selected?.id} depth={0}/>)}
+                {filtered.filter(n=>n&&!n._isEmpresa).map(n=><PanelItem key={n.id} node={n} onSelect={navTo} selectedId={selected?.id} depth={0} onDnD={dndMove}/>)}
                 {filtered.some(n=>n._isEmpresa)&&<>
                   <div style={{padding:"6px 12px 4px",fontSize:9,fontWeight:700,color:"#9AABB8",textTransform:"uppercase",letterSpacing:".07em",borderTop:"1px solid #F0F4F8",marginTop:4}}>Empresas del Estado</div>
                   {filtered.filter(n=>n._isEmpresa).map(n=><PanelItem key={n.id} node={n} onSelect={navTo} selectedId={selected?.id} depth={0}/>)}
                 </>}
               </>)
-              :<PanelItem node={data} onSelect={navTo} selectedId={selected?.id}/>
+              :<PanelItem node={data} onSelect={navTo} selectedId={selected?.id} onDnD={dndMove}/>
             }
           </div>
           <div style={{padding:"10px 12px",borderTop:"1px solid #E2E8F0",background:"#F3F6F9"}}>
