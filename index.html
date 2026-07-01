@@ -3275,7 +3275,7 @@ function DepGrid({items,onSelect,onDnD}){
     const oid=card.getAttribute("data-cardid");
     const r=card.getBoundingClientRect();
     const x=(e.clientX-r.left)/r.width;
-    const zone=x<0.3?"before":x>0.7?"after":"child";
+    const zone=x<0.15?"before":x>0.85?"after":"child"; // centro amplio = meter dentro
     s.over={id:oid,zone};
     setInd(cur=>(cur&&cur.overId===oid&&cur.zone===zone)?cur:{overId:oid,zone});
   };
@@ -3291,6 +3291,9 @@ function DepGrid({items,onSelect,onDnD}){
   };
   const onDown=(e,id)=>{
     if(e.button!==undefined&&e.button!==0)return;
+    // liberar la captura implícita del puntero (táctil/lápiz) para que
+    // elementFromPoint detecte bien la tarjeta destino durante el arrastre.
+    try{ if(e.currentTarget.releasePointerCapture&&e.pointerId!=null)e.currentTarget.releasePointerCapture(e.pointerId); }catch(_){}
     st.current={id,x:e.clientX,y:e.clientY,started:false,over:null};
     window.addEventListener("pointermove",onMove,{passive:false});
     window.addEventListener("pointerup",onUp);
