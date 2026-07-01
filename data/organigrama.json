@@ -2674,75 +2674,76 @@
           "children": []
         },
         {
-          "id": "SSACABA",
-          "nombre": "SS. Autódromo de la Ciudad Autónoma de Buenos Aires",
-          "titular": "Joaquín Orlando",
-          "tipo": "SS",
-          "children": [
-            {
-              "id": "DGDDDM",
-              "nombre": "DG. Desarrollo del Deporte Motor",
-              "titular": "Tomas Francisco Burtin",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "DGGPEIDA",
-              "nombre": "DG. Gestión de Proyectos e Infraestructura del Autódromo",
-              "titular": "Camila Gabriela Piris Machad",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "DGCGSA",
-              "nombre": "DG. Control de Gestión y Soporte Administrativo",
-              "titular": "Juan Pablo Sassano",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "DGICAU",
-              "nombre": "DG. Impulso Comercial del Autódromo",
-              "titular": "Claudio Alberto Viola",
-              "tipo": "DG",
-              "children": []
-            }
-          ]
-        },
-        {
-          "id": "DGINFRAES",
-          "nombre": "DG. Infraestructura",
-          "titular": "Jorge Mariano Rusconi",
-          "tipo": "DG",
-          "children": []
-        },
-        {
-          "id": "DGDSYDD",
-          "nombre": "DG. Deporte Social y Desarrollo Deportivo",
-          "titular": "Juan Martín Costa",
-          "tipo": "DG",
-          "children": []
-        },
-        {
-          "id": "DGPRDE",
-          "nombre": "DG. Promoción Deportiva",
-          "titular": "Hernán Pablo Poggi",
-          "tipo": "DG",
-          "children": []
-        },
-        {
           "id": "SECD",
           "nombre": "Sec. de Deporte",
           "titular": "Fabián Alejandro Turnes",
           "tipo": "SEC",
-          "children": []
-        },
-        {
-          "id": "DGDEAR",
-          "nombre": "DG. Deporte de Elite y Alto Rendimiento",
-          "titular": "Marcelo Tristán Bosch",
-          "tipo": "DG",
-          "children": []
+          "children": [
+            {
+              "id": "DGPRDE",
+              "nombre": "DG. Promoción Deportiva",
+              "titular": "Hernán Pablo Poggi",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGDSYDD",
+              "nombre": "DG. Deporte Social y Desarrollo Deportivo",
+              "titular": "Juan Martín Costa",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGINFRAES",
+              "nombre": "DG. Infraestructura",
+              "titular": "Jorge Mariano Rusconi",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGDEAR",
+              "nombre": "DG. Deporte de Elite y Alto Rendimiento",
+              "titular": "Marcelo Tristán Bosch",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "SSACABA",
+              "nombre": "SS. Autódromo de la Ciudad Autónoma de Buenos Aires",
+              "titular": "Joaquín Orlando",
+              "tipo": "SS",
+              "children": [
+                {
+                  "id": "DGDDDM",
+                  "nombre": "DG. Desarrollo del Deporte Motor",
+                  "titular": "Tomas Francisco Burtin",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGGPEIDA",
+                  "nombre": "DG. Gestión de Proyectos e Infraestructura del Autódromo",
+                  "titular": "Camila Gabriela Piris Machad",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGCGSA",
+                  "nombre": "DG. Control de Gestión y Soporte Administrativo",
+                  "titular": "Juan Pablo Sassano",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGICAU",
+                  "nombre": "DG. Impulso Comercial del Autódromo",
+                  "titular": "Claudio Alberto Viola",
+                  "tipo": "DG",
+                  "children": []
+                }
+              ]
+            }
+          ]
         }
       ]
     },
