@@ -2722,6 +2722,29 @@
               ]
             }
           ]
+        },
+        {
+          "id": "SECOU",
+          "nombre": "Secretaría Ordenamiento Urbano",
+          "tipo": "SEC",
+          "titular": "Pedro Martín Comin Villanueva",
+          "children": [
+            {
+              "id": "SSOUR",
+              "nombre": "SS. del Ordenamiento Urbano",
+              "tipo": "SS",
+              "titular": "Agustín Barcos",
+              "children": [
+                {
+                  "id": "DGFIS",
+                  "nombre": "DG. Fiscalización",
+                  "tipo": "DG",
+                  "titular": "Mario Javier Carmona",
+                  "children": []
+                }
+              ]
+            }
+          ]
         }
       ]
     },
