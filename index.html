@@ -2076,8 +2076,9 @@ window.__wrapTitular = wrapTitular;
         }
         layoutMode="shallow";
       } else {
-        // Layout en columnas
-        const colW=Math.max(110,Math.min(260,Math.floor((AW-HGAP*(cols-1))/cols)));
+        // Layout en columnas — el ancho se achica para que TODAS las columnas
+        // entren en el ancho de la página (evita que se vayan afuera con muchos ministerios).
+        const colW=Math.max(30,Math.min(260,Math.floor((AW-HGAP*(cols-1))/cols)));
         const totalColsW=cols*colW+HGAP*(cols-1);
         const startColX=(AW-totalColsW)/2+colW/2;
 
@@ -2088,16 +2089,18 @@ window.__wrapTitular = wrapTitular;
         const dashedRoom=dashedRowHeight()+(dashed.length>0?VGAP:0);
         const kidsAreaH=AH-kidsAreaTop-dashedRoom-VGAP;
 
-        // Altura por DG: cabe el max de hijos en la altura disponible
-        const kidH=Math.max(28,Math.min(60,Math.floor((kidsAreaH-VGAP*(maxKids-1))/Math.max(1,maxKids))));
+        // Altura por DG: se reparte la columna más alta en el alto disponible
+        // (slot por hijo) para llenar la página aunque haya muchos descendientes.
+        const slotH=kidsAreaH/Math.max(1,maxKids);
+        const kidH=Math.max(10,Math.min(60,slotH-4));
 
         colInfo.forEach((ci,i)=>{
           const colX=startColX+i*(colW+HGAP);
           // SS/SEC header de la columna
           positions[ci.parent.id]={x:colX,y:colHdrY,w:colW,h:HDR_H};
-          // Apilar todos los descendientes no-dashed verticalmente
+          // Apilar todos los descendientes no-dashed verticalmente, repartidos en el alto
           ci.kids.forEach((g,j)=>{
-            positions[g.id]={x:colX,y:kidsAreaTop+j*(kidH+VGAP),w:colW,h:kidH};
+            positions[g.id]={x:colX,y:kidsAreaTop+j*slotH+(slotH-kidH)/2,w:colW,h:kidH};
           });
         });
 
@@ -4447,14 +4450,19 @@ function __loadFunciones(){
 
   function prNumber(url){ var m=/\/pull\/(\d+)/.exec(url||""); return m?m[1]:null; }
 
+  // El panel del Boletín solo se muestra al usuario editor (⚙ + clave).
+  function editorLogueado(){ return window._gcbaEditorAuth===true; }
+  function refreshFab(){ fab.style.display=(items.length>0 && editorLogueado())?"block":"none"; }
+  // Reevaluar la visibilidad si el usuario se loguea/desloguea después de cargar.
+  setInterval(refreshFab,700);
   function render(){
     if(!items.length){
-      fab.style.display="none";
+      refreshFab();
       list.innerHTML='<div style="font:400 13px \'Open Sans\',sans-serif;color:#718096;text-align:center;padding:12px;">No hay cambios pendientes. 🎉</div>';
       return;
     }
     fab.textContent="📥 Boletín: "+items.length+" pendiente"+(items.length>1?"s":"");
-    fab.style.display="block";
+    refreshFab();
     list.innerHTML=items.map(function(it,i){
       return '<div class="bol-card" data-i="'+i+'" style="border:1px solid #E2E8F0;border-radius:8px;padding:12px 14px;margin-bottom:12px;">'
         +'<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">'
