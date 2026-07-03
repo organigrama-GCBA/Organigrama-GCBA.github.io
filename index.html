@@ -1531,11 +1531,13 @@ window.__wrapTitular = wrapTitular;
       const blockH=lines.length*_lh;
       // Baseline de la 1ra línea: top del bloque + 0.85*fs (alpha ascent)
       const sy2=(mainH-blockH)/2+_fs*0.85;
-      const txtMain=isLightBg(getColor(d))?"#1A202C":"#fff";
+      const _light=isLightBg(getColor(d));
+      const txtMain=_light?"#1A202C":"#fff";
+      const txtSub=_light?"rgba(26,32,44,0.92)":"rgba(255,255,255,0.88)";
       lines.forEach((l,i)=>g2.append("text").attr("x",_nw/2).attr("y",sy2+i*_lh)
         .attr("text-anchor","middle").attr("font-size",_fs).attr("font-weight",700)
         .attr("fill",txtMain).attr("font-family","Open Sans,Inter,sans-serif").text(l));
-      // Titular en franja oscura — hasta 2 líneas
+      // Titular en franja — hasta 2 líneas (oscuro si el fondo es claro)
       if(hasTit){
         const tt=window.__wrapTitular?window.__wrapTitular(d.titular,_nw,stripH):{lines:[d.titular],fs:Math.max(6,Math.min(_fs*0.78,stripH*0.62))};
         const lhT=tt.fs*1.18;
@@ -1543,7 +1545,7 @@ window.__wrapTitular = wrapTitular;
         tt.lines.forEach(l=>{
           g2.append("text").attr("x",_nw/2).attr("y",yT)
             .attr("text-anchor","middle").attr("font-size",tt.fs).attr("font-weight",700)
-            .attr("fill","rgba(255,255,255,0.88)").attr("font-family","Open Sans,Inter,sans-serif").text(l);
+            .attr("fill",txtSub).attr("font-family","Open Sans,Inter,sans-serif").text(l);
           yT+=lhT;
         });
       }
@@ -1823,7 +1825,7 @@ window.__wrapTitular = wrapTitular;
     clone.querySelectorAll(".guide-layer, .resize-handle").forEach(el=>el.remove());
 
     // Fondo del canvas → blanco puro para el PDF
-    clone.querySelectorAll("rect[fill='#f0f2f5'], rect[fill='#1e2130'], rect[fill='#0f111a']").forEach(r=>{
+    clone.querySelectorAll("rect[fill='#f0f2f5'], rect[fill='#1e2130'], rect[fill='#0f111a'], rect[fill='#101E37'], rect[fill='#101e37']").forEach(r=>{
       if(parseFloat(r.getAttribute("width"))>500) r.setAttribute("fill","#ffffff");
     });
 
