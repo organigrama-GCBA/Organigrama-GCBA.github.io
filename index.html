@@ -2263,22 +2263,31 @@ window.__wrapTitular = wrapTitular;
       const baseWP=JSON.parse(JSON.stringify(edWaypoints||{}));
       const baseMidY=JSON.parse(JSON.stringify(edLinkMidY||{}));
       const sp=(v,c,f)=>c+(v-c)*f;   // escalar coordenada respecto del centro
+      const groupEl=document.querySelector("#ed-svg g.canvas-root");
+      let factor=1;
+      // Vista previa: escala el grupo entero respecto del centro, ENCIMA del zoom actual.
       function onMove(ev){
         ev.preventDefault();
         const d=((ev.clientX-startX)+(ev.clientY-startY))/2;
-        const factor=Math.max(0.3,Math.min(5,1+d/180));
+        factor=Math.max(0.3,Math.min(5,1+d/180));
+        if(groupEl){
+          const t=edTransform;
+          groupEl.setAttribute("transform",
+            `translate(${t.x},${t.y}) scale(${t.k}) translate(${cx*(1-factor)},${cy*(1-factor)}) scale(${factor})`);
+        }
+      }
+      // Al soltar: fija el escalado en las posiciones/tamaños/letra/líneas reales.
+      function bake(){
         ids.forEach(id=>{
           const p=edPositions[id],b=base[id]; if(!b)return;
           p.x=sp(b.x,cx,factor); p.y=sp(b.y,cy,factor);
           p.w=b.w*factor; p.h=b.h*factor;
           if(b.fs>0)p.fs=b.fs*factor;
         });
-        // Líneas: waypoints libres
         Object.keys(baseWP).forEach(k=>{
           if(!Array.isArray(baseWP[k]))return;
           edWaypoints[k]=baseWP[k].map(pt=>({x:sp(pt.x,cx,factor),y:sp(pt.y,cy,factor)}));
         });
-        // Líneas: altura del bend + tronco vertical por link
         Object.keys(baseMidY).forEach(k=>{
           const b=baseMidY[k];
           if(typeof b==="number"){ edLinkMidY[k]=sp(b,cy,factor); }
@@ -2294,7 +2303,7 @@ window.__wrapTitular = wrapTitular;
       function onUp(){
         window.removeEventListener("mousemove",onMove,true);
         window.removeEventListener("mouseup",onUp,true);
-        savePosForArea();saveWPForArea();saveMidYForArea();showSaved();
+        bake();showSaved();
       }
       window.addEventListener("mousemove",onMove,true);
       window.addEventListener("mouseup",onUp,true);
