@@ -2241,33 +2241,60 @@ window.__wrapTitular = wrapTitular;
     }
   };
 
-  // Handle fijo (esquina inferior derecha): arrastrar para agrandar/achicar TODOS los nodos.
-  // Crece la caja y el texto. No importa si se pegan (es a propósito).
+  // Handle fijo (esquina inferior derecha): arrastrar para escalar TODO en
+  // proporción — posiciones, tamaños, letra y líneas — manteniendo los espacios.
   (function(){
     const gr=document.getElementById("ed-global-resize");
     if(!gr)return;
+    gr.title="Arrastrá para agrandar/achicar TODO en proporción (nodos, líneas y espacios)";
     gr.addEventListener("mousedown",function(e){
       e.preventDefault();e.stopPropagation();
       if(!edPositions)return;
       const startX=e.clientX,startY=e.clientY;
+      const ids=Object.keys(edPositions).filter(id=>edPositions[id]&&edPositions[id].x!=null);
+      // Centro = centro del bounding box de todos los nodos (escala respecto de él)
+      let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+      ids.forEach(id=>{const p=edPositions[id];const w=p.w||NW,h=p.h||NH;
+        minX=Math.min(minX,p.x-w/2);maxX=Math.max(maxX,p.x+w/2);
+        minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y+h);});
+      const cx=(minX+maxX)/2, cy=(minY+maxY)/2;
       const base={};
-      Object.keys(edPositions).forEach(id=>{const p=edPositions[id];base[id]={w:p.w||NW,h:p.h||NH};});
+      ids.forEach(id=>{const p=edPositions[id];base[id]={x:p.x,y:p.y,w:p.w||NW,h:p.h||NH,fs:p.fs||0};});
+      const baseWP=JSON.parse(JSON.stringify(edWaypoints||{}));
+      const baseMidY=JSON.parse(JSON.stringify(edLinkMidY||{}));
+      const sp=(v,c,f)=>c+(v-c)*f;   // escalar coordenada respecto del centro
       function onMove(ev){
         ev.preventDefault();
         const d=((ev.clientX-startX)+(ev.clientY-startY))/2;
         const factor=Math.max(0.3,Math.min(5,1+d/180));
-        Object.keys(edPositions).forEach(id=>{
-          const p=edPositions[id];
-          if(base[id]){p.w=base[id].w*factor;p.h=base[id].h*factor;}
+        ids.forEach(id=>{
+          const p=edPositions[id],b=base[id]; if(!b)return;
+          p.x=sp(b.x,cx,factor); p.y=sp(b.y,cy,factor);
+          p.w=b.w*factor; p.h=b.h*factor;
+          if(b.fs>0)p.fs=b.fs*factor;
+        });
+        // Líneas: waypoints libres
+        Object.keys(baseWP).forEach(k=>{
+          if(!Array.isArray(baseWP[k]))return;
+          edWaypoints[k]=baseWP[k].map(pt=>({x:sp(pt.x,cx,factor),y:sp(pt.y,cy,factor)}));
+        });
+        // Líneas: altura del bend + tronco vertical por link
+        Object.keys(baseMidY).forEach(k=>{
+          const b=baseMidY[k];
+          if(typeof b==="number"){ edLinkMidY[k]=sp(b,cy,factor); }
+          else if(b&&typeof b==="object"){
+            const o={}; if(b.y!=null)o.y=sp(b.y,cy,factor); if(b.x!=null)o.x=sp(b.x,cx,factor);
+            edLinkMidY[k]=o;
+          }
         });
         edFitted=true;
-        savePosForArea();
+        savePosForArea();saveWPForArea();saveMidYForArea();
         renderCanvas();
       }
       function onUp(){
         window.removeEventListener("mousemove",onMove,true);
         window.removeEventListener("mouseup",onUp,true);
-        savePosForArea();
+        savePosForArea();saveWPForArea();saveMidYForArea();showSaved();
       }
       window.addEventListener("mousemove",onMove,true);
       window.addEventListener("mouseup",onUp,true);
