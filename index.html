@@ -913,8 +913,21 @@ window.__wrapTitular = wrapTitular;
       sel.appendChild(o);
     };
     addOpt(edData,"");
-    direct.filter(n=>n.tipo==="MIN"||n.tipo==="VJG").forEach(n=>addOpt(n,"　"));
-    direct.filter(n=>n.tipo==="SEC").forEach(n=>addOpt(n,"　"));
+    direct.filter(n=>n.tipo==="MIN"||n.tipo==="VJG").forEach(n=>{
+      addOpt(n,"　");
+      // Si es la Jefatura de Gabinete, los ministerios cuelgan de ella:
+      // agregarlos también al selector (antes quedaban inaccesibles para editar).
+      (n.children||[]).filter(c=>c.tipo==="MIN").forEach(m=>{
+        addOpt(m,"　　");
+        // …y las secretarías/subsecretarías con estructura dentro de cada ministerio
+        (m.children||[]).filter(c=>(c.tipo==="SEC"||c.tipo==="SS")&&(c.children||[]).length>0)
+          .forEach(s=>addOpt(s,"　　　"));
+      });
+    });
+    direct.filter(n=>n.tipo==="SEC").forEach(n=>{
+      addOpt(n,"　");
+      (n.children||[]).filter(c=>c.tipo==="SS"&&(c.children||[]).length>0).forEach(s=>addOpt(s,"　　"));
+    });
     flat(edData).filter(n=>n.dashed&&(n.children||[]).length>0).forEach(n=>addOpt(n,""));
     if(prev&&sel.querySelector(`option[value="${prev}"]`))sel.value=prev;
     else if(sel.options.length>0){sel.value=sel.options[0].value;}
