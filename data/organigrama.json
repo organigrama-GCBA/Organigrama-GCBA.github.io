@@ -152,7 +152,16 @@
               "titular": "Gerardo Luis Grieco Martínez",
               "tipo": "ORG",
               "dashed": true,
-              "children": []
+              "children": [
+                {
+                  "id": "EATC-UAI",
+                  "nombre": "Unidad de Auditoría Interna",
+                  "titular": "Cristian Leopoldo Ludovisi",
+                  "tipo": "ORG",
+                  "dashed": true,
+                  "children": []
+                }
+              ]
             }
           ]
         },
@@ -697,6 +706,13 @@
                   "children": []
                 }
               ]
+            },
+            {
+              "id": "DGSGE",
+              "nombre": "DG. Sistemas de Gestión Escolar",
+              "titular": "María Gimena Corcull",
+              "tipo": "DG",
+              "children": []
             }
           ]
         },
@@ -2312,14 +2328,6 @@
           ]
         },
         {
-          "id": "EATC-UAI",
-          "nombre": "Unidad de Auditoría Interna",
-          "titular": "Cristian Leopoldo Ludovisi",
-          "tipo": "ORG",
-          "dashed": true,
-          "children": []
-        },
-        {
           "id": "UAIMJG",
           "nombre": "Unidad de Auditoría Interna",
           "titular": "María Florencia Fernández Camarda",
@@ -2427,13 +2435,6 @@
           "tipo": "SEC",
           "children": [
             {
-              "id": "DGPCGU",
-              "nombre": "DG. Planificación y Coordinación Gubernamental",
-              "titular": "Noelia Ayelén Paggi",
-              "tipo": "DG",
-              "children": []
-            },
-            {
               "id": "SSIA",
               "nombre": "SS. Innovación Administrativa",
               "titular": "Jorge Rafael Miguez",
@@ -2443,13 +2444,6 @@
                   "id": "DGGEDOC",
                   "nombre": "DG. Gestión Documental",
                   "titular": "María Florencia Nestasio",
-                  "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DGSGE",
-                  "nombre": "DG. Sistemas de Gestión Escolar",
-                  "titular": "María Gimena Corcull",
                   "tipo": "DG",
                   "children": []
                 },
@@ -2558,6 +2552,13 @@
                   "children": []
                 }
               ]
+            },
+            {
+              "id": "DGPCGU",
+              "nombre": "DG. Planificación y Coordinación Gubernamental",
+              "titular": "Noelia Ayelén Paggi",
+              "tipo": "DG",
+              "children": []
             }
           ]
         },
@@ -2703,13 +2704,6 @@
                   "titular": "Claudio Alberto Viola",
                   "tipo": "DG",
                   "children": []
-                },
-                {
-                  "id": "DGINFRAES",
-                  "nombre": "DG. Infraestructura",
-                  "titular": "Jorge Mariano Rusconi",
-                  "tipo": "DG",
-                  "children": []
                 }
               ]
             },
@@ -2731,6 +2725,13 @@
               "id": "DGPRDE",
               "nombre": "DG. Promoción Deportiva",
               "titular": "Hernán Pablo Poggi",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGINFRAES",
+              "nombre": "DG. Infraestructura",
+              "titular": "Jorge Mariano Rusconi",
               "tipo": "DG",
               "children": []
             }
