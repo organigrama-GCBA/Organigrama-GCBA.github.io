@@ -262,9 +262,10 @@ function svgBox(x,y,node,W,H,dashed,fsN,fsT){
 
   let s=`<rect x="${fv(x)}" y="${fv(y)}" width="${fv(W)}" height="${fv(H)}" rx="${fv(Math.max(4,H*0.08))}" fill="${fill}" ${da}/>`;
 
-  // Dark strip for titular
+  // Placa del titular: color slate UNIFORME en todos los nodos (no un tono más
+  // oscuro del mismo color → evita el "verde con verde" y hace legible el titular).
   if(hasTit){
-    s+=`<rect x="${fv(x)}" y="${fv(y+mainH)}" width="${fv(W)}" height="${fv(stripH)}" rx="0" fill="rgba(0,0,0,0.25)"/>`;
+    s+=`<rect x="${fv(x)}" y="${fv(y+mainH)}" width="${fv(W)}" height="${fv(stripH)}" rx="0" fill="#233047"/>`;
   }
 
   // Name centered in main area
@@ -591,7 +592,11 @@ function genSVGA3(root,pn=1,tot=1){
     `<text x="${fv(lx+i*lw+13)}" y="${fv(ly+8)}" font-size="8" fill="#718096" font-family="Inter,Arial,sans-serif">${it[1]}</text>`
   ).join("");
   const pgSVG=tot>1?`<text x="${fv(PW-MAR)}" y="${fv(ly+8)}" text-anchor="end" font-size="8" fill="#A0AEC0">${pn}/${tot}</text>`:"";
+  // Si el color del encabezado es claro, la franja lleva texto oscuro (legible).
   const hc=getColorSVG(root);
+  const hcLight=["#FFD400","#E4E9ED","#F5871F"].some(c=>hc.toUpperCase()===c.toUpperCase());
+  const hTxt=hcLight?"#1A202C":"#fff";
+  const hSub=hcLight?"rgba(26,32,44,0.75)":"rgba(255,255,255,0.7)";
 
   return`<svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}">
 <defs><linearGradient id="hg${pn}" x1="0" y1="0" x2="1" y2="0">
@@ -600,8 +605,8 @@ function genSVGA3(root,pn=1,tot=1){
 <rect width="${PW}" height="${PH}" fill="#F8FAFC"/>
 <rect x="0" y="0" width="${PW}" height="${HH}" fill="url(#hg${pn})"/>
 <line x1="0" y1="${HH}" x2="${PW}" y2="${HH}" stroke="#E2E8F0" stroke-width="1"/>
-<text x="${fv(PW/2)}" y="${fv(HH*0.45)}" text-anchor="middle" font-size="22" font-weight="700" fill="#fff" font-family="Inter,Arial,sans-serif">${root.nombre}</text>
-<text x="${fv(PW/2)}" y="${fv(HH*0.78)}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.7)" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · ${fecha}</text>
+<text x="${fv(PW/2)}" y="${fv(HH*0.45)}" text-anchor="middle" font-size="22" font-weight="700" fill="${hTxt}" font-family="Inter,Arial,sans-serif">${root.nombre}</text>
+<text x="${fv(PW/2)}" y="${fv(HH*0.78)}" text-anchor="middle" font-size="10" fill="${hSub}" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · ${fecha}</text>
 <g transform="translate(${fv(ox)},${fv(oy)})">${linesSVG}${nodesSVG}</g>
 <rect x="0" y="${PH-FH}" width="${PW}" height="${FH}" fill="#F8FAFC"/>
 <line x1="0" y1="${PH-FH}" x2="${PW}" y2="${PH-FH}" stroke="#E2E8F0" stroke-width="0.8"/>
@@ -1525,11 +1530,12 @@ window.__wrapTitular = wrapTitular;
       // texto del titular escale junto con el nodo (fsTit depende de stripH).
       const stripH=hasTit?Math.max(14,_nh*0.28):0;
       const mainH=_nh-stripH;
-      // Franja oscura para el titular
+      // Placa del titular: color slate UNIFORME (no un tono más oscuro del mismo
+      // color del nodo) → evita el "verde con verde" y hace legible el titular.
       if(hasTit){
         g2.append("rect")
           .attr("x",0).attr("y",mainH).attr("width",_nw).attr("height",stripH)
-          .attr("fill","rgba(0,0,0,0.25)");
+          .attr("fill","#233047");
       }
       // Nombre — wrap respetando el ancho real (no más cap fijo de 20 chars)
       const wrap=window.__wrapTxt||((t)=>[t||""]);
@@ -1547,8 +1553,8 @@ window.__wrapTitular = wrapTitular;
       // Baseline de la 1ra línea: top del bloque + 0.85*fs (alpha ascent)
       const sy2=(mainH-blockH)/2+_fs*0.85;
       const _light=isLightBg(getColor(d));
-      const txtMain=_light?"#1A202C":"#fff";
-      const txtSub=_light?"rgba(26,32,44,0.92)":"rgba(255,255,255,0.88)";
+      const txtMain=_light?"#1A202C":"#fff";          // nombre: oscuro si el nodo es claro
+      const txtSub="rgba(255,255,255,0.9)";           // titular: siempre blanco (placa slate)
       lines.forEach((l,i)=>g2.append("text").attr("x",_nw/2).attr("y",sy2+i*_lh)
         .attr("text-anchor","middle").attr("font-size",_fs).attr("font-weight",700)
         .attr("fill",txtMain).attr("font-family","Open Sans,Inter,sans-serif").text(l));
@@ -1634,17 +1640,18 @@ window.__wrapTitular = wrapTitular;
             if(hasTit){
               par.insert("rect",".resize-handle").attr("class","tit-strip")
                 .attr("x",0).attr("y",mainH).attr("width",p.w).attr("height",stripH)
-                .attr("fill","rgba(0,0,0,0.25)");
+                .attr("fill","#233047");
             }
             // Redraw texts
             par.selectAll("text").remove();
+            const _lgt=isLightBg(getColor(d));
             const blockH2=lines.length*_lh;
             const sy2=(mainH-blockH2)/2+_fs*0.85;
             lines.forEach((l,_i)=>par.append("text")
               .attr("x",p.w/2).attr("y",sy2+_i*_lh)
               .attr("text-anchor","middle")
               .style("font-size",_fs+"px").attr("font-weight",700)
-              .attr("fill","#fff").attr("font-family","Open Sans,sans-serif").text(l));
+              .attr("fill",_lgt?"#1A202C":"#fff").attr("font-family","Open Sans,sans-serif").text(l));
             if(hasTit){
               const tt=window.__wrapTitular?window.__wrapTitular(d.titular,p.w,stripH):{lines:[d.titular],fs:Math.max(6,Math.min(_fs*0.78,stripH*0.62))};
               const lhT=tt.fs*1.18;
