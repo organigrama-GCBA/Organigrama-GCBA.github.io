@@ -339,7 +339,9 @@ function genSVGA3(root,pn=1,tot=1){
 
   // Decidir si usar layout guardado o auto-layout.
   // Si tenemos savedPos pero >50% de nodos visibles no están allí, caer al auto-layout.
-  let useSavedLayout=savedPos&&Object.keys(savedPos).length>0&&!root.dashed;
+  // NOTA: los entes fuera de nivel (root.dashed) TAMBIÉN usan su layout guardado
+  // cuando existe — antes se los forzaba a auto-layout y salían distintos al visor.
+  let useSavedLayout=savedPos&&Object.keys(savedPos).length>0;
   let _visibleCache=null;
   if(useSavedLayout){
     _visibleCache=[];
