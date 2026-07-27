@@ -632,6 +632,13 @@
                   "titular": "Mariano Alfredo Perez Alfaro",
                   "tipo": "DG",
                   "children": []
+                },
+                {
+                  "id": "DGSGE",
+                  "nombre": "DG. Sistemas de Gestión Escolar",
+                  "titular": "María Gimena Corcull",
+                  "tipo": "DG",
+                  "children": []
                 }
               ]
             },
@@ -639,13 +646,6 @@
               "id": "DGAHPEF",
               "nombre": "DG. Agencia de Habilidades para el Futuro",
               "titular": "Gustavo Fabián Álvarez",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "DGEGE",
-              "nombre": "DG. Educación de Gestión Estatal",
-              "titular": "Nancy Elizabeth Rosana Sorfo",
               "tipo": "DG",
               "children": []
             },
@@ -704,15 +704,15 @@
                   "titular": "Teresa Patronelli",
                   "tipo": "DG",
                   "children": []
+                },
+                {
+                  "id": "DGEGE",
+                  "nombre": "DG. Educación de Gestión Estatal",
+                  "titular": "Nancy Elizabeth Rosana Sorfo",
+                  "tipo": "DG",
+                  "children": []
                 }
               ]
-            },
-            {
-              "id": "DGSGE",
-              "nombre": "DG. Sistemas de Gestión Escolar",
-              "titular": "María Gimena Corcull",
-              "tipo": "DG",
-              "children": []
             }
           ]
         },
@@ -732,7 +732,7 @@
             {
               "id": "UAIMEPHU",
               "nombre": "Unidad de Auditoría Interna MEPHU",
-              "titular": "Milagros Rodriguez",
+              "titular": "Diego Cuesta",
               "tipo": "ORG",
               "dashed": true,
               "children": []
@@ -1786,7 +1786,7 @@
                 {
                   "id": "DGSAM",
                   "nombre": "DG. Salud Mental",
-                  "titular": "Sergio José Luis Giordano",
+                  "titular": "",
                   "tipo": "DG",
                   "children": [
                     {
@@ -1857,13 +1857,6 @@
                   "titular": "Florencia Ayelén Quiroga",
                   "tipo": "DG",
                   "children": []
-                },
-                {
-                  "id": "CENTRODEESPE",
-                  "nombre": "Centro de Especialidades Médicas Ambulatorias de Referencia IV (CEMAR IV)",
-                  "tipo": "ORG",
-                  "titular": "",
-                  "children": []
                 }
               ]
             },
@@ -1889,10 +1882,11 @@
                 },
                 {
                   "id": "DGACSA",
-                  "nombre": "DG. General Adquisiciones y Contratos de Salud",
+                  "nombre": "DG. Adquisiciones y Contratos de Salud",
                   "titular": "María Belen Carjuzáa",
                   "tipo": "DG",
-                  "children": []
+                  "children": [],
+                  "dashed": false
                 },
                 {
                   "id": "DGAYDRH",
@@ -1961,10 +1955,11 @@
                 },
                 {
                   "id": "DGCOECSSP",
-                  "nombre": "DG. Cultura Organizac. y exper. Ciudadana en el sist. Público de Salud",
+                  "nombre": "DG. Cultura Organizacional",
                   "titular": "María Eugenia Botteri Domecq",
                   "tipo": "DG",
-                  "children": []
+                  "children": [],
+                  "dashed": false
                 },
                 {
                   "id": "FACOEP SE",
@@ -2060,13 +2055,6 @@
                       "id": "DGICR",
                       "nombre": "DG. Investigación Criminal",
                       "titular": "Claudio Walter Abbondanza",
-                      "tipo": "DG",
-                      "children": []
-                    },
-                    {
-                      "id": "DGALC",
-                      "nombre": "DG. Alcaidías",
-                      "titular": "Felipe Ignacio Cascante",
                       "tipo": "DG",
                       "children": []
                     }
@@ -2202,6 +2190,13 @@
                       "children": []
                     }
                   ]
+                },
+                {
+                  "id": "DGALC",
+                  "nombre": "DG. Alcaidías",
+                  "titular": "Felipe Ignacio Cascante",
+                  "tipo": "DG",
+                  "children": []
                 }
               ]
             },
@@ -3230,22 +3225,22 @@
               "titular": "Matías Nahuel Muñoz",
               "tipo": "DG",
               "children": []
-            },
-            {
-              "id": "DGPRYC",
-              "nombre": "DG. Protocolo y Ceremonial",
-              "titular": "Irene Wlodkowski",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "DGAPR",
-              "nombre": "DG. Análisis Prospectivo",
-              "titular": "Nerio Pace",
-              "tipo": "DG",
-              "children": []
             }
           ]
+        },
+        {
+          "id": "DGAPR",
+          "nombre": "DG. Análisis Prospectivo",
+          "titular": "Nerio Pace",
+          "tipo": "DG",
+          "children": []
+        },
+        {
+          "id": "DGPRYC",
+          "nombre": "DG. Protocolo y Ceremonial",
+          "titular": "Irene Wlodkowski",
+          "tipo": "DG",
+          "children": []
         }
       ]
     },
