@@ -3285,13 +3285,6 @@
               "children": []
             },
             {
-              "id": "DGCLE",
-              "nombre": "DG. Coordinación Legal",
-              "titular": "Valentín Jalil",
-              "tipo": "DG",
-              "children": []
-            },
-            {
               "id": "DGAIGA",
               "nombre": "DG. Acceso a la Información y Gobierno Abierto",
               "titular": "Tamara Laznik",
@@ -3322,6 +3315,13 @@
           "titular": "",
           "tipo": "ORG",
           "dashed": true,
+          "children": []
+        },
+        {
+          "id": "DGCLE",
+          "nombre": "DG. Coordinación Legal",
+          "titular": "Valentín Jalil",
+          "tipo": "DG",
           "children": []
         }
       ]
