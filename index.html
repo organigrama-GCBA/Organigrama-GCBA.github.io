@@ -4727,7 +4727,7 @@ function __loadFunciones(){
   };
 
   document.getElementById("cloud-pull").onclick=function(){
-    if(!confirm("Esto reemplaza lo que tenés en esta computadora con la última versión guardada en la nube. ¿Seguir?")) return;
+    if(!confirm("Esto REEMPLAZA tu organigrama y tu orden del A3 en esta computadora con la última versión de la nube. Se guarda un backup local por las dudas. ¿Seguir?")) return;
     setStatus("⏳ Trayendo de la nube…","info");
     Promise.all([
       fetch("data/organigrama.json",{cache:"no-store"}).then(function(r){return r.ok?r.json():Promise.reject("organigrama");}),
@@ -4735,8 +4735,12 @@ function __loadFunciones(){
     ]).then(function(res){
       var tree=res[0], L=res[1];
       if(!tree||!tree.id) throw new Error("respuesta inválida");
+      var _bk=Date.now();
       var prev=localStorage.getItem("gcba_org_v2");
-      if(prev) localStorage.setItem("gcba_org_v2_backup_"+Date.now(),prev);
+      if(prev) localStorage.setItem("gcba_org_v2_backup_"+_bk,prev);
+      ["gcba_org_positions_v1","gcba_org_waypoints_v1","gcba_org_midy_v1","gcba_org_nodesize_v1"].forEach(function(k){
+        var v=localStorage.getItem(k); if(v) localStorage.setItem(k+"_backup_"+_bk,v);
+      });
       localStorage.setItem("gcba_org_v2",JSON.stringify(tree));
       if(L&&typeof L==="object"){
         localStorage.setItem("gcba_org_positions_v1",JSON.stringify(L.positions||{}));
