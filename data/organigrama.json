@@ -1832,7 +1832,7 @@
                 {
                   "id": "DGESAME",
                   "nombre": "DG. Sistema de Atención Médica de Emergencia (SAME)",
-                  "titular": "Alberto Crescenti",
+                  "titular": "Alberto Félix Crescenti",
                   "tipo": "DG",
                   "children": []
                 }
@@ -2662,7 +2662,7 @@
         {
           "id": "CBAS",
           "nombre": "Corporación Buenos Aires Sur S.A.U. Ley N°470",
-          "titular": "Karina Andrea Burijson",
+          "titular": "Leandro Cesar Cuervo",
           "tipo": "ORG",
           "dashed": true,
           "children": []
