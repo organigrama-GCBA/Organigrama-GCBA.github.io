@@ -1261,7 +1261,7 @@
             {
               "id": "SECJ",
               "nombre": "Secretaría de Justicia",
-              "titular": "Francisco Javier Quintana",
+              "titular": "",
               "tipo": "SEC",
               "children": [
                 {
@@ -3597,7 +3597,7 @@
     {
       "id": "SECGVC",
       "nombre": "Secretaría de Gobierno y Vínculo Ciudadano",
-      "titular": "Ezequiel Sabor",
+      "titular": "Francisco Javier Quintana",
       "tipo": "SEC",
       "children": [
         {
