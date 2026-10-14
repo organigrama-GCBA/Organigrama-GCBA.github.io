@@ -71,7 +71,11 @@ function textoDe(pdf) {
 const RUIDO = /^\s*(IF-\d{4}-\d+-GCABA-\w+|Página\s+\d+\s+de\s+\d+)\s*$/i;
 
 // ── Parseo de títulos numerados ────────────────────────────────────────
-const RE_TITULO = /^\s*(\d+(?:\.\d+)*)\s+([A-ZÁÉÍÓÚÑ].*)$/;
+// El punto final del número es opcional: el anexo alterna "1.3 DIRECCIÓN…" con
+// "2. SUBSECRETARÍA…". Exigir espacio justo después del número descartaba estas
+// últimas, y entonces sus hijas quedaban huérfanas y se colgaban de la raíz, lo
+// que se leía como una mudanza que nunca ocurrió.
+const RE_TITULO = /^\s*(\d+(?:\.\d+)*)\.?\s+([A-ZÁÉÍÓÚÑ].*)$/;
 // Continuación de un título largo: línea indentada, en mayúsculas, sin numerar.
 // La sangría de estas líneas no es fija (vimos de 3 espacios en adelante), y
 // perderlas corta el nombre justo donde suele estar la sigla: el título de
@@ -215,7 +219,20 @@ if (!areas.length) { console.error("El anexo no produjo ninguna área: ¿es el a
 // El matching se acota al subárbol de la jurisdicción: "DG. Técnica,
 // Administrativa y Legal" existe una vez por ministerio, así que cruzar por
 // nombre contra todo el árbol manda el área al ministerio equivocado.
-const enSub = recorrer(raiz).filter(({ node }) => node.id !== raiz.id);
+// En este organigrama los ministerios cuelgan de Jefatura de Gabinete, así que
+// su subárbol contiene casi todo el gobierno. Comparar el anexo de Jefatura
+// contra eso daría cientos de áreas "faltantes" que en realidad pertenecen a
+// otra jurisdicción, cada una con su propio anexo. EXCLUIR poda esas ramas.
+const EXCLUIR = new Set((process.env.EXCLUIR || "").split(",").map((s) => s.trim()).filter(Boolean));
+function recorrerPodado(node, padre = null, out = []) {
+  for (const c of node.children || []) {
+    if (EXCLUIR.has(c.id)) continue;
+    out.push({ node: c, padre: node });
+    recorrerPodado(c, node, out);
+  }
+  return out;
+}
+const enSub = recorrerPodado(raiz);
 const todos = recorrer(org).filter(({ node }) => node.id !== org.id);
 
 // Mejor candidato dentro de un conjunto, por sigla o por similitud de palabras.
@@ -310,7 +327,7 @@ const out = process.env.OUT || path.join(ROOT, "docs", "anexos", `${FECHA}-${RAI
 fs.mkdirSync(path.dirname(out), { recursive: true });
 fs.writeFileSync(out, md);
 console.log(`Informe: ${out}`);
-console.log(`  sin cambios ${iguales.length} · mudanzas ${movidas.length} · nuevas ${nuevas.length} · de otra jurisdicción ${desdeOtra.length} · sobran ${sobran.length}`);
+console.log(`  sin cambios ${iguales.length} · mudanzas ${movidas.length} · nuevas ${nuevas.length} · dudosas ${dudosas.length} · de otra jurisdicción ${desdeOtra.length} · sobran ${sobran.length} · renombres ${renombres.length}`);
 
 function setOutput(k, v) {
   if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `${k}=${v}\n`);
