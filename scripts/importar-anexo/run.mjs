@@ -53,6 +53,11 @@ const PREFIJOS = [
   ["GERENCIA GENERAL", "GG"],
   ["FUERA DE NIVEL", "ORG"],
   ["ORGANISMO FUERA DE NIVEL", "ORG"],
+  // Las unidades de auditoría interna encabezan sin prefijo de rango, y el
+  // organigrama las guarda como organismos. Sin esta entrada quedaban sin
+  // clasificar, y cada ministerio reportaba la suya como área faltante.
+  ["UNIDAD DE AUDITORÍA INTERNA", "ORG"],
+  ["UNIDAD DE AUDITORIA INTERNA", "ORG"],
 ];
 const SIGUE = new Set(["SEC", "SS", "DG", "GG", "ORG", "MIN"]);
 const ABREV = { DG: "DG.", SS: "SS.", SEC: "SEC.", GG: "GG.", MIN: "", ORG: "" };
@@ -84,7 +89,11 @@ const RE_CONT = /^\s{2,}[A-ZÁÉÍÓÚÑ0-9(][A-ZÁÉÍÓÚÑ0-9 ,.\-()/°º]*$/
 
 function tipoY(nombre) {
   for (const [p, t] of PREFIJOS) {
-    if (nombre.startsWith(p)) return [t, nombre.slice(p.length).replace(/^[\s\-–]+/, "").trim()];
+    if (!nombre.startsWith(p)) continue;
+    const resto = nombre.slice(p.length).replace(/^[\s\-–]+/, "").trim();
+    // Hay títulos que son solo el rango ("UNIDAD DE AUDITORÍA INTERNA"): si se
+    // le quita el prefijo no queda nada con qué buscarla en el organigrama.
+    return [t, resto || nombre];
   }
   return ["?", nombre];
 }
@@ -97,7 +106,10 @@ function parsear(texto) {
     if (!m) continue;
     let titulo = m[2].trim();
     let j = i + 1;
-    while (j < lineas.length && RE_CONT.test(lineas[j]) && lineas[j].trim().length > 3) {
+    // El pie de página de GEDO (el código IF-… y el "Página N de M") puede caer
+    // justo debajo de un título y parecer su continuación: así terminó un área
+    // llamándose "DG. Técnica, Administrativa y Legal IF-2026-39458676-GCABA-MMIGC".
+    while (j < lineas.length && RE_CONT.test(lineas[j]) && !RUIDO.test(lineas[j]) && lineas[j].trim().length > 3) {
       titulo += " " + lineas[j].trim();
       j++;
     }
