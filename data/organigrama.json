@@ -623,13 +623,13 @@
             {
               "id": "SSTEDU",
               "nombre": "SS. Tecnología Educativa",
-              "titular": "Ignacio Manuel Sanguinetti",
+              "titular": "Federico Tuffano",
               "tipo": "SS",
               "children": [
                 {
                   "id": "DGPTE",
                   "nombre": "DG. Proyectos y Tecnología Educativa",
-                  "titular": "Mariano Alfredo Perez Alfaro",
+                  "titular": "Augusto Allemand",
                   "tipo": "DG",
                   "children": []
                 },
@@ -1009,7 +1009,7 @@
             {
               "id": "LOTBA",
               "nombre": "Lotería de la Ciudad de Buenos Aires S.A.U. LOTBA Ley N° 5785",
-              "titular": "Jesús Mariano Acevedo",
+              "titular": "Nahuel Nicolás Conti",
               "tipo": "ORG",
               "dashed": true,
               "children": []
@@ -1128,7 +1128,7 @@
                 {
                   "id": "DGR",
                   "nombre": "DG. Rentas",
-                  "titular": "Maria Guadalupe Morera",
+                  "titular": "",
                   "tipo": "DG",
                   "children": [
                     {
@@ -1261,7 +1261,7 @@
             {
               "id": "SECJ",
               "nombre": "Secretaría de Justicia",
-              "titular": "Francisco Javier Quintana",
+              "titular": "",
               "tipo": "SEC",
               "children": [
                 {
@@ -1832,7 +1832,7 @@
                 {
                   "id": "DGESAME",
                   "nombre": "DG. Sistema de Atención Médica de Emergencia (SAME)",
-                  "titular": "Alberto Crescenti",
+                  "titular": "Alberto Félix Crescenti",
                   "tipo": "DG",
                   "children": []
                 }
@@ -2314,7 +2314,7 @@
             {
               "id": "ISSP",
               "nombre": "Instituto Superior de Seguridad Pública Ley N° 5.688",
-              "titular": "Javier Martín López Zavaleta",
+              "titular": "",
               "tipo": "ORG",
               "dashed": true,
               "children": []
@@ -2353,7 +2353,7 @@
             {
               "id": "DGIPDS",
               "nombre": "DG. Integración de Proyectos del Sur",
-              "titular": "Emiliano Ariel De Martino",
+              "titular": "Julia Della Mora",
               "tipo": "DG",
               "children": []
             }
@@ -2452,7 +2452,7 @@
                 {
                   "id": "DGSGES",
                   "nombre": "DG. Sistemas de Gestión",
-                  "titular": "Mariana Cecilia Tonina",
+                  "titular": "Mariano Nicolás Cortina",
                   "tipo": "DG",
                   "children": []
                 },
@@ -2615,8 +2615,8 @@
           "children": [
             {
               "id": "DGIDEPE",
-              "nombre": "DG. Investigación, Desarrollo y Ejecución de Proyectos Especiales",
-              "titular": "Sebastián Hugo Malleville",
+              "nombre": "DG. Estrategia Urbana e Innovación",
+              "titular": "Rodrigo Arballo",
               "tipo": "DG",
               "children": []
             },
@@ -2662,7 +2662,7 @@
         {
           "id": "CBAS",
           "nombre": "Corporación Buenos Aires Sur S.A.U. Ley N°470",
-          "titular": "Karina Andrea Burijson",
+          "titular": "Leandro Cesar Cuervo",
           "tipo": "ORG",
           "dashed": true,
           "children": []
@@ -2676,7 +2676,7 @@
             {
               "id": "SSACABA",
               "nombre": "SS. Autódromo de la Ciudad Autónoma de Buenos Aires",
-              "titular": "Joaquín Orlando",
+              "titular": "Juan Pablo Sassano",
               "tipo": "SS",
               "children": [
                 {
@@ -2925,7 +2925,7 @@
             {
               "id": "DGCOMUN",
               "nombre": "DG. Dirección General Comunicación",
-              "titular": "Nicolás Beun",
+              "titular": "Kevin Nahuel Lopez",
               "tipo": "DG",
               "children": []
             }
@@ -2964,6 +2964,13 @@
               "nombre": "DG. Investigación de Políticas para Personas con Discapacidad",
               "titular": "Ana Maria Bou Perez",
               "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGFORMACIONL",
+              "nombre": "DG. Formación Laboral para Personas con Discapacidad",
+              "tipo": "DG",
+              "titular": "Mercedes Inés Bárbara",
               "children": []
             }
           ]
@@ -3061,7 +3068,7 @@
         {
           "id": "SSCCRS",
           "nombre": "SS. Cultura Ciudadana y Responsabilidad Social",
-          "titular": "Agustina Ciarletta Harguindeguy",
+          "titular": "Maria De Los Angeles Reig",
           "tipo": "SS",
           "children": [
             {
@@ -3074,7 +3081,7 @@
             {
               "id": "DGTCU",
               "nombre": "DG. Transformación Cultural",
-              "titular": "María Pía Tobías",
+              "titular": "",
               "tipo": "DG",
               "children": []
             },
@@ -3312,7 +3319,7 @@
         {
           "id": "OFIP",
           "nombre": "Oficina de Integridad Pública",
-          "titular": "",
+          "titular": "Daniel Oscar Mojico",
           "tipo": "ORG",
           "dashed": true,
           "children": []
@@ -3597,7 +3604,7 @@
     {
       "id": "SECGVC",
       "nombre": "Secretaría de Gobierno y Vínculo Ciudadano",
-      "titular": "Ezequiel Sabor",
+      "titular": "Francisco Javier Quintana",
       "tipo": "SEC",
       "children": [
         {
