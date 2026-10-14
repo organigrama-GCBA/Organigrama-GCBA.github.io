@@ -191,6 +191,17 @@ IGNORÁ (no devuelvas cambios) para cargos operativos de bajo nivel: Gerencias O
 Subgerencias Operativas, Coordinaciones, cargos "transitorios" de planta, jefaturas de departamento,
 subdirecciones de hospital y similares. Esos NO forman parte del organigrama.
 
+SOLO PODER EJECUTIVO. El organigrama es exclusivamente del Poder Ejecutivo de la Ciudad.
+IGNORÁ por completo las designaciones de otros poderes y órganos extra-poder, aunque el
+decreto las publique: Poder Judicial (jueces, camaristas), Ministerio Público (Fiscal General,
+Defensor General, Asesor General y sus adjuntos), Consejo de la Magistratura, Legislatura,
+Auditoría General, Defensoría del Pueblo, Ente Único Regulador. Ninguno de esos cargos tiene
+lugar en este árbol: si no encontrás un área del Ejecutivo a la que corresponda, la respuesta
+correcta es NO devolver el cambio, nunca mapearlo al área más parecida.
+El id JG es el Jefe de Gobierno, la raíz del árbol: devolvé un set_titular sobre él
+únicamente si el decreto designa o cesa a un Jefe/a de Gobierno. Ante cualquier otra cosa que no
+sepas dónde ubicar, omitila.
+
 Tipos de cambio:
 - set_titular: una persona es designada como titular de un área existente, o cesa/renuncia (en cuyo caso el titular queda vacío). target_id = id del área. nuevo_titular = nombre y apellido (vacío si es cese sin reemplazo).
 - create_node: se crea un área nueva. target_id = id del área de la que DEPENDE. nodo_nuevo = {nombre, tipo, titular}.
@@ -208,6 +219,8 @@ Tipos de cambio:
 Reglas:
 - Usá SOLO los id que aparecen en el organigrama provisto. Si no podés mapear con seguridad un área del boletín a un id existente, NO inventes el id: usá tipo "set_titular"/"rename"/etc. solo cuando el match es claro; si dudás, omití el cambio.
 - tipo de área (campo tipo): JG, VJG, MIN, SEC, SS (Subsecretaría), DG (Dir. General), GG, GO, ORG. Inferí el más adecuado.
+- Antes de un create_node, buscá el área en el organigrama provisto por su nombre, no solo por su sigla: si ya existe con otra denominación o en otra rama, corresponde rename o move_node, NO crear un duplicado. Dos nodos para la misma área es peor que no registrar el cambio.
+- Nombres: respetá la convención del organigrama provisto, que abrevia el rango ("DG. Coordinación Legal", "SS. Emergencia", no "Dirección General Coordinación Legal"). Si renombrás un área, escribí el nombre nuevo con ese mismo estilo.
 - "norma": tipo y número, ej "Decreto 123/2026" o "Resolución 45/2026".
 - "cita": una frase breve textual del boletín que respalda el cambio.
 - "confianza": alta / media / baja según qué tan explícito es el texto.
@@ -277,6 +290,17 @@ function aplicar(root, funciones, cambios) {
   const aplicados = [], omitidos = [];
   for (const c of cambios) {
     try {
+      // Un cambio que el propio modelo marca como dudoso no se aplica solo: va
+      // al informe para que lo mire una persona. Sin este corte, el Decreto
+      // 310/2026 —que designa un Fiscal General del Ministerio Público, ajeno
+      // al Poder Ejecutivo— se mapeó a JG con confianza baja y habría
+      // reemplazado al Jefe de Gobierno en la raíz del árbol.
+      if (c.confianza === "baja") throw new Error("confianza baja: requiere revisión manual");
+      // La raíz es el Jefe de Gobierno: solo se toca si el decreto lo dice de
+      // forma inequívoca. Es el nodo donde un error de mapeo hace más daño.
+      if (c.tipo === "set_titular" && c.target_id === root.id && c.confianza !== "alta") {
+        throw new Error("cambio de titular en la raíz del organigrama sin confianza alta");
+      }
       if (c.tipo === "set_funciones") {
         const n = findNode(root, c.target_id);
         if (!n) throw new Error(`no existe el id ${c.target_id}`);
