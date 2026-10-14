@@ -136,17 +136,22 @@ function secciones(lineas) {
 // Arma el árbol por profundidad de numeración y luego cuelga cada área del
 // ancestro más cercano que el organigrama sí sigue (saltea GO/SGO).
 function arbolDelAnexo(items) {
-  const porNum = new Map(items.map((i) => [i.num, i]));
+  // Las áreas se copian primero y los padres se enlazan después, apuntando a
+  // esas mismas copias. Si el padre apuntara al objeto original, el id que se
+  // le resuelve más tarde a cada área no llegaría a sus hijas, y comparar la
+  // dependencia por id no serviría de nada.
+  const seguidas = items.filter((i) => SIGUE.has(i.tipo)).map((i) => ({ ...i }));
+  const porNum = new Map(seguidas.map((i) => [i.num, i]));
   const padreDe = (num) => {
     const partes = num.split(".");
     for (let k = partes.length - 1; k > 0; k--) {
       const cand = porNum.get(partes.slice(0, k).join("."));
-      if (cand && SIGUE.has(cand.tipo)) return cand;
-      if (cand) continue;
+      if (cand) return cand;   // el ancestro más cercano que el organigrama sigue
     }
     return null;
   };
-  return items.filter((i) => SIGUE.has(i.tipo)).map((i) => ({ ...i, padre: padreDe(i.num) }));
+  for (const s of seguidas) s.padre = padreDe(s.num);
+  return seguidas;
 }
 
 // ── Árbol del repo ─────────────────────────────────────────────────────
@@ -172,17 +177,37 @@ function sigla(s) {
   const m = limpio(s).match(/\(([A-Z]{3,})\)/);
   return m ? m[1] : null;
 }
-// Contención: cuánto del nombre más corto está contenido en el más largo. Así
-// "Áreas de Conservación y Restauración" matchea con "…y Restauración
-// Ambiental", que es el mismo área con un calificador de más.
-function similitud(a, b) {
+// Dos medidas, porque sirven para cosas distintas:
+//   similitud  = palabras comunes sobre el total (Jaccard). Tolera un
+//                calificador de más —"…y Restauración" vs "…y Restauración
+//                Ambiental"— pero castiga que un nombre sea mucho más largo
+//                que el otro.
+//   contencion = cuánto del nombre más corto está en el más largo. Es laxa:
+//                "Gobierno" está contenido en "Unidad Jefe de Gobierno" aunque
+//                sean áreas distintas, así que sirve para sospechar, no para
+//                decidir.
+function contencion(a, b) {
   const A = tokens(a), B = tokens(b);
   if (!A.size || !B.size) return 0;
   let comunes = 0;
   for (const t of A) if (B.has(t)) comunes++;
   return comunes / Math.min(A.size, B.size);
 }
-const UMBRAL_SEGURO = 0.99;   // mismo área
+function similitud(a, b) {
+  const A = tokens(a), B = tokens(b);
+  // Hay nombres formados solo por palabras vacías —"Secretaría General" es
+  // literalmente rango + calificador—, que dejan el conjunto en cero. Ahí se
+  // comparan las cadenas enteras: si no, todo lo que cuelga de esa área parece
+  // haber cambiado de dependencia.
+  if (!A.size || !B.size) {
+    const la = limpio(a).replace(/[^A-Z0-9]/g, ""), lb = limpio(b).replace(/[^A-Z0-9]/g, "");
+    return la && la === lb ? 1 : 0;
+  }
+  let comunes = 0;
+  for (const t of A) if (B.has(t)) comunes++;
+  return comunes / (A.size + B.size - comunes);
+}
+const UMBRAL_SEGURO = 0.75;   // mismo área (tolera un calificador de más)
 const UMBRAL_DUDA = 0.6;      // candidato para que lo confirme una persona
 function buscar(node, id) {
   if (!node) return null;
@@ -261,9 +286,17 @@ for (const a of areas) {
     const idPadreReal = hit.padre ? hit.padre.id : null;
     // El padre según el anexo: el área de la que cuelga, o la raíz si es de
     // primer nivel. Se compara por similitud, no por igualdad de cadenas.
+    // En el anexo los padres aparecen antes que sus hijas, así que para cuando
+    // llegamos acá el padre ya está resuelto a un id del repo. Comparar ids es
+    // exacto; comparar nombres no: el repo guarda "COPIDIS" y el anexo
+    // "Comisión para la Plena Participación e Inclusión… (COPIDIS) - Ley 447",
+    // que como cadenas no se parecen en nada y simulaban cinco mudanzas.
+    const idPadreAnexo = a.padre ? a.padre._id : raiz.id;
     const nombrePadreAnexo = a.padre ? a.padre.nombre : raiz.nombre;
     const nombrePadreReal = idPadreReal ? buscar(org, idPadreReal).nombre : null;
-    const mismoPadre = nombrePadreReal && similitud(nombrePadreAnexo, nombrePadreReal) >= UMBRAL_SEGURO;
+    const mismoPadre = idPadreAnexo
+      ? idPadreAnexo === idPadreReal
+      : !!(nombrePadreReal && similitud(nombrePadreAnexo, nombrePadreReal) >= UMBRAL_SEGURO);
     if (!mismoPadre) movidas.push({ a, actual: hit, idPadreReal, padreAnexo: nombrePadreAnexo });
     else iguales.push({ a, actual: hit, via });
     // El anexo viene en mayúsculas y el repo en formato título: esa diferencia
@@ -284,7 +317,10 @@ for (const a of areas) {
   // Hay un parecido razonable pero no concluyente. Crear un nodo acá sería
   // duplicar un área existente, que es el peor resultado posible: va al
   // informe para que lo resuelva una persona.
-  const duda = hit && score >= UMBRAL_DUDA ? { hit, score } : (fuera.score >= UMBRAL_DUDA ? { hit: fuera.hit, score: fuera.score } : null);
+  const cDentro = hit ? contencion(a.nombre, hit.node.nombre) : 0;
+  const cFuera = fuera.hit ? contencion(a.nombre, fuera.hit.node.nombre) : 0;
+  const duda = cDentro >= UMBRAL_DUDA ? { hit, score: cDentro }
+    : (cFuera >= UMBRAL_DUDA ? { hit: fuera.hit, score: cFuera } : null);
   if (duda) dudosas.push({ a, candidato: duda.hit, score: duda.score });
   else nuevas.push(a);
 }
