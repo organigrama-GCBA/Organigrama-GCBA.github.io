@@ -101,6 +101,12 @@ jobs:
             echo "## Boletín ${FECHA}" >> "$GITHUB_STEP_SUMMARY"
             echo "✅ PR creado automáticamente: ${pr_url}" >> "$GITHUB_STEP_SUMMARY"
           else
+            # El error va al log Y al summary, y el job falla. Si solo va al
+            # summary y el paso termina OK, el workflow queda en verde con los
+            # cambios atascados en la rama y sin PR: así pasaron desapercibidos
+            # 16 días de cambios entre agosto y octubre de 2026.
+            echo "::error::No se pudo crear el PR de ${branch}: $(tr '\n' ' ' < /tmp/pr_err)"
+            cat /tmp/pr_err
             echo "## Boletín ${FECHA}" >> "$GITHUB_STEP_SUMMARY"
             echo "⚠️ No se pudo crear el PR automáticamente:" >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
@@ -108,6 +114,8 @@ jobs:
             echo '```' >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "👉 [Abrir el PR manualmente](${compare}) — o habilitá el PR automático (ver README)." >> "$GITHUB_STEP_SUMMARY"
+            echo "La rama ${branch} quedó pusheada: los cambios no se pierden, pero hay que abrir el PR a mano."
+            exit 1
           fi
 
       - name: Actualizar índice de cambios pendientes (para el panel de la app)
