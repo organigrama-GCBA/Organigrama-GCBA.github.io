@@ -19,6 +19,11 @@ on:
         description: "Backfill: fecha final YYYY-MM-DD (opcional)"
         required: false
         type: string
+      dump:
+        description: "Diagnóstico: subir el texto extraído como artifact"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -52,7 +57,22 @@ jobs:
           HASTA: ${{ inputs.hasta }}
           CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL || 'claude-sonnet-4-6' }}   # Sonnet por defecto (más barato que Opus)
           BODY_PATH: ${{ runner.temp }}/pr-body.md
+          DUMP_TEXT: ${{ inputs.dump && '1' || '' }}
         run: node scripts/boletin/run.mjs
+
+      # Diagnóstico: el texto de cada etapa del pipeline, para ver qué recibió
+      # realmente el modelo cuando no detecta cambios. Los dumps quedan sin
+      # trackear (.gitignore), así que no entran en el commit del PR.
+      - name: Subir texto extraído (diagnóstico)
+        if: always() && inputs.dump
+        uses: actions/upload-artifact@v4
+        with:
+          name: boletin-dump-${{ steps.run.outputs.fecha || github.run_id }}
+          path: |
+            boletin-*.txt
+            boletin-*.json
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Crear Pull Request (o dejar link)
         if: steps.run.outputs.changed == 'true'
