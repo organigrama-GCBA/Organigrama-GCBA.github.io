@@ -945,14 +945,15 @@
                   "nombre": "DG. Tesorería",
                   "titular": "Horacio Salvador Stavale",
                   "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DGTESADJ",
-                  "nombre": "DG. Tesorería Adjunta",
-                  "titular": "Rosa María Ypa",
-                  "tipo": "DG",
-                  "children": []
+                  "children": [
+                    {
+                      "id": "DGTESADJ",
+                      "nombre": "DG. Tesorería Adjunta",
+                      "titular": "Rosa María Ypa",
+                      "tipo": "DG",
+                      "children": []
+                    }
+                  ]
                 },
                 {
                   "id": "DGOGPP",
@@ -966,14 +967,15 @@
                   "nombre": "DG. Contaduría",
                   "titular": "Lucia Griselda Gabelli",
                   "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DGCGADJ",
-                  "nombre": "DG. Contaduría Adjunta",
-                  "titular": "Ramon Gauto",
-                  "tipo": "DG",
-                  "children": []
+                  "children": [
+                    {
+                      "id": "DGCGADJ",
+                      "nombre": "DG. Contaduría Adjunta",
+                      "titular": "Ramon Gauto",
+                      "tipo": "DG",
+                      "children": []
+                    }
+                  ]
                 }
               ]
             },
