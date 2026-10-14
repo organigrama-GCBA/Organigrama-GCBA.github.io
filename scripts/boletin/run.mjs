@@ -44,6 +44,17 @@ const KEEP_CONTEXT_LINES = 6;    // líneas alrededor de cada coincidencia
 // Poné INCLUIR_RESOLUCIONES=1 para volver a mirar todo el boletín.
 const SOLO_DECRETOS = process.env.INCLUIR_RESOLUCIONES !== "1";
 
+// Depuración: con DUMP_TEXT=1 se guarda el texto de cada etapa del pipeline
+// (crudo → decretos → relevante → fragmentos → respuesta del modelo). Sirve para
+// ver qué se le mandó realmente al modelo cuando dice que no hay cambios.
+const DUMP = process.env.DUMP_TEXT === "1";
+const DUMP_DIR = process.env.DUMP_DIR || ROOT;
+function dump(nombre, contenido) {
+  if (!DUMP) return;
+  fs.mkdirSync(DUMP_DIR, { recursive: true });
+  fs.writeFileSync(path.join(DUMP_DIR, `boletin-${nombre}`), contenido ?? "");
+}
+
 // Palabras clave del Poder Ejecutivo que marcan designaciones / ceses /
 // cambios de estructura. (BOCBA usa lenguaje jurídico bastante estable.)
 const KEYWORDS = [
@@ -130,8 +141,7 @@ function soloDecretos(texto) {
   }
   return out.join("\n");
 }
-function filtrarRelevante(texto) {
-  const base = SOLO_DECRETOS ? soloDecretos(texto) : texto;
+function filtrarRelevante(base) {
   if (!base.trim()) return "";
   const lines = base.split(/\r?\n/);
   const keep = new Array(lines.length).fill(false);
@@ -367,7 +377,14 @@ async function procesarDia(client, orgContext, fecha) {
     return { fecha, url, cambios: [] };
   }
   const { text } = await pdfParse(pdf);
-  const relevante = filtrarRelevante(text);
+  const decretos = SOLO_DECRETOS ? soloDecretos(text) : text;
+  const relevante = filtrarRelevante(decretos);
+  // Tamaño de cada etapa. Si el BOCBA cambia el formato del PDF, acá se ve en qué
+  // paso se pierde el texto, sin necesidad de DUMP_TEXT.
+  console.log(`  ${fecha}: pdf ${pdf.length} B · texto ${text.length} · decretos ${decretos.length} · relevante ${relevante.length} car.`);
+  dump(`${fecha}-1-crudo.txt`, text);
+  dump(`${fecha}-2-decretos.txt`, decretos);
+  dump(`${fecha}-3-relevante.txt`, relevante);
   if (!relevante) {
     console.log(`  ${fecha}: sin secciones relevantes`);
     return { fecha, url, cambios: [] };
@@ -375,7 +392,10 @@ async function procesarDia(client, orgContext, fecha) {
   const chunks = chunkText(relevante, MAX_CHUNK_CHARS);
   let cambios = [];
   for (let i = 0; i < chunks.length; i++) {
-    cambios = cambios.concat(await extraerCambios(client, orgContext, chunks[i]));
+    dump(`${fecha}-4-frag${i + 1}.txt`, chunks[i]);
+    const c = await extraerCambios(client, orgContext, chunks[i]);
+    dump(`${fecha}-5-respuesta${i + 1}.json`, JSON.stringify(c, null, 2));
+    cambios = cambios.concat(c);
   }
   cambios.forEach((c) => { c._dia = fecha; });
   console.log(`  ${fecha}: ${cambios.length} cambio(s) (${chunks.length} frag.)`);

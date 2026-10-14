@@ -4,6 +4,7 @@ scripts/boletin/package-lock.json
 
 # Dumps de depuración del boletín (DUMP_TEXT=1)
 boletin-*.txt
+boletin-*.json
 
 # Importador PDF
 scripts/importar-pdf/node_modules/

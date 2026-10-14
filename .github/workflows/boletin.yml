@@ -19,6 +19,11 @@ on:
         description: "Backfill: fecha final YYYY-MM-DD (opcional)"
         required: false
         type: string
+      dump:
+        description: "Diagnóstico: subir el texto extraído como artifact"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -52,7 +57,22 @@ jobs:
           HASTA: ${{ inputs.hasta }}
           CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL || 'claude-sonnet-4-6' }}   # Sonnet por defecto (más barato que Opus)
           BODY_PATH: ${{ runner.temp }}/pr-body.md
+          DUMP_TEXT: ${{ inputs.dump && '1' || '' }}
         run: node scripts/boletin/run.mjs
+
+      # Diagnóstico: el texto de cada etapa del pipeline, para ver qué recibió
+      # realmente el modelo cuando no detecta cambios. Los dumps quedan sin
+      # trackear (.gitignore), así que no entran en el commit del PR.
+      - name: Subir texto extraído (diagnóstico)
+        if: always() && inputs.dump
+        uses: actions/upload-artifact@v4
+        with:
+          name: boletin-dump-${{ steps.run.outputs.fecha || github.run_id }}
+          path: |
+            boletin-*.txt
+            boletin-*.json
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Crear Pull Request (o dejar link)
         if: steps.run.outputs.changed == 'true'
@@ -81,6 +101,12 @@ jobs:
             echo "## Boletín ${FECHA}" >> "$GITHUB_STEP_SUMMARY"
             echo "✅ PR creado automáticamente: ${pr_url}" >> "$GITHUB_STEP_SUMMARY"
           else
+            # El error va al log Y al summary, y el job falla. Si solo va al
+            # summary y el paso termina OK, el workflow queda en verde con los
+            # cambios atascados en la rama y sin PR: así pasaron desapercibidos
+            # 16 días de cambios entre agosto y octubre de 2026.
+            echo "::error::No se pudo crear el PR de ${branch}: $(tr '\n' ' ' < /tmp/pr_err)"
+            cat /tmp/pr_err
             echo "## Boletín ${FECHA}" >> "$GITHUB_STEP_SUMMARY"
             echo "⚠️ No se pudo crear el PR automáticamente:" >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
@@ -88,6 +114,8 @@ jobs:
             echo '```' >> "$GITHUB_STEP_SUMMARY"
             echo "" >> "$GITHUB_STEP_SUMMARY"
             echo "👉 [Abrir el PR manualmente](${compare}) — o habilitá el PR automático (ver README)." >> "$GITHUB_STEP_SUMMARY"
+            echo "La rama ${branch} quedó pusheada: los cambios no se pierden, pero hay que abrir el PR a mano."
+            exit 1
           fi
 
       - name: Actualizar índice de cambios pendientes (para el panel de la app)
