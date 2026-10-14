@@ -1748,7 +1748,7 @@
             },
             {
               "id": "SBASE",
-              "nombre": "Subterráneos de Buenos Aires S.A.U. (SBASE)",
+              "nombre": "Subterráneos de Buenos Aires S.A.U. (SBASAU)",
               "titular": "Javier Ignacio Ibañez",
               "tipo": "ORG",
               "dashed": true,
@@ -1763,7 +1763,7 @@
             },
             {
               "id": "AUSA",
-              "nombre": "Autopistas Urbanas (AUSA)",
+              "nombre": "Autopistas Urbanas S.A. (AUSA)",
               "titular": "Juan Pablo Fasanella",
               "tipo": "ORG",
               "dashed": true,
