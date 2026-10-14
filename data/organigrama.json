@@ -2965,6 +2965,13 @@
               "titular": "Ana Maria Bou Perez",
               "tipo": "DG",
               "children": []
+            },
+            {
+              "id": "DGFORMACIONL",
+              "nombre": "DG. Formación Laboral para Personas con Discapacidad",
+              "tipo": "DG",
+              "titular": "Mercedes Inés Bárbara",
+              "children": []
             }
           ]
         },
@@ -3061,7 +3068,7 @@
         {
           "id": "SSCCRS",
           "nombre": "SS. Cultura Ciudadana y Responsabilidad Social",
-          "titular": "Agustina Ciarletta Harguindeguy",
+          "titular": "Maria De Los Angeles Reig",
           "tipo": "SS",
           "children": [
             {
