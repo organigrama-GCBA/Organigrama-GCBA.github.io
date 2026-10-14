@@ -115,7 +115,7 @@ function parsear(texto) {
     // justo debajo de un título y parecer su continuación: así terminó un área
     // llamándose "DG. Técnica, Administrativa y Legal IF-2026-39458676-GCABA-MMIGC".
     while (j < lineas.length && RE_CONT.test(lineas[j]) && !RE_TITULO.test(lineas[j]) &&
-           !RUIDO.test(lineas[j]) && lineas[j].trim().length > 3) {
+           !RUIDO.test(lineas[j]) && lineas[j].trim().length > 1) {
       titulo += " " + lineas[j].trim();
       j++;
     }
@@ -291,18 +291,19 @@ function mejor(a, candidatos, idPadreEsperado) {
     const porSigla = candidatos.find(({ node }) => node.id === sg || limpio(node.nombre) === sg);
     if (porSigla) return { hit: porSigla, score: 1, via: "sigla" };
   }
-  const bien = (c) => idPadreEsperado && c.padre && c.padre.id === idPadreEsperado;
+  const bien = (c) => !!(idPadreEsperado && c.padre && c.padre.id === idPadreEsperado);
   let hit = null, score = 0;
   for (const c of candidatos) {
     const s = similitud(a.nombre, c.node.nombre);
-    // Con nombres empatados deciden, en orden, el padre y el rango: hay dos
-    // áreas llamadas "DG. Infraestructura" —una en Deportes y otra en la
-    // Agencia de Sistemas— y jurisdicciones donde una secretaría se llama igual
-    // que su ministerio.
-    const gana = s > score || (s === score && s > 0 && hit && (
-      (bien(c) && !bien(hit)) ||
-      (bien(c) === bien(hit) && hit.node.tipo !== a.tipo && c.node.tipo === a.tipo)
-    ));
+    // Colgar del padre que indica el anexo pesa más que parecerse un poco más
+    // de nombre. Cada ministerio tiene su "Unidad de Auditoría Interna" y
+    // además las de sus organismos fuera de nivel, que se llaman igual o casi:
+    // sin esto, la del ministerio se iba a la de cualquier organismo cuyo
+    // nombre no llevara sufijo, y aparecían dos mudanzas donde no había ninguna.
+    const gana = hit === null ||
+      (bien(c) && !bien(hit) && s >= UMBRAL_DUDA) ||
+      (bien(c) === bien(hit) && (s > score ||
+        (s === score && s > 0 && hit.node.tipo !== a.tipo && c.node.tipo === a.tipo)));
     if (gana) { score = s; hit = c; }
   }
   return { hit, score, via: "nombre" };
