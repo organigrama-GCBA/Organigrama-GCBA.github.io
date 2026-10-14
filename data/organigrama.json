@@ -1748,7 +1748,7 @@
             },
             {
               "id": "SBASE",
-              "nombre": "Subterráneos de Buenos Aires S.A.U. (SBASE)",
+              "nombre": "Subterráneos de Buenos Aires S.A.U. (SBASAU)",
               "titular": "Javier Ignacio Ibañez",
               "tipo": "ORG",
               "dashed": true,
@@ -1763,7 +1763,7 @@
             },
             {
               "id": "AUSA",
-              "nombre": "Autopistas Urbanas (AUSA)",
+              "nombre": "Autopistas Urbanas S.A. (AUSA)",
               "titular": "Juan Pablo Fasanella",
               "tipo": "ORG",
               "dashed": true,
@@ -1828,13 +1828,6 @@
                   "titular": "Sergio Ricardo Auger",
                   "tipo": "DG",
                   "children": []
-                },
-                {
-                  "id": "DGESAME",
-                  "nombre": "DG. Sistema de Atención Médica de Emergencia (SAME)",
-                  "titular": "Alberto Félix Crescenti",
-                  "tipo": "DG",
-                  "children": []
                 }
               ]
             },
@@ -1882,7 +1875,7 @@
                 },
                 {
                   "id": "DGACSA",
-                  "nombre": "DG. Adquisiciones y Contratos de Salud",
+                  "nombre": "DG. Adquisiciones y Contrataciones de Salud",
                   "titular": "María Belen Carjuzáa",
                   "tipo": "DG",
                   "children": [],
@@ -1948,7 +1941,7 @@
                 },
                 {
                   "id": "DGSISAN",
-                  "nombre": "DG. Sistema de Información Sanitaria",
+                  "nombre": "DG. Sistemas de Información Sanitaria",
                   "titular": "Leandro Noer Alassia",
                   "tipo": "DG",
                   "children": []
@@ -1970,6 +1963,13 @@
                   "children": []
                 }
               ]
+            },
+            {
+              "id": "DGESAME",
+              "nombre": "SS. Sistema de Atención Médica de Emergencia (S.A.M.E.)",
+              "titular": "Alberto Félix Crescenti",
+              "tipo": "SS",
+              "children": []
             },
             {
               "id": "DGCSJ",
@@ -2696,7 +2696,7 @@
                 {
                   "id": "DGCGSA",
                   "nombre": "DG. Control de Gestión y Soporte Administrativo",
-                  "titular": "Juan Pablo Sassano",
+                  "titular": "Damián Eduardo Fernández",
                   "tipo": "DG",
                   "children": []
                 },
@@ -3247,6 +3247,13 @@
           "nombre": "DG. Protocolo y Ceremonial",
           "titular": "Irene Wlodkowski",
           "tipo": "DG",
+          "children": []
+        },
+        {
+          "id": "UJG",
+          "nombre": "Unidad Jefe de Gobierno",
+          "titular": "",
+          "tipo": "ORG",
           "children": []
         }
       ]
