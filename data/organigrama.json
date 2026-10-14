@@ -3248,6 +3248,13 @@
           "titular": "Irene Wlodkowski",
           "tipo": "DG",
           "children": []
+        },
+        {
+          "id": "UJG",
+          "nombre": "Unidad Jefe de Gobierno",
+          "titular": "",
+          "tipo": "ORG",
+          "children": []
         }
       ]
     },
