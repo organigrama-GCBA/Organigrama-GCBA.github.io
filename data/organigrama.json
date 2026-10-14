@@ -3312,7 +3312,7 @@
         {
           "id": "OFIP",
           "nombre": "Oficina de Integridad Pública",
-          "titular": "",
+          "titular": "Daniel Oscar Mojico",
           "tipo": "ORG",
           "dashed": true,
           "children": []
