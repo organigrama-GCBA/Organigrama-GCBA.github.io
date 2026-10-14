@@ -285,18 +285,24 @@ const enSub = recorrerPodado(raiz);
 const todos = recorrer(org).filter(({ node }) => node.id !== org.id);
 
 // Mejor candidato dentro de un conjunto, por sigla o por similitud de palabras.
-function mejor(a, candidatos) {
+function mejor(a, candidatos, idPadreEsperado) {
   const sg = sigla(a.nombre);
   if (sg) {
     const porSigla = candidatos.find(({ node }) => node.id === sg || limpio(node.nombre) === sg);
     if (porSigla) return { hit: porSigla, score: 1, via: "sigla" };
   }
+  const bien = (c) => idPadreEsperado && c.padre && c.padre.id === idPadreEsperado;
   let hit = null, score = 0;
   for (const c of candidatos) {
     const s = similitud(a.nombre, c.node.nombre);
-    // Con nombres empatados decide el rango: hay jurisdicciones donde una
-    // secretaría se llama igual que su ministerio.
-    const gana = s > score || (s === score && s > 0 && hit && hit.node.tipo !== a.tipo && c.node.tipo === a.tipo);
+    // Con nombres empatados deciden, en orden, el padre y el rango: hay dos
+    // áreas llamadas "DG. Infraestructura" —una en Deportes y otra en la
+    // Agencia de Sistemas— y jurisdicciones donde una secretaría se llama igual
+    // que su ministerio.
+    const gana = s > score || (s === score && s > 0 && hit && (
+      (bien(c) && !bien(hit)) ||
+      (bien(c) === bien(hit) && hit.node.tipo !== a.tipo && c.node.tipo === a.tipo)
+    ));
     if (gana) { score = s; hit = c; }
   }
   return { hit, score, via: "nombre" };
@@ -315,8 +321,16 @@ for (const a of areas) {
     a._id = raiz.id;
     continue;
   }
-  const { hit, score, via } = mejor(a, enSub.filter(({ node }) => !vistos.has(node.id)));
-  if (hit && score >= UMBRAL_SEGURO) {
+  // El padre del anexo ya está resuelto a un id del repo: sirve para desempatar
+  // nombres repetidos y para confirmar un parecido que por sí solo no alcanza.
+  const idPadreAnexo = a.padre ? a.padre._id : raiz.id;
+  const { hit, score, via } = mejor(a, enSub.filter(({ node }) => !vistos.has(node.id)), idPadreAnexo);
+  // Un nombre contenido en el otro, colgando además del mismo padre, es la
+  // misma área: el anexo suele agregar la ley que la crea ("Instituto de
+  // Estadística y Censos" / "…de la Ciudad – Ley 6.724") o un calificativo.
+  const confirmadoPorPadre = hit && idPadreAnexo && hit.padre && hit.padre.id === idPadreAnexo &&
+    contencion(a.nombre, hit.node.nombre) === 1;
+  if (hit && (score >= UMBRAL_SEGURO || confirmadoPorPadre)) {
     vistos.add(hit.node.id);
     a._id = hit.node.id;
     const idPadreReal = hit.padre ? hit.padre.id : null;
