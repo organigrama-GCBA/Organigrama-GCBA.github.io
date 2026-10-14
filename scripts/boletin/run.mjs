@@ -496,7 +496,18 @@ async function main() {
     fs.writeFileSync(FUNCIONES_PATH, JSON.stringify(funciones, null, 1) + "\n");
   }
   console.log(`Aplicados: ${aplicados.length} (funciones: ${aplicados.filter((c)=>c.tipo==="set_funciones").length}) · A revisar: ${omitidos.length}`);
-  setOutput("changed", aplicados.length ? "true" : "false");
+  for (const c of omitidos) {
+    console.log(`::warning::No aplicado — ${c.tipo} ${c.target_id} (${c.norma || "?"}): ${c._motivo}`);
+  }
+  setOutput("aplicados", aplicados.length);
+  setOutput("omitidos", omitidos.length);
+  // Los omitidos también cuentan como "hay algo que mostrar": si solo seguimos
+  // cuando hay aplicados, un cambio que el modelo detecta pero no se puede
+  // aplicar solo (típicamente una reestructuración cuyo contenido vive en un
+  // Anexo aparte, fuera del PDF del boletín) desaparece sin dejar rastro: el
+  // informe se escribe en el runner y se descarta con él. El PR con el informe
+  // es justamente lo que avisa que hay que mirarlo a mano.
+  setOutput("changed", (aplicados.length || omitidos.length) ? "true" : "false");
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

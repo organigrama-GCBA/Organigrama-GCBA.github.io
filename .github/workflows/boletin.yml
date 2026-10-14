@@ -24,6 +24,10 @@ on:
         required: false
         default: false
         type: boolean
+      buscar:
+        description: "Diagnóstico: regex a buscar en los volcados (requiere dump)"
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -74,10 +78,28 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+      # En qué etapa del pipeline se pierde un texto concreto. Imprime las
+      # coincidencias en el log, que es accesible aunque el artifact no lo sea.
+      - name: Buscar en el texto extraído (diagnóstico)
+        if: always() && inputs.dump && inputs.buscar != ''
+        env:
+          BUSCAR: ${{ inputs.buscar }}
+        run: |
+          echo "Buscando /$BUSCAR/ en los volcados:"
+          for f in boletin-*.txt boletin-*.json; do
+            [ -e "$f" ] || continue
+            n=$(grep -ciE -- "$BUSCAR" "$f" || true)
+            echo "=== $f — $(wc -c < "$f") bytes — $n línea(s) con coincidencia"
+            [ "$n" -gt 0 ] && grep -inE -m 4 -B 2 -A 6 -- "$BUSCAR" "$f" | head -60
+          done
+          echo "(fin de la búsqueda)"
+
       - name: Crear Pull Request (o dejar link)
         if: steps.run.outputs.changed == 'true'
         env:
           FECHA: ${{ steps.run.outputs.fecha }}
+          APLICADOS: ${{ steps.run.outputs.aplicados }}
+          OMITIDOS: ${{ steps.run.outputs.omitidos }}
           REPO: ${{ github.repository }}
           BODY_PATH: ${{ runner.temp }}/pr-body.md
           # Usa un PAT si existe (evita el bloqueo de "Actions no puede crear PRs");
@@ -94,7 +116,13 @@ jobs:
           git push -f origin "$branch"
 
           compare="https://github.com/${REPO}/compare/main...${branch}?expand=1"
-          title="Boletín ${FECHA}: cambios de organigrama"
+          if [ "${APLICADOS:-0}" = "0" ]; then
+            # Nada se pudo aplicar solo: el PR trae únicamente el informe, para
+            # que alguien resuelva a mano lo que el script detectó.
+            title="Boletín ${FECHA}: ${OMITIDOS} cambio(s) a revisar a mano"
+          else
+            title="Boletín ${FECHA}: cambios de organigrama"
+          fi
 
           # Intentar crear el PR automáticamente; si falla (permiso), dejar link.
           if pr_url=$(gh pr create --base main --head "$branch" --title "$title" --body-file "$BODY_PATH" --assignee lubelrivero-design 2>/tmp/pr_err); then
