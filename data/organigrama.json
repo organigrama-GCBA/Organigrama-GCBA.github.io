@@ -1977,6 +1977,13 @@
               "titular": "María Florencia Flax Marcó",
               "tipo": "DG",
               "children": []
+            },
+            {
+              "id": "SSSISTEMADEA",
+              "nombre": "SS. Sistema de Atención Médica de Emergencia (S.A.M.E.)",
+              "tipo": "SS",
+              "titular": "Alberto Félix Crescenti",
+              "children": []
             }
           ]
         },
@@ -2353,7 +2360,7 @@
             {
               "id": "DGIPDS",
               "nombre": "DG. Integración de Proyectos del Sur",
-              "titular": "Julia Della Mora",
+              "titular": "",
               "tipo": "DG",
               "children": []
             }
@@ -2696,7 +2703,7 @@
                 {
                   "id": "DGCGSA",
                   "nombre": "DG. Control de Gestión y Soporte Administrativo",
-                  "titular": "Juan Pablo Sassano",
+                  "titular": "Damián Eduardo Fernández",
                   "tipo": "DG",
                   "children": []
                 },
