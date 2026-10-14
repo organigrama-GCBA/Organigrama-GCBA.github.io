@@ -2339,7 +2339,7 @@
         },
         {
           "id": "SSIDDS",
-          "nombre": "SS. Integración y Desarrollo Sostenible del Sur",
+          "nombre": "SS. de Integración y Desarrollo del Sur",
           "titular": "Marcelo Roberto Di Mario",
           "tipo": "SS",
           "children": [
@@ -2361,7 +2361,7 @@
         },
         {
           "id": "IDECBA",
-          "nombre": "Instituto de Estadística y Censos",
+          "nombre": "Instituto de Estadística y Censos de la Ciudad Ley N° 6.724",
           "titular": "José María Donati",
           "tipo": "ORG",
           "dashed": true,
@@ -2403,27 +2403,27 @@
                   "children": []
                 },
                 {
-                  "id": "EHU",
-                  "nombre": "Ente de Higiene Urbana Ley N° 462",
-                  "titular": "Marcela Claudia Angioi",
-                  "tipo": "ORG",
-                  "dashed": true,
-                  "children": [
-                    {
-                      "id": "UAIEHU",
-                      "nombre": "Unidad de auditoría interna",
-                      "titular": "Sergio Rodríguez Díaz",
-                      "tipo": "ORG",
-                      "dashed": true,
-                      "children": []
-                    }
-                  ]
-                },
-                {
                   "id": "DGLIM",
                   "nombre": "DG. Limpieza",
                   "titular": "Lutz Maerker",
                   "tipo": "DG",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "EHU",
+              "nombre": "Ente de Higiene Urbana Ley N° 462",
+              "titular": "Marcela Claudia Angioi",
+              "tipo": "ORG",
+              "dashed": true,
+              "children": [
+                {
+                  "id": "UAIEHU",
+                  "nombre": "Unidad de auditoría interna",
+                  "titular": "Sergio Rodríguez Díaz",
+                  "tipo": "ORG",
+                  "dashed": true,
                   "children": []
                 }
               ]
@@ -2503,7 +2503,7 @@
             },
             {
               "id": "ASINF",
-              "nombre": "Agencia de Sistemas de Información (ASI)",
+              "nombre": "Agencia de Sistemas de Información (ASI) Ley N° 2.689",
               "titular": "Pablo Andrés Saccani",
               "tipo": "ORG",
               "dashed": true,
@@ -2644,7 +2644,7 @@
           "children": [
             {
               "id": "SSOUR",
-              "nombre": "SS. del Ordenamiento Urbano",
+              "nombre": "SS. de Gestión del Ordenamiento Urbano",
               "titular": "Agustín Barcos",
               "tipo": "SS",
               "children": [
