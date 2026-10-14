@@ -85,7 +85,12 @@ const RE_TITULO = /^\s*(\d+(?:\.\d+)*)\.?\s+([A-ZÁÉÍÓÚÑ].*)$/;
 // La sangría de estas líneas no es fija (vimos de 3 espacios en adelante), y
 // perderlas corta el nombre justo donde suele estar la sigla: el título de
 // COPIDIS termina en "(COPIDIS) - LEY 447" en la segunda línea.
-const RE_CONT = /^\s{2,}[A-ZÁÉÍÓÚÑ0-9(][A-ZÁÉÍÓÚÑ0-9 ,.\-()/°º]*$/;
+// La sangría de la continuación no es fiable: va de cero espacios en adelante.
+// Lo que sí distingue a una continuación del cuerpo del texto es que está
+// íntegramente en mayúsculas; los párrafos del cuerpo traen minúsculas. Hay que
+// excluir explícitamente el próximo título, que también es todo mayúsculas y
+// sin la sangría ya no quedaría afuera.
+const RE_CONT = /^\s*[A-ZÁÉÍÓÚÑ0-9(][A-ZÁÉÍÓÚÑ0-9 ,.\-–—()/°º]*$/;
 
 function tipoY(nombre) {
   for (const [p, t] of PREFIJOS) {
@@ -109,7 +114,8 @@ function parsear(texto) {
     // El pie de página de GEDO (el código IF-… y el "Página N de M") puede caer
     // justo debajo de un título y parecer su continuación: así terminó un área
     // llamándose "DG. Técnica, Administrativa y Legal IF-2026-39458676-GCABA-MMIGC".
-    while (j < lineas.length && RE_CONT.test(lineas[j]) && !RUIDO.test(lineas[j]) && lineas[j].trim().length > 3) {
+    while (j < lineas.length && RE_CONT.test(lineas[j]) && !RE_TITULO.test(lineas[j]) &&
+           !RUIDO.test(lineas[j]) && lineas[j].trim().length > 3) {
       titulo += " " + lineas[j].trim();
       j++;
     }
@@ -182,8 +188,14 @@ function limpio(s) {
     .replace(/N[°º]/g, " ")
     .replace(/(\d)\.(\d)/g, "$1$2");                              // 2.628 -> 2628
 }
+// El anexo y el repo alternan singular y plural para la misma área ("Análisis
+// Estratégico" / "Análisis Estratégicos"), así que se compara sin la -s final.
+function raizPalabra(t) {
+  return t.length > 4 && t.endsWith("S") ? t.slice(0, -1) : t;
+}
 function tokens(s) {
-  return new Set(limpio(s).replace(/[^A-Z0-9]/g, " ").split(/\s+/).filter((t) => t && !VACIAS.has(t)));
+  return new Set(limpio(s).replace(/[^A-Z0-9]/g, " ").split(/\s+/)
+    .filter((t) => t && !VACIAS.has(t)).map(raizPalabra));
 }
 function sigla(s) {
   const m = limpio(s).match(/\(([A-Z]{3,})\)/);
@@ -282,7 +294,10 @@ function mejor(a, candidatos) {
   let hit = null, score = 0;
   for (const c of candidatos) {
     const s = similitud(a.nombre, c.node.nombre);
-    if (s > score) { score = s; hit = c; }
+    // Con nombres empatados decide el rango: hay jurisdicciones donde una
+    // secretaría se llama igual que su ministerio.
+    const gana = s > score || (s === score && s > 0 && hit && hit.node.tipo !== a.tipo && c.node.tipo === a.tipo);
+    if (gana) { score = s; hit = c; }
   }
   return { hit, score, via: "nombre" };
 }
@@ -291,6 +306,15 @@ const nuevas = [], movidas = [], iguales = [], renombres = [], desdeOtra = [], d
 const vistos = new Set();
 
 for (const a of areas) {
+  // Algunos anexos encabezan con la jurisdicción misma ("1 MINISTERIO DE
+  // SEGURIDAD") y otros la dejan sin numerar. Cuando está, no es un área a
+  // comparar: es la raíz. Si no se la reconoce, compite por el mismo nombre con
+  // las áreas de adentro —"Ministerio de Seguridad" y "Secretaría de Seguridad"
+  // se reducen ambas a "seguridad"— y el cruce arrastra a todo lo que cuelga.
+  if (!a.padre && a.tipo === raiz.tipo && similitud(a.nombre, raiz.nombre) >= UMBRAL_SEGURO) {
+    a._id = raiz.id;
+    continue;
+  }
   const { hit, score, via } = mejor(a, enSub.filter(({ node }) => !vistos.has(node.id)));
   if (hit && score >= UMBRAL_SEGURO) {
     vistos.add(hit.node.id);
@@ -337,6 +361,12 @@ for (const a of areas) {
   else nuevas.push(a);
 }
 const sobran = enSub.filter(({ node }) => !vistos.has(node.id) && SIGUE.has(node.tipo));
+
+if (process.env.DEBUG === "1") {
+  for (const a of areas) {
+    console.log(`  ${a.num.padEnd(9)} ${a.tipo.padEnd(4)} padre=${(a.padre ? a.padre.num : "-").padEnd(6)} id=${(a._id || "?").padEnd(12)} ${a.nombre}`);
+  }
+}
 
 // ── Informe ────────────────────────────────────────────────────────────
 const titulo = (a) => `${ABREV[a.tipo] ? ABREV[a.tipo] + " " : ""}${a.nombre}`;
