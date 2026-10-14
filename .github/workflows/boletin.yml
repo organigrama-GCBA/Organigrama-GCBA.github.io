@@ -24,6 +24,10 @@ on:
         required: false
         default: false
         type: boolean
+      buscar:
+        description: "Diagnóstico: regex a buscar en los volcados (requiere dump)"
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -73,6 +77,22 @@ jobs:
             boletin-*.json
           if-no-files-found: warn
           retention-days: 7
+
+      # En qué etapa del pipeline se pierde un texto concreto. Imprime las
+      # coincidencias en el log, que es accesible aunque el artifact no lo sea.
+      - name: Buscar en el texto extraído (diagnóstico)
+        if: always() && inputs.dump && inputs.buscar != ''
+        env:
+          BUSCAR: ${{ inputs.buscar }}
+        run: |
+          echo "Buscando /$BUSCAR/ en los volcados:"
+          for f in boletin-*.txt boletin-*.json; do
+            [ -e "$f" ] || continue
+            n=$(grep -ciE -- "$BUSCAR" "$f" || true)
+            echo "=== $f — $(wc -c < "$f") bytes — $n línea(s) con coincidencia"
+            [ "$n" -gt 0 ] && grep -inE -m 4 -B 2 -A 6 -- "$BUSCAR" "$f" | head -60
+          done
+          echo "(fin de la búsqueda)"
 
       - name: Crear Pull Request (o dejar link)
         if: steps.run.outputs.changed == 'true'
