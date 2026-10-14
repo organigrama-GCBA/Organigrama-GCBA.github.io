@@ -2057,6 +2057,13 @@
                       "titular": "Claudio Walter Abbondanza",
                       "tipo": "DG",
                       "children": []
+                    },
+                    {
+                      "id": "DGALC",
+                      "nombre": "DG. Alcaidías",
+                      "titular": "Felipe Ignacio Cascante",
+                      "tipo": "DG",
+                      "children": []
                     }
                   ]
                 },
@@ -2190,13 +2197,6 @@
                       "children": []
                     }
                   ]
-                },
-                {
-                  "id": "DGALC",
-                  "nombre": "DG. Alcaidías",
-                  "titular": "Felipe Ignacio Cascante",
-                  "tipo": "DG",
-                  "children": []
                 }
               ]
             },
