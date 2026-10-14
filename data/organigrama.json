@@ -1,7 +1,7 @@
 {
   "id": "JG",
   "nombre": "Jefe de Gobierno",
-  "titular": "Jorge Macri",
+  "titular": "Javier Martín López Zavaleta",
   "tipo": "JG",
   "children": [
     {
@@ -1977,6 +1977,13 @@
               "titular": "María Florencia Flax Marcó",
               "tipo": "DG",
               "children": []
+            },
+            {
+              "id": "SSSISTEMADEA",
+              "nombre": "SS. Sistema de Atención Médica de Emergencia (S.A.M.E.)",
+              "tipo": "SS",
+              "titular": "Alberto Félix Crescenti",
+              "children": []
             }
           ]
         },
@@ -2615,7 +2622,7 @@
           "children": [
             {
               "id": "DGIDEPE",
-              "nombre": "DG. Estrategia Urbana e Innovación",
+              "nombre": "Dirección General Estrategia Urbana e Innovación",
               "titular": "Rodrigo Arballo",
               "tipo": "DG",
               "children": []
@@ -2696,7 +2703,7 @@
                 {
                   "id": "DGCGSA",
                   "nombre": "DG. Control de Gestión y Soporte Administrativo",
-                  "titular": "Juan Pablo Sassano",
+                  "titular": "Damián Eduardo Fernández",
                   "tipo": "DG",
                   "children": []
                 },
