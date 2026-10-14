@@ -1828,13 +1828,6 @@
                   "titular": "Sergio Ricardo Auger",
                   "tipo": "DG",
                   "children": []
-                },
-                {
-                  "id": "DGESAME",
-                  "nombre": "DG. Sistema de Atención Médica de Emergencia (SAME)",
-                  "titular": "Alberto Félix Crescenti",
-                  "tipo": "DG",
-                  "children": []
                 }
               ]
             },
@@ -1882,7 +1875,7 @@
                 },
                 {
                   "id": "DGACSA",
-                  "nombre": "DG. Adquisiciones y Contratos de Salud",
+                  "nombre": "DG. Adquisiciones y Contrataciones de Salud",
                   "titular": "María Belen Carjuzáa",
                   "tipo": "DG",
                   "children": [],
@@ -1948,7 +1941,7 @@
                 },
                 {
                   "id": "DGSISAN",
-                  "nombre": "DG. Sistema de Información Sanitaria",
+                  "nombre": "DG. Sistemas de Información Sanitaria",
                   "titular": "Leandro Noer Alassia",
                   "tipo": "DG",
                   "children": []
@@ -1970,6 +1963,13 @@
                   "children": []
                 }
               ]
+            },
+            {
+              "id": "DGESAME",
+              "nombre": "SS. Sistema de Atención Médica de Emergencia (S.A.M.E.)",
+              "titular": "Alberto Félix Crescenti",
+              "tipo": "SS",
+              "children": []
             },
             {
               "id": "DGCSJ",
