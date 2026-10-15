@@ -75,6 +75,34 @@ function textoDe(pdf) {
 // Pies de página de GEDO que ensucian el cuerpo de cada sección.
 const RUIDO = /^\s*(IF-\d{4}-\d+-GCABA-\w+|Página\s+\d+\s+de\s+\d+)\s*$/i;
 
+// El mismo pie, pero incrustado en una línea de texto. Con -layout, pdftotext
+// deja el número de expediente en la misma línea que el cuerpo cuando caen a la
+// misma altura, y a veces sin un espacio que los separe:
+//   "…dar cumplimiento a las Leyes 342, IF-2026-39728655-GCABA-MSEGC 6.353 y…"
+//   "…del Gobierno de la Ciudad AutónomaIF-2026-39728655-GCABA-MSEGC"
+// Filtrar solo la línea entera dejaba esa basura adentro de la responsabilidad:
+// así quedaron 8 entradas del 306/26 con el expediente a mitad de oración.
+const RUIDO_INLINE = /\s*IF-\d{4}-\d+-GCABA-\w+\s*/gi;
+
+// La hoja de firmas del GEDO cierra el PDF y no es parte del anexo: trae el
+// número de expediente, la fecha y el firmante. Al caer después del último
+// título, se la quedaba entera la última área de cada anexo —así la DG. General
+// de la Mujer terminó "firmada" por el Ministerio de Educación—.
+function sinHojaDeFirmas(texto) {
+  const lineas = texto.split(/\r?\n/);
+  const i = lineas.findIndex((l) => /^\s*Hoja Adicional de Firmas\s*$/i.test(l));
+  if (i < 0) return texto;
+  // El banner del Gobierno y el lema del año preceden al rótulo y también son
+  // de la hoja de firmas; se los descarta junto con ella.
+  let desde = i;
+  for (let k = i - 1; k >= 0 && k >= i - 6; k--) {
+    const l = lineas[k].trim();
+    if (!l || /^G\s+O\s+B\s+I\s+E\s+R\s+N\s+O\b/.test(l) || /^["“].*["”]$/.test(l)) desde = k;
+    else break;
+  }
+  return lineas.slice(0, desde).join("\n");
+}
+
 // ── Parseo de títulos numerados ────────────────────────────────────────
 // El punto final del número es opcional: el anexo alterna "1.3 DIRECCIÓN…" con
 // "2. SUBSECRETARÍA…". Exigir espacio justo después del número descartaba estas
@@ -104,7 +132,7 @@ function tipoY(nombre) {
 }
 
 function parsear(texto) {
-  const lineas = texto.split(/\r?\n/);
+  const lineas = sinHojaDeFirmas(texto).split(/\r?\n/).map((l) => l.replace(RUIDO_INLINE, " "));
   const crudos = [];
   for (let i = 0; i < lineas.length; i++) {
     const m = RE_TITULO.exec(lineas[i]);
