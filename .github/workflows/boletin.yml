@@ -2,9 +2,15 @@ name: Boletín → Organigrama
 
 on:
   schedule:
-    # 18:00 UTC ≈ 15:00 ART, días hábiles (más tarde para que el Boletín del
-    # día ya esté publicado; antes corría 09:00 ART y a veces aún no existía → 404).
-    - cron: "0 18 * * 1-5"
+    # 17:50 UTC ≈ 14:50 ART, días hábiles. La hora es tardía a propósito para que
+    # el Boletín del día ya esté publicado: antes corría 09:00 ART y a veces aún
+    # no existía → 404.
+    # El minuto no es 0 por dos motivos: GitHub acumula ahí las ejecuciones
+    # programadas de todo el mundo y las demora más, y las corridas de octubre de
+    # 2026 arrancaron entre una y seis horas tarde. Adelantarla diez minutos y
+    # correrla del filo de la hora da margen antes de la medianoche argentina,
+    # que es donde la demora pasaría a pedir el boletín del día siguiente.
+    - cron: "50 17 * * 1-5"
   workflow_dispatch:
     inputs:
       fecha:
@@ -62,7 +68,11 @@ jobs:
           CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL || 'claude-sonnet-4-6' }}   # Sonnet por defecto (más barato que Opus)
           BODY_PATH: ${{ runner.temp }}/pr-body.md
           DUMP_TEXT: ${{ inputs.dump && '1' || '' }}
-        run: node scripts/boletin/run.mjs
+        run: |
+          # Deja el atraso a la vista: la demora de GitHub con las ejecuciones
+          # programadas es lo que puede hacer que se pida un boletín inexistente.
+          echo "Programado: ${{ github.event.schedule || 'ejecución manual' }} · arrancó: ${{ github.run_started_at }}"
+          node scripts/boletin/run.mjs
 
       # Diagnóstico: el texto de cada etapa del pipeline, para ver qué recibió
       # realmente el modelo cuando no detecta cambios. Los dumps quedan sin
