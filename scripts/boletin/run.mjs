@@ -426,6 +426,38 @@ async function procesarDia(client, orgContext, fecha) {
   return { fecha, url, cambios };
 }
 
+// ── Qué día del boletín corresponde procesar ───────────────────────────
+const TZ = "America/Argentina/Buenos_Aires";
+// Fecha y hora en Buenos Aires, sin depender de la zona horaria de la máquina.
+// La versión anterior formateaba la hora argentina en formato estadounidense y
+// la volvía a parsear, lo que solo daba bien porque el runner corre en UTC.
+function enBuenosAires(d = new Date()) {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    }).formatToParts(d).filter((x) => x.type !== "literal").map((x) => [x.type, x.value]),
+  );
+  return { fecha: `${p.year}-${p.month}-${p.day}`, hora: Number(p.hour), minuto: Number(p.minute) };
+}
+
+// El cron está puesto a media tarde, pero GitHub demora las ejecuciones
+// programadas: las corridas de octubre de 2026 arrancaron entre una y seis
+// horas tarde. Una demora que cruce la medianoche argentina haría pedir el
+// boletín del día siguiente, que todavía no existe, y el del día programado no
+// se procesaría nunca. Si la corrida cae de madrugada, es una corrida atrasada
+// del día anterior.
+const HORA_CORTE = 6;
+function fechaDeHoy() {
+  const { fecha, hora } = enBuenosAires();
+  if (hora >= HORA_CORTE) return fecha;
+  const d = new Date(`${fecha}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  const ayer = d.toISOString().slice(0, 10);
+  console.log(`Son las ${String(hora).padStart(2, "0")}h en Buenos Aires: corrida atrasada, se procesa ${ayer} y no ${fecha}.`);
+  return ayer;
+}
+
 // Lista de fechas YYYY-MM-DD entre desde y hasta (inclusive).
 function diasEntre(desde, hasta) {
   const out = [];
@@ -486,9 +518,7 @@ async function main() {
     titulo = `Backfill del Boletín — ${DESDE} a ${HASTA}` + (parcial ? ` (PARCIAL, hasta ${ultimo || "—"})` : "");
     fuente = `Procesados ${dias.length} días${parcial ? ` (cortado por error de API en ${ultimo || "el inicio"})` : ""}. Cambios aplicados en orden cronológico (los más nuevos pisan a los más viejos).`;
   } else {
-    const fecha = (process.env.FECHA || "").trim() ||
-      new Date(new Date().toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" }))
-        .toISOString().slice(0, 10);
+    const fecha = (process.env.FECHA || "").trim() || fechaDeHoy();
     tag = fecha;
     setOutput("fecha", fecha);
     console.log(`Boletín ${fecha} con ${MODEL}…`);
