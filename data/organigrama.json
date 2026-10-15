@@ -1359,7 +1359,7 @@
                       "children": [
                         {
                           "id": "CGPMMVTE",
-                          "nombre": "Cons. Gest. Pque. de la Mem.y del Momun. Víc del Terr. Estado - Ley N° 3.078",
+                          "nombre": "Consejo de Gestión del Parque de la Memoria y del Monumento a las Víctimas del Terrorismo de Estado - Ley N° 3.078",
                           "titular": "María Florencia Battiti",
                           "tipo": "ORG",
                           "dashed": true,
@@ -1456,7 +1456,7 @@
             },
             {
               "id": "CAPM",
-              "nombre": "Coorporación Antiguo Puerto Madero S.A.",
+              "nombre": "Corporación Antiguo Puerto Madero S.A.",
               "titular": "",
               "tipo": "ORG",
               "dashed": true,
@@ -1565,7 +1565,7 @@
             },
             {
               "id": "CEAMSE",
-              "nombre": "Coordinación Ecológica Área Metropolitana Sociedad del Estado",
+              "nombre": "Coordinación Ecológica Área Metropolitana Sociedad del Estado (CEAMSE)",
               "titular": "",
               "tipo": "ORG",
               "dashed": true,
@@ -1581,7 +1581,7 @@
             },
             {
               "id": "RPCYCPJ",
-              "nombre": "Organismo del Registro Público de Comercio y Contralor de Personas Juridicas",
+              "nombre": "Organismo del Registro Público de Comercio y Contralor de Personas Jurídicas - Ley N° 2.875",
               "titular": "",
               "tipo": "ORG",
               "dashed": true,
