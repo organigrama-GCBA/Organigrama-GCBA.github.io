@@ -300,8 +300,12 @@ function mejor(a, candidatos, idPadreEsperado) {
     // además las de sus organismos fuera de nivel, que se llaman igual o casi:
     // sin esto, la del ministerio se iba a la de cualquier organismo cuyo
     // nombre no llevara sufijo, y aparecían dos mudanzas donde no había ninguna.
+    // Para preferir al que cuelga del padre correcto se mira la contención y no
+    // el parecido global: el anexo a veces infla el nombre con un paréntesis
+    // —"(CIENTO VEINTISÉIS (126) CARGOS - CONTROLADORES…)"— que hunde el
+    // parecido aunque el nombre del repo esté contenido entero.
     const gana = hit === null ||
-      (bien(c) && !bien(hit) && s >= UMBRAL_DUDA) ||
+      (bien(c) && !bien(hit) && contencion(a.nombre, c.node.nombre) >= UMBRAL_DUDA) ||
       (bien(c) === bien(hit) && (s > score ||
         (s === score && s > 0 && hit.node.tipo !== a.tipo && c.node.tipo === a.tipo)));
     if (gana) { score = s; hit = c; }
