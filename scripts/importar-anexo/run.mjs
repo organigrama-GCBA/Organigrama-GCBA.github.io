@@ -53,6 +53,11 @@ const PREFIJOS = [
   ["GERENCIA GENERAL", "GG"],
   ["FUERA DE NIVEL", "ORG"],
   ["ORGANISMO FUERA DE NIVEL", "ORG"],
+  // Las unidades de auditoría interna encabezan sin prefijo de rango, y el
+  // organigrama las guarda como organismos. Sin esta entrada quedaban sin
+  // clasificar, y cada ministerio reportaba la suya como área faltante.
+  ["UNIDAD DE AUDITORÍA INTERNA", "ORG"],
+  ["UNIDAD DE AUDITORIA INTERNA", "ORG"],
 ];
 const SIGUE = new Set(["SEC", "SS", "DG", "GG", "ORG", "MIN"]);
 const ABREV = { DG: "DG.", SS: "SS.", SEC: "SEC.", GG: "GG.", MIN: "", ORG: "" };
@@ -80,11 +85,20 @@ const RE_TITULO = /^\s*(\d+(?:\.\d+)*)\.?\s+([A-ZÁÉÍÓÚÑ].*)$/;
 // La sangría de estas líneas no es fija (vimos de 3 espacios en adelante), y
 // perderlas corta el nombre justo donde suele estar la sigla: el título de
 // COPIDIS termina en "(COPIDIS) - LEY 447" en la segunda línea.
-const RE_CONT = /^\s{2,}[A-ZÁÉÍÓÚÑ0-9(][A-ZÁÉÍÓÚÑ0-9 ,.\-()/°º]*$/;
+// La sangría de la continuación no es fiable: va de cero espacios en adelante.
+// Lo que sí distingue a una continuación del cuerpo del texto es que está
+// íntegramente en mayúsculas; los párrafos del cuerpo traen minúsculas. Hay que
+// excluir explícitamente el próximo título, que también es todo mayúsculas y
+// sin la sangría ya no quedaría afuera.
+const RE_CONT = /^\s*[A-ZÁÉÍÓÚÑ0-9(][A-ZÁÉÍÓÚÑ0-9 ,.\-–—()/°º]*$/;
 
 function tipoY(nombre) {
   for (const [p, t] of PREFIJOS) {
-    if (nombre.startsWith(p)) return [t, nombre.slice(p.length).replace(/^[\s\-–]+/, "").trim()];
+    if (!nombre.startsWith(p)) continue;
+    const resto = nombre.slice(p.length).replace(/^[\s\-–]+/, "").trim();
+    // Hay títulos que son solo el rango ("UNIDAD DE AUDITORÍA INTERNA"): si se
+    // le quita el prefijo no queda nada con qué buscarla en el organigrama.
+    return [t, resto || nombre];
   }
   return ["?", nombre];
 }
@@ -97,7 +111,11 @@ function parsear(texto) {
     if (!m) continue;
     let titulo = m[2].trim();
     let j = i + 1;
-    while (j < lineas.length && RE_CONT.test(lineas[j]) && lineas[j].trim().length > 3) {
+    // El pie de página de GEDO (el código IF-… y el "Página N de M") puede caer
+    // justo debajo de un título y parecer su continuación: así terminó un área
+    // llamándose "DG. Técnica, Administrativa y Legal IF-2026-39458676-GCABA-MMIGC".
+    while (j < lineas.length && RE_CONT.test(lineas[j]) && !RE_TITULO.test(lineas[j]) &&
+           !RUIDO.test(lineas[j]) && lineas[j].trim().length > 1) {
       titulo += " " + lineas[j].trim();
       j++;
     }
@@ -115,11 +133,17 @@ function parsear(texto) {
 
 // "Objetivos" / "Responsabilidad Primaria" / "Descripción de Acciones"
 function secciones(lineas) {
+  // Los rótulos reales de estos anexos, contados sobre los 17: "Descripción de
+  // Acciones" (1051), "Descripción de Responsabilidades Primarias" (357) y
+  // "Objetivos" (49). La versión anterior buscaba "Responsabilidades
+  // Primarias" sin el "Descripción de" delante, que es como no buscar nada.
   const etiqueta = (l) => {
-    const s = l.trim().toLowerCase().replace(/\s+/g, " ");
+    const s = l.trim().toLowerCase().replace(/\s+/g, " ").replace(/[:.]$/, "");
+    if (s.length > 70) return null;   // un rótulo es una línea corta
+    if (/^descripci[óo]n de responsabilidad(es)? primaria/.test(s)) return "responsabilidad";
     if (/^responsabilidad(es)? primaria/.test(s)) return "responsabilidad";
     if (/^objetivos?$/.test(s)) return "objetivos";
-    if (/^descripci[óo]n de acciones$/.test(s)) return "objetivos";
+    if (/^descripci[óo]n de acciones\b/.test(s)) return "objetivos";
     return null;
   };
   const out = { responsabilidad: [], objetivos: [] };
@@ -170,8 +194,14 @@ function limpio(s) {
     .replace(/N[°º]/g, " ")
     .replace(/(\d)\.(\d)/g, "$1$2");                              // 2.628 -> 2628
 }
+// El anexo y el repo alternan singular y plural para la misma área ("Análisis
+// Estratégico" / "Análisis Estratégicos"), así que se compara sin la -s final.
+function raizPalabra(t) {
+  return t.length > 4 && t.endsWith("S") ? t.slice(0, -1) : t;
+}
 function tokens(s) {
-  return new Set(limpio(s).replace(/[^A-Z0-9]/g, " ").split(/\s+/).filter((t) => t && !VACIAS.has(t)));
+  return new Set(limpio(s).replace(/[^A-Z0-9]/g, " ").split(/\s+/)
+    .filter((t) => t && !VACIAS.has(t)).map(raizPalabra));
 }
 function sigla(s) {
   const m = limpio(s).match(/\(([A-Z]{3,})\)/);
@@ -261,16 +291,30 @@ const enSub = recorrerPodado(raiz);
 const todos = recorrer(org).filter(({ node }) => node.id !== org.id);
 
 // Mejor candidato dentro de un conjunto, por sigla o por similitud de palabras.
-function mejor(a, candidatos) {
+function mejor(a, candidatos, idPadreEsperado) {
   const sg = sigla(a.nombre);
   if (sg) {
     const porSigla = candidatos.find(({ node }) => node.id === sg || limpio(node.nombre) === sg);
     if (porSigla) return { hit: porSigla, score: 1, via: "sigla" };
   }
+  const bien = (c) => !!(idPadreEsperado && c.padre && c.padre.id === idPadreEsperado);
   let hit = null, score = 0;
   for (const c of candidatos) {
     const s = similitud(a.nombre, c.node.nombre);
-    if (s > score) { score = s; hit = c; }
+    // Colgar del padre que indica el anexo pesa más que parecerse un poco más
+    // de nombre. Cada ministerio tiene su "Unidad de Auditoría Interna" y
+    // además las de sus organismos fuera de nivel, que se llaman igual o casi:
+    // sin esto, la del ministerio se iba a la de cualquier organismo cuyo
+    // nombre no llevara sufijo, y aparecían dos mudanzas donde no había ninguna.
+    // Para preferir al que cuelga del padre correcto se mira la contención y no
+    // el parecido global: el anexo a veces infla el nombre con un paréntesis
+    // —"(CIENTO VEINTISÉIS (126) CARGOS - CONTROLADORES…)"— que hunde el
+    // parecido aunque el nombre del repo esté contenido entero.
+    const gana = hit === null ||
+      (bien(c) && !bien(hit) && contencion(a.nombre, c.node.nombre) >= UMBRAL_DUDA) ||
+      (bien(c) === bien(hit) && (s > score ||
+        (s === score && s > 0 && hit.node.tipo !== a.tipo && c.node.tipo === a.tipo)));
+    if (gana) { score = s; hit = c; }
   }
   return { hit, score, via: "nombre" };
 }
@@ -279,8 +323,25 @@ const nuevas = [], movidas = [], iguales = [], renombres = [], desdeOtra = [], d
 const vistos = new Set();
 
 for (const a of areas) {
-  const { hit, score, via } = mejor(a, enSub.filter(({ node }) => !vistos.has(node.id)));
-  if (hit && score >= UMBRAL_SEGURO) {
+  // Algunos anexos encabezan con la jurisdicción misma ("1 MINISTERIO DE
+  // SEGURIDAD") y otros la dejan sin numerar. Cuando está, no es un área a
+  // comparar: es la raíz. Si no se la reconoce, compite por el mismo nombre con
+  // las áreas de adentro —"Ministerio de Seguridad" y "Secretaría de Seguridad"
+  // se reducen ambas a "seguridad"— y el cruce arrastra a todo lo que cuelga.
+  if (!a.padre && a.tipo === raiz.tipo && similitud(a.nombre, raiz.nombre) >= UMBRAL_SEGURO) {
+    a._id = raiz.id;
+    continue;
+  }
+  // El padre del anexo ya está resuelto a un id del repo: sirve para desempatar
+  // nombres repetidos y para confirmar un parecido que por sí solo no alcanza.
+  const idPadreAnexo = a.padre ? a.padre._id : raiz.id;
+  const { hit, score, via } = mejor(a, enSub.filter(({ node }) => !vistos.has(node.id)), idPadreAnexo);
+  // Un nombre contenido en el otro, colgando además del mismo padre, es la
+  // misma área: el anexo suele agregar la ley que la crea ("Instituto de
+  // Estadística y Censos" / "…de la Ciudad – Ley 6.724") o un calificativo.
+  const confirmadoPorPadre = hit && idPadreAnexo && hit.padre && hit.padre.id === idPadreAnexo &&
+    contencion(a.nombre, hit.node.nombre) === 1;
+  if (hit && (score >= UMBRAL_SEGURO || confirmadoPorPadre)) {
     vistos.add(hit.node.id);
     a._id = hit.node.id;
     const idPadreReal = hit.padre ? hit.padre.id : null;
@@ -325,6 +386,12 @@ for (const a of areas) {
   else nuevas.push(a);
 }
 const sobran = enSub.filter(({ node }) => !vistos.has(node.id) && SIGUE.has(node.tipo));
+
+if (process.env.DEBUG === "1") {
+  for (const a of areas) {
+    console.log(`  ${a.num.padEnd(9)} ${a.tipo.padEnd(4)} padre=${(a.padre ? a.padre.num : "-").padEnd(6)} id=${(a._id || "?").padEnd(12)} ${a.nombre}`);
+  }
+}
 
 // ── Informe ────────────────────────────────────────────────────────────
 const titulo = (a) => `${ABREV[a.tipo] ? ABREV[a.tipo] + " " : ""}${a.nombre}`;
@@ -374,9 +441,13 @@ if (!APLICAR) {
   setOutput("changed", "true");   // el informe en sí ya es algo para revisar
   setOutput("aplicado", "false");
 } else {
+  // Con SOLO_FUNCIONES=1 no se toca el árbol: sirve para traer el texto de
+  // responsabilidades de un anexo cuya estructura ya se revisó y aplicó a mano,
+  // sin arrastrar de nuevo las altas que en esa revisión se decidió descartar.
+  const SOLO_FUNCIONES = process.env.SOLO_FUNCIONES === "1";
   // Mudanzas y altas. Las bajas nunca: son irreversibles y el anexo puede no
   // cubrir toda la jurisdicción.
-  for (const { a, actual, idPadreReal } of movidas) {
+  for (const { a, actual, idPadreReal } of (SOLO_FUNCIONES ? [] : movidas)) {
     const nodo = buscar(org, actual.node.id);
     const viejo = buscar(org, idPadreReal);
     const nuevoPadre = a.padre ? buscar(org, a._idPadre || "") || actual.padre : raiz;
@@ -385,7 +456,7 @@ if (!APLICAR) {
     nuevoPadre.children = nuevoPadre.children || [];
     nuevoPadre.children.push(nodo);
   }
-  for (const a of nuevas) {
+  for (const a of (SOLO_FUNCIONES ? [] : nuevas)) {
     const padre = a.padre && a.padre._id ? buscar(org, a.padre._id) : raiz;
     const nodo = { id: genId(a.nombre, org), nombre: titulo(a), tipo: a.tipo, titular: "", children: [] };
     a._id = nodo.id;
@@ -401,9 +472,9 @@ if (!APLICAR) {
     if (NORMA) e.fuente = NORMA;
     funciones[a._id] = e;
   }
-  fs.writeFileSync(ORG_PATH, JSON.stringify(org, null, 2) + "\n");
+  if (!SOLO_FUNCIONES) fs.writeFileSync(ORG_PATH, JSON.stringify(org, null, 2) + "\n");
   fs.writeFileSync(FUNCIONES_PATH, JSON.stringify(funciones, null, 1) + "\n");
-  console.log("Escritos data/organigrama.json y data/funciones.json");
+  console.log(SOLO_FUNCIONES ? "Escrito data/funciones.json" : "Escritos data/organigrama.json y data/funciones.json");
   setOutput("changed", "true");
   setOutput("aplicado", "true");
 }
