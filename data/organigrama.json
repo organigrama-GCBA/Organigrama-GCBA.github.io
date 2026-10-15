@@ -2926,7 +2926,7 @@
             },
             {
               "id": "DGCOMUN",
-              "nombre": "DG. Dirección General Comunicación",
+              "nombre": "DG. Comunicación",
               "titular": "Kevin Nahuel Lopez",
               "tipo": "DG",
               "children": []
@@ -2999,7 +2999,7 @@
             },
             {
               "id": "DGDSEC",
-              "nombre": "DG. Desarrollo sostenible y Economía Circular",
+              "nombre": "DG. Desarrollo Sostenible y Economía Circular",
               "titular": "Analia Flores",
               "tipo": "DG",
               "children": []
@@ -3048,15 +3048,7 @@
               "titular": "Ramiro Pablo Reyno Grondona",
               "tipo": "ORG",
               "dashed": true,
-              "children": [
-                {
-                  "id": "DGAAV",
-                  "nombre": "DG. Atención al Visitante",
-                  "titular": "Mercedes Inés Barbara",
-                  "tipo": "DG",
-                  "children": []
-                }
-              ]
+              "children": []
             },
             {
               "id": "DGGAN",
@@ -3069,7 +3061,7 @@
         },
         {
           "id": "SSCCRS",
-          "nombre": "SS. Cultura Ciudadana y Responsabilidad Social",
+          "nombre": "SS. Familia y Natalidad",
           "titular": "Maria De Los Angeles Reig",
           "tipo": "SS",
           "children": [
@@ -3089,7 +3081,7 @@
             },
             {
               "id": "DGDM",
-              "nombre": "DG. General de la Mujer",
+              "nombre": "DG. Familia, Natalidad y Conciliación con la Vida Laboral",
               "titular": "María Candela Diaz Mazzeo",
               "tipo": "DG",
               "children": []
