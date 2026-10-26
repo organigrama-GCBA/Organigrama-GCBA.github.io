@@ -253,10 +253,9 @@ select,input,button,textarea{font:inherit;font-family:var(--texto)}
    —843,97 pt, 297,7 mm— y el alto va de 960 a 2054 pt según la página. Así la
    letra sale igual de grande en las 32, en vez de achicarse en las cargadas.
    Las medidas de cada hoja se calculan y se inyectan al imprimir. */
-/* Medida de la carátula, que es la única página sin nombre: el ancho del
-   organigrama oficial por el alto de un A3, que es el papel más probable. Las
-   hojas traen cada una su @page con nombre, calculado al imprimir. */
-@page{size:297.7mm 420mm;margin:9mm}
+/* La carátula es la única página sin nombre: un A3 vertical. Las hojas traen
+   cada una su @page con nombre, calculado al imprimir. */
+@page{size:297mm 420mm;margin:9mm}
 .caratula{display:none}
 @media print{
   /* Alto fijo, no 100vh: en papel el vh se mide contra otra página y la caja
@@ -448,7 +447,47 @@ function calleDe(id, raiz) {
   return RANGO_CALLE[t] ?? FUERA;
 }
 
-function disponer(raiz, ids, cortar = true) {
+// ── Cuántas cajas por pila ────────────────────────────────────────────
+// Una pila larga se reparte en columnas. Cuántas entran en cada una decide
+// la silueta del dibujo: con pocas, la hoja sale ancha y baja; con muchas,
+// alta y angosta. Y la silueta decide cuánto del papel se aprovecha: Cultura
+// salía con proporción 0,53 y en un A3 apaisado, que es 1,41, entraba por el
+// alto y dejaba dos tercios del ancho en blanco.
+//
+// Se prueban varios valores y se elige el que más superficie del A3 cubre,
+// en la mejor de las dos orientaciones.
+const A3_CORTO = 297, A3_LARGO = 420, ALTO_TITULO = 14;
+function aprovechaA3(anchoU, altoU) {
+  let mejor = { fraccion: 0, apaisada: false, escala: 1 };
+  for (const apaisada of [false, true]) {
+    const pw = apaisada ? A3_LARGO : A3_CORTO, ph = apaisada ? A3_CORTO : A3_LARGO;
+    const uw = pw - 2 * MARGEN, uh = ph - 2 * MARGEN - ALTO_TITULO;
+    const w = anchoU * MM_POR_UNIDAD, h = altoU * MM_POR_UNIDAD;
+    const escala = Math.min(uw / w, uh / h);
+    const fraccion = (w * escala) * (h * escala) / (uw * uh);
+    if (fraccion > mejor.fraccion) mejor = { fraccion, apaisada, escala };
+  }
+  return mejor;
+}
+const pilasProbadas = new Map();
+function pilaDe(raiz) {
+  return pilasProbadas.has(raiz) ? pilasProbadas.get(raiz) : MAX_PILA;
+}
+function elegirPilas(hojas) {
+  for (const h of hojas) {
+    let mejor = { pila: MAX_PILA, fraccion: -1 };
+    for (const pila of [3, 4, 5, 6, 7, 8]) {
+      const d = disponer(h.id, h.ids, true, pila);
+      const { fraccion } = aprovechaA3(d.anchoTot, d.altoTot);
+      // A igual aprovechamiento gana la pila más larga: menos columnas, menos
+      // recorrido horizontal para leer.
+      if (fraccion > mejor.fraccion + 0.01) mejor = { pila, fraccion };
+    }
+    pilasProbadas.set(h.id, mejor.pila);
+  }
+}
+
+function disponer(raiz, ids, cortar = true, maxPila = pilaDe(raiz)) {
   const dentro = new Set(ids);
   const hijosEn = (id) => (N[id].hijos || []).filter((k) => dentro.has(k) && k !== id);
   const corta = (id) => cortar && esHojaPropia(id) && id !== raiz;
@@ -547,7 +586,7 @@ function disponer(raiz, ids, cortar = true) {
         (porCalle.get(c) || porCalle.set(c, []).get(c)).push(g);
       }
       const cuantos = (gs) => gs.reduce((n, g) => n + g.length, 0);
-      const trozos = Math.max(...[...porCalle.values()].map((gs) => Math.ceil(cuantos(gs) / MAX_PILA)));
+      const trozos = Math.max(...[...porCalle.values()].map((gs) => Math.ceil(cuantos(gs) / maxPila)));
       const cols = Array.from({ length: trozos }, () => cursor++);
       for (const [c, gs] of porCalle) {
         const porColumna = Math.ceil(cuantos(gs) / trozos);
@@ -606,7 +645,7 @@ function disponer(raiz, ids, cortar = true) {
     const p = pos.get(N[x].padre);
     const base = p ? Math.round(p.k) : 0;
     let k = base, paso = 0;
-    while ((ocupadas.get(k) || 0) >= MAX_PILA) { paso++; k = base + (paso % 2 ? Math.ceil(paso / 2) : -Math.ceil(paso / 2)); }
+    while ((ocupadas.get(k) || 0) >= maxPila) { paso++; k = base + (paso % 2 ? Math.ceil(paso / 2) : -Math.ceil(paso / 2)); }
     ocupadas.set(k, (ocupadas.get(k) || 0) + 1);
     poner(x, FUERA, Math.max(0, k));
   }
@@ -721,12 +760,19 @@ function svgDe(d, rotulo, interno = false) {
   // Con estricto, solo acepta un pasillo que respete la separación con las
   // líneas de otros padres, y devuelve null si no hay: sirve para decidir si
   // conviene el pasillo local o el rodeo por el margen.
-  function pasilloLibre(xIdeal, y1, y2, pies = [], dePadre = null, estricto = false) {
+  function pasilloLibre(xIdeal, y1, y2, pies = [], dePadre = null, estricto = false, desde = null) {
     const a = Math.min(y1, y2), z = Math.max(y1, y2);
     const corta = (x1, yy, x2, saltar, claro) => todas.some((c) =>
       !saltar.has(c) && Math.max(x1, x2) > c.x - claro && Math.min(x1, x2) < c.x + c.w + claro &&
       yy > c.y + 1 && yy < c.y + c.h - 1);
+    // El trazo llega al pasillo por un tramo horizontal que sale del padre.
+    // Si ese tramo pasa por encima de la espina de otra área, las dos líneas
+    // se cortan y hay que decidir cuál sigue cuál. Se cuenta para elegir.
+    const cruza = (x) => desde === null ? 0 : verticales.filter((v) =>
+      v.padre !== dePadre && v.x > Math.min(desde, x) + 1 && v.x < Math.max(desde, x) - 1 &&
+      v.a < y1 - 1 && v.z > y1 + 1).length;
     const sirve = (x, sep, claro) => {
+      if (estricto && cruza(x)) return false;
       if (todas.some((c) => x > c.x - claro && x < c.x + c.w + claro && z > c.y && a < c.y + c.h)) return false;
       // Solo hay que separarse de las líneas de OTRO padre: dos trazos que
       // salen de la misma caja no se confunden entre sí, y obligarlos a
@@ -781,6 +827,7 @@ function svgDe(d, rotulo, interno = false) {
       const conflicto = (x) => ajenas.reduce((t, v) => t + (Math.abs(v.x - x) < SEP_LINEAS
         ? Math.max(0, Math.min(z, v.z) - Math.max(a, v.a)) : 0), 0);
       limpias.sort((u, w) =>
+        cruza(u) - cruza(w) ||
         (piesLimpios(u, CLARO) ? 0 : 1) - (piesLimpios(w, CLARO) ? 0 : 1) ||
         (roza(u, CLARO) ? 1 : 0) - (roza(w, CLARO) ? 1 : 0) ||
         conflicto(u) - conflicto(w) ||
@@ -963,8 +1010,8 @@ function svgDe(d, rotulo, interno = false) {
       // la nada, como ICBA y UA, que están en la columna de su propia
       // subsecretaría y se alcanzaban dando la vuelta a la hoja entera.
       const ideal = hijos[0].x - (COL - ANCHO) / 2;
-      const local = pasilloLibre(ideal, corredor, abajo, pies, p, true)
-        ?? pasilloLibre(hijos[0].x + ANCHO + (COL - ANCHO) / 2, corredor, abajo, pies, p, true);
+      const local = pasilloLibre(ideal, corredor, abajo, pies, p, true, px)
+        ?? pasilloLibre(hijos[0].x + ANCHO + (COL - ANCHO) / 2, corredor, abajo, pies, p, true, px);
       if (local !== null && Math.abs(local - ideal) < COL * 1.25) {
         const falta = troncoPropio(local, corredor, abajo);
         lineas += falta === null
@@ -990,9 +1037,9 @@ function svgDe(d, rotulo, interno = false) {
     const zIzq = hijos[0].x - (COL - ANCHO) / 2;
     const zDer = hijos[0].x + ANCHO + (COL - ANCHO) / 2;
     const fin = anclaAlto(ultima, cajas.get(ultima));
-    const sx = pasilloLibre(zIzq, corredor, fin, pies, p, true)
-      ?? pasilloLibre(zDer, corredor, fin, pies, p, true)
-      ?? pasilloLibre(zIzq, corredor, fin, pies, p);
+    const sx = pasilloLibre(zIzq, corredor, fin, pies, p, true, px)
+      ?? pasilloLibre(zDer, corredor, fin, pies, p, true, px)
+      ?? pasilloLibre(zIzq, corredor, fin, pies, p, false, px);
     const falta = troncoPropio(sx, corredor, fin);
     lineas += falta === null
       ? \`<path d="M\${px} \${py} V\${corredor} H\${sx} V\${fin}" \${trazo}/>\`
@@ -1179,27 +1226,21 @@ $("#bajar").addEventListener("click", () => {
 // falta. El ancho es 297,7 mm salvo en las hojas que no entran, que llevan el
 // suyo.
 const MM_POR_UNIDAD = 35.3 / ANCHO, MARGEN = 9, ANCHO_OFICIAL = 297.7;
-// Las hojas chicas usaban una fracción de la página: el Consejo de los
-// Derechos de Niñas, Niños y Adolescentes entraba en el 42% del ancho y el
-// Ecoparque en el 18%. Se las agranda hasta llenar la página y se las centra.
-// El tope evita que una hoja de tres cajas quede con letra de cartel, y el
-// alto máximo evita que una hoja angosta y larga se estire sin fin.
-const AMPLIAR_MAX = 2.5, ALTO_UTIL_MAX = 560;
+// Cada hoja va en un A3, vertical o apaisado según le convenga, y el dibujo
+// se escala para llenarlo. Antes cada hoja pedía una medida de página propia,
+// calcada del organigrama oficial; eso sale bien si se guarda como PDF, pero
+// la impresora usa el papel que tiene —A3— y el dibujo quedaba chico en un
+// rincón, o cortado. El papel real manda.
 function medidasDeImpresion() {
   const reglas = [];
   D.hojas.forEach((h, i) => {
     const d = disponer(h.id, h.ids);
-    const anchoBase = d.anchoTot * MM_POR_UNIDAD, altoBase = d.altoTot * MM_POR_UNIDAD;
-    const utilOficial = ANCHO_OFICIAL - 2 * MARGEN;
-    // Solo se agranda; las hojas que ya desbordan el ancho oficial se dejan
-    // como están, con su página más ancha.
-    const escala = anchoBase >= utilOficial ? 1
-      : Math.min(AMPLIAR_MAX, utilOficial / anchoBase, ALTO_UTIL_MAX / altoBase);
-    const anchoMM = anchoBase * escala, altoMM = altoBase * escala;
-    const hoja = Math.max(ANCHO_OFICIAL, +(anchoMM + 2 * MARGEN).toFixed(1));
-    const alto = +(altoMM + 2 * MARGEN + 14).toFixed(1);
+    const { apaisada, escala } = aprovechaA3(d.anchoTot, d.altoTot);
+    const pw = apaisada ? A3_LARGO : A3_CORTO, ph = apaisada ? A3_CORTO : A3_LARGO;
+    const anchoMM = d.anchoTot * MM_POR_UNIDAD * escala;
+    const altoMM = d.altoTot * MM_POR_UNIDAD * escala;
     reglas.push(
-      \`@page h\${i} { size: \${hoja}mm \${alto}mm; margin: \${MARGEN}mm }\`,
+      \`@page h\${i} { size: \${pw}mm \${ph}mm; margin: \${MARGEN}mm }\`,
       \`#h-\${CSS.escape(h.id)} { page: h\${i} }\`,
       \`#h-\${CSS.escape(h.id)} .lienzo svg { --ancho-impreso: \${anchoMM.toFixed(1)}mm; --alto-impreso: \${altoMM.toFixed(1)}mm }\`,
     );
@@ -1224,6 +1265,9 @@ function prepararImpresion(solo) {
     : "";
 }
 $("#imprimir").addEventListener("click", () => { prepararImpresion(null); window.print(); });
+// Antes de medir nada hay que decidir en cuántas columnas se reparte cada
+// hoja: eso define su silueta y, con ella, cuánto del A3 se aprovecha.
+elegirPilas(D.hojas);
 medidasDeImpresion();
 
 // Pliego: el árbol entero en un solo dibujo, sin cortar en las otras hojas.
