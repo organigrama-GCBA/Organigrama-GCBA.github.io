@@ -495,7 +495,13 @@ function disponer(raiz, ids, cortar = true) {
     const normales = sueltos.filter((x) => calleDe(x, raiz) !== FUERA);
     sueltos.filter((x) => calleDe(x, raiz) === FUERA).forEach((x) => fuera.push(x));
     const ramas = normales.filter(abreCol);
-    const hojas = normales.filter((x) => !abreCol(x)).flatMap(linajeDe);
+    // Cada hoja viene con su linaje —una adjunta y la adjunta de la adjunta—,
+    // y el linaje se reparte como una unidad: separarlo deja a la adjunta en
+    // otra columna, y entonces el trazo de su titular tiene que bajar hasta
+    // el pie de la calle y volver a subir, cruzando media hoja. Era lo que
+    // pasaba en AGIP con la DG Rentas y su adjunta.
+    const grupos = normales.filter((x) => !abreCol(x)).map(linajeDe);
+    const hojas = grupos.flat();
     const tramos = ramas.map(colocar);
     // Una pila muy larga deja la hoja alta y flaca, y en A3 la letra se vuelve
     // ilegible: se la reparte en columnas, como hace el organigrama oficial
@@ -504,15 +510,23 @@ function disponer(raiz, ids, cortar = true) {
       // Se agrupan por calle: una pila mezcla direcciones generales con
       // subsecretarías sin estructura, y cada una va a la suya.
       const porCalle = new Map();
-      for (const x of hojas) {
-        const c = calleDe(x, raiz);
-        (porCalle.get(c) || porCalle.set(c, []).get(c)).push(x);
+      for (const g of grupos) {
+        const c = calleDe(g[0], raiz);
+        (porCalle.get(c) || porCalle.set(c, []).get(c)).push(g);
       }
-      const trozos = Math.max(...[...porCalle.values()].map((v) => Math.ceil(v.length / MAX_PILA)));
+      const cuantos = (gs) => gs.reduce((n, g) => n + g.length, 0);
+      const trozos = Math.max(...[...porCalle.values()].map((gs) => Math.ceil(cuantos(gs) / MAX_PILA)));
       const cols = Array.from({ length: trozos }, () => cursor++);
-      for (const [c, v] of porCalle) {
-        const porColumna = Math.ceil(v.length / trozos);
-        v.forEach((x, n) => poner(x, c, cols[Math.min(trozos - 1, Math.floor(n / porColumna))]));
+      for (const [c, gs] of porCalle) {
+        const porColumna = Math.ceil(cuantos(gs) / trozos);
+        let k = 0, puestas = 0;
+        for (const g of gs) {
+          // Si el linaje no entra en lo que queda de columna, arranca la
+          // siguiente en vez de partirse al medio.
+          if (puestas && puestas + g.length > porColumna && k < trozos - 1) { k++; puestas = 0; }
+          for (const x of g) poner(x, c, cols[k]);
+          puestas += g.length;
+        }
       }
       for (const k of cols) tramos.push([k, k]);
     }
