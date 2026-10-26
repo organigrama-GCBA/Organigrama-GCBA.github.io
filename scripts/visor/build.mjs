@@ -16,6 +16,16 @@ import { execFileSync } from "node:child_process";
 
 const ROOT = process.cwd();
 const leer = (p) => JSON.parse(fs.readFileSync(path.join(ROOT, "data", p), "utf8"));
+// El visor es un archivo solo: el logo va adentro, en base64, o la carátula
+// saldría con un hueco en cualquier lado donde se abra el archivo suelto.
+const LOGO = (() => {
+  try {
+    return "data:image/png;base64," + fs.readFileSync(path.join(ROOT, "Imagen1.png")).toString("base64");
+  } catch {
+    console.error("No se encontró Imagen1.png: la carátula va sin logo.");
+    return "";
+  }
+})();
 const org = leer("organigrama.json");
 const funciones = leer("funciones.json");
 
@@ -243,8 +253,24 @@ select,input,button,textarea{font:inherit;font-family:var(--texto)}
    —843,97 pt, 297,7 mm— y el alto va de 960 a 2054 pt según la página. Así la
    letra sale igual de grande en las 32, en vez de achicarse en las cargadas.
    Las medidas de cada hoja se calculan y se inyectan al imprimir. */
-@page{size:297.7mm 472.6mm;margin:9mm}
+/* Medida de la carátula, que es la única página sin nombre: el ancho del
+   organigrama oficial por el alto de un A3, que es el papel más probable. Las
+   hojas traen cada una su @page con nombre, calculado al imprimir. */
+@page{size:297.7mm 420mm;margin:9mm}
+.caratula{display:none}
 @media print{
+  /* Alto fijo, no 100vh: en papel el vh se mide contra otra página y la caja
+     desbordaba, dejando una carilla en blanco y pasándole su medida a la
+     hoja siguiente. 402mm es el alto útil de la carátula: 420 menos los dos
+     márgenes de 9. */
+  .caratula{display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;height:396mm;break-after:page;break-inside:avoid}
+  .caratula img{width:78mm;height:auto;margin-bottom:14mm}
+  .caratula h1{font-family:var(--display);font-size:30pt;font-weight:800;letter-spacing:-.4pt;
+    color:var(--tinta);margin:0}
+  .caratula-sub{font-size:12pt;color:var(--tinta-2);margin:4mm 0 0}
+  .caratula-fechas{display:flex;gap:14mm;margin:16mm 0 0;font-size:10pt;color:var(--tinta-3)}
+  .caratula-fechas b{color:var(--tinta-2);font-weight:600;font-variant-numeric:tabular-nums}
   :root{--papel:#fff;--hoja:#fff;--linea:#9aa6b8;--linea-2:#c6cedb;--tinta:#101e37;--tinta-2:#3c4a63;--tinta-3:#6b7892}
   body{background:#fff;font-size:10pt}
   /* Sin portada ni índice: el oficial arranca directo en el organigrama de
@@ -319,6 +345,12 @@ select,input,button,textarea{font:inherit;font-family:var(--texto)}
       </div>
       <div class="leyenda" id="leyenda-portada"></div>
       <ol id="indice"></ol>
+    </section>
+    <section class="caratula" aria-hidden="true">
+      ${LOGO ? `<img src="${LOGO}" alt="Sindicatura General de la Ciudad de Buenos Aires">` : ""}
+      <h1>Organigrama GCBA</h1>
+      <p class="caratula-sub">Poder Ejecutivo de la Ciudad Autónoma de Buenos Aires</p>
+      <p class="caratula-fechas"><span>Actualizado al <b id="cara-hoy"></b></span></p>
     </section>
     <div id="hojas"></div>
   </main>
@@ -495,7 +527,13 @@ function disponer(raiz, ids, cortar = true) {
     const normales = sueltos.filter((x) => calleDe(x, raiz) !== FUERA);
     sueltos.filter((x) => calleDe(x, raiz) === FUERA).forEach((x) => fuera.push(x));
     const ramas = normales.filter(abreCol);
-    const hojas = normales.filter((x) => !abreCol(x)).flatMap(linajeDe);
+    // Cada hoja viene con su linaje —una adjunta y la adjunta de la adjunta—,
+    // y el linaje se reparte como una unidad: separarlo deja a la adjunta en
+    // otra columna, y entonces el trazo de su titular tiene que bajar hasta
+    // el pie de la calle y volver a subir, cruzando media hoja. Era lo que
+    // pasaba en AGIP con la DG Rentas y su adjunta.
+    const grupos = normales.filter((x) => !abreCol(x)).map(linajeDe);
+    const hojas = grupos.flat();
     const tramos = ramas.map(colocar);
     // Una pila muy larga deja la hoja alta y flaca, y en A3 la letra se vuelve
     // ilegible: se la reparte en columnas, como hace el organigrama oficial
@@ -504,15 +542,23 @@ function disponer(raiz, ids, cortar = true) {
       // Se agrupan por calle: una pila mezcla direcciones generales con
       // subsecretarías sin estructura, y cada una va a la suya.
       const porCalle = new Map();
-      for (const x of hojas) {
-        const c = calleDe(x, raiz);
-        (porCalle.get(c) || porCalle.set(c, []).get(c)).push(x);
+      for (const g of grupos) {
+        const c = calleDe(g[0], raiz);
+        (porCalle.get(c) || porCalle.set(c, []).get(c)).push(g);
       }
-      const trozos = Math.max(...[...porCalle.values()].map((v) => Math.ceil(v.length / MAX_PILA)));
+      const cuantos = (gs) => gs.reduce((n, g) => n + g.length, 0);
+      const trozos = Math.max(...[...porCalle.values()].map((gs) => Math.ceil(cuantos(gs) / MAX_PILA)));
       const cols = Array.from({ length: trozos }, () => cursor++);
-      for (const [c, v] of porCalle) {
-        const porColumna = Math.ceil(v.length / trozos);
-        v.forEach((x, n) => poner(x, c, cols[Math.min(trozos - 1, Math.floor(n / porColumna))]));
+      for (const [c, gs] of porCalle) {
+        const porColumna = Math.ceil(cuantos(gs) / trozos);
+        let k = 0, puestas = 0;
+        for (const g of gs) {
+          // Si el linaje no entra en lo que queda de columna, arranca la
+          // siguiente en vez de partirse al medio.
+          if (puestas && puestas + g.length > porColumna && k < trozos - 1) { k++; puestas = 0; }
+          for (const x of g) poner(x, c, cols[k]);
+          puestas += g.length;
+        }
       }
       for (const k of cols) tramos.push([k, k]);
     }
@@ -1173,7 +1219,8 @@ function prepararImpresion(solo) {
   // La hoja que queda no puede arrastrar el salto de página de las anteriores,
   // o la impresión arranca con una carilla en blanco.
   est.textContent = solo
-    ? \`@media print{.hoja{display:none!important}#h-\${CSS.escape(solo)}{display:block!important;break-before:auto}}\`
+    ? \`@media print{.caratula{display:none!important}.hoja{display:none!important}\` +
+      \`#h-\${CSS.escape(solo)}{display:block!important;break-before:auto}}\`
     : "";
 }
 $("#imprimir").addEventListener("click", () => { prepararImpresion(null); window.print(); });
@@ -1223,6 +1270,13 @@ $("#pliego").addEventListener("click", (e) => {
     setTimeout(() => { btn.textContent = "Pliego SVG"; }, 6000);
   }, 20);
 });
+
+// La fecha de la carátula es la del día en que se baja: el organigrama se
+// publica con cada cambio, así que lo que se descarga está actualizado a esa
+// fecha. Si alguna vez el sitio quedara sin publicar, esta fecha adelantaría.
+const hoy = new Date();
+$("#cara-hoy").textContent =
+  \`\${String(hoy.getDate()).padStart(2, "0")}/\${String(hoy.getMonth() + 1).padStart(2, "0")}/\${hoy.getFullYear()}\`;
 
 render();
 panelVacio();
