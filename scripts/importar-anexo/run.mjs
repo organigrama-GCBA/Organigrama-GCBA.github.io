@@ -147,10 +147,15 @@ function parsear(texto) {
       titulo += " " + lineas[j].trim();
       j++;
     }
-    crudos.push({ num: m[1], titulo: titulo.replace(/\s+/g, " "), desde: j, hasta: -1 });
+    crudos.push({ num: m[1], titulo: titulo.replace(/\s+/g, " "), inicio: i, desde: j, hasta: -1 });
   }
+  // El cuerpo de un punto termina donde EMPIEZA EL TÍTULO del siguiente, no
+  // donde empieza su cuerpo. Con un título de una línea da lo mismo, pero con
+  // uno de dos la primera línea se colaba al final del texto anterior: así
+  // quedaron ochenta y tres entradas terminando con medio título ajeno, del
+  // tipo "…por la Ley 3.317. 1.4 FUERA DE NIVEL ENTE DE TURISMO DE LA".
   for (let i = 0; i < crudos.length; i++) {
-    crudos[i].hasta = i + 1 < crudos.length ? crudos[i + 1].desde - 1 : lineas.length;
+    crudos[i].hasta = i + 1 < crudos.length ? crudos[i + 1].inicio : lineas.length;
   }
   return crudos.map((c) => {
     const [tipo, nombre] = tipoY(c.titulo);
