@@ -1145,7 +1145,21 @@ function medidasDeImpresion() {
   if (!est) { est = document.createElement("style"); est.id = "medidas-impresion"; document.head.appendChild(est); }
   est.textContent = "@media print{" + reglas.join("\\n") + "}";
 }
-$("#imprimir").addEventListener("click", () => { $("#res").hidden = true; medidasDeImpresion(); window.print(); });
+// Deja la página lista para imprimir. Con una hoja, esconde las demás: es la
+// exportación por área, que antes salía de las posiciones guardadas a mano y
+// descartaba en silencio las áreas que no tenían una.
+function prepararImpresion(solo) {
+  $("#res").hidden = true;
+  medidasDeImpresion();
+  let est = document.getElementById("solo-hoja");
+  if (!est) { est = document.createElement("style"); est.id = "solo-hoja"; document.head.appendChild(est); }
+  // La hoja que queda no puede arrastrar el salto de página de las anteriores,
+  // o la impresión arranca con una carilla en blanco.
+  est.textContent = solo
+    ? \`@media print{.hoja{display:none!important}#h-\${CSS.escape(solo)}{display:block!important;break-before:auto}}\`
+    : "";
+}
+$("#imprimir").addEventListener("click", () => { prepararImpresion(null); window.print(); });
 medidasDeImpresion();
 
 // Pliego: el árbol entero en un solo dibujo, sin cortar en las otras hojas.
@@ -1199,11 +1213,18 @@ panelVacio();
 // Abierto como visor.html#imprimir, va derecho al diálogo de impresión. Es
 // como la página del organigrama entrega la descarga: en vez de armar el
 // dibujo por su cuenta, manda acá, que es donde está el organigrama bueno.
-if (location.hash === "#imprimir") {
-  $("#res").hidden = true;
-  medidasDeImpresion();
-  // Una vuelta para que el navegador termine de maquetar las 32 hojas antes
-  // de medir la página; imprimir en el mismo tick salía con hojas en blanco.
+// Abierto como visor.html#imprimir va derecho al diálogo de impresión, y con
+// #imprimir=SIGLA imprime solo esa hoja. Es como la página del organigrama
+// entrega sus descargas: en vez de armar el dibujo por su cuenta, manda acá.
+const pedido = location.hash.match(/^#imprimir(?:=(.+))?$/);
+if (pedido) {
+  const id = pedido[1] ? decodeURIComponent(pedido[1]) : null;
+  // Si lo pedido no es una hoja, se imprime la que lo contiene: así andan
+  // también las siglas que son una caja adentro de otra hoja.
+  const hoja = id && (D.hojas.find((h) => h.id === id) || D.hojas.find((h) => h.ids.includes(id)));
+  prepararImpresion(hoja ? hoja.id : null);
+  // Una vuelta para que el navegador termine de maquetar antes de medir la
+  // página; imprimir en el mismo tick salía con hojas en blanco.
   requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
 }
 </script>
