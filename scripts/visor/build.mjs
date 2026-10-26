@@ -615,14 +615,17 @@ function svgDe(d, rotulo, interno = false) {
   // tocar": a tres unidades de una caja la línea se ve pegada a ella y parece
   // que la conecta. Se prueban primero los centros de los huecos entre
   // columnas, que es por donde tiene que ir.
-  const CLARO = 14;
+  const CLARO = 14, SEP_LINEAS = 22;
+  const verticales = [];          // las que ya se dibujaron, para no encimarse
   function pasilloLibre(xIdeal, y1, y2, pies = []) {
     const a = Math.min(y1, y2), z = Math.max(y1, y2);
+    const encima = (x) => verticales.some((v) => Math.abs(v.x - x) < SEP_LINEAS && z > v.a && a < v.z);
     const corta = (x1, yy, x2, saltar) => todas.some((c) =>
       !saltar.has(c) && Math.max(x1, x2) > c.x - CLARO && Math.min(x1, x2) < c.x + c.w + CLARO &&
       yy > c.y + 1 && yy < c.y + c.h - 1);
     const sirve = (x) => {
       if (todas.some((c) => x > c.x - CLARO && x < c.x + c.w + CLARO && z > c.y && a < c.y + c.h)) return false;
+      if (encima(x)) return false;
       return pies.every(({ caja, y }) => !corta(x, y, caja.x, new Set([caja])));
     };
     const maxCol = Math.max(...todas.map((c) => (c.x - PADX - CANAL) / COL));
@@ -647,7 +650,15 @@ function svgDe(d, rotulo, interno = false) {
     const key = p + "|" + c.calle + "|" + c.col;
     (grupos.get(key) || grupos.set(key, []).get(key)).push(id);
   }
-  for (const [key, miembros] of grupos) {
+  // Primero las líneas de estructura y después las punteadas: así la línea
+  // firme se queda con el pasillo natural y la punteada busca otro, en vez de
+  // terminar las dos encimadas.
+  const ordenados = [...grupos].sort((a, b) => {
+    const pa = calleDe(a[1][0], cajaRaiz) === FUERA || N[a[1][0]].dashed;
+    const pb = calleDe(b[1][0], cajaRaiz) === FUERA || N[b[1][0]].dashed;
+    return (pa ? 1 : 0) - (pb ? 1 : 0);
+  });
+  for (const [key, miembros] of ordenados) {
     const p = key.split("|")[0];
     const pc = cajas.get(p);
     const hijos = miembros.map((id) => cajas.get(id)).sort((a, b) => a.y - b.y);
@@ -666,12 +677,16 @@ function svgDe(d, rotulo, interno = false) {
     // pasillo lo hacía bajar hasta el pie de la calle y volver a subir,
     // cruzando las cajas del medio.
     if (pc.calle === hijos[0].calle && pc.col === hijos[0].col) {
-      for (const h of hijos) lineas += \`<path d="M\${px} \${py} V\${h.y}" \${trazo}/>\`;
+      for (const h of hijos) {
+        lineas += \`<path d="M\${px} \${py} V\${h.y}" \${trazo}/>\`;
+        verticales.push({ x: px, a: py, z: h.y });
+      }
       continue;
     }
     const primeroDeSuPila = hijos[0].y <= yCalle.get(hijos[0].calle) + 0.5;
     if (!salta && primeroDeSuPila && hijos.length === 1 && Math.abs(hijos[0].x + hijos[0].w / 2 - px) < 1) {
       lineas += \`<path d="M\${px} \${py} V\${hijos[0].y}" \${trazo}/>\`;
+      verticales.push({ x: px, a: py, z: hijos[0].y });
       continue;
     }
     // El pasillo vertical va en el espacio libre que hay a la izquierda de la
@@ -683,6 +698,8 @@ function svgDe(d, rotulo, interno = false) {
     const sx = pasilloLibre(hijos[0].x - (COL - ANCHO) / 2, salida, anclaAlto(ultima, cajas.get(ultima)), pies);
     lineas += \`<path d="M\${px} \${py} V\${salida} H\${sx} V\${anclaAlto(ultima, cajas.get(ultima))}" \${trazo}/>\`;
     for (const k of ids) lineas += \`<path d="M\${sx} \${anclaAlto(k, cajas.get(k))} H\${cajas.get(k).x}" \${trazo}/>\`;
+    verticales.push({ x: px, a: py, z: salida });
+    verticales.push({ x: sx, a: salida, z: anclaAlto(ultima, cajas.get(ultima)) });
   }
 
   let s = fondo + lineas;
