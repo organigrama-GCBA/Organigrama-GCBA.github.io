@@ -33,7 +33,7 @@
             {
               "id": "DGMAMBA",
               "nombre": "Museo de Arte Moderno de Buenos Aires",
-              "titular": "Victoria Eugenia Noorthoom",
+              "titular": "Victoria Eugenia Noorthoorn",
               "tipo": "DG",
               "children": []
             },
@@ -126,7 +126,7 @@
             {
               "id": "SSPCU",
               "nombre": "SS. Políticas Culturales",
-              "titular": "Robert Vicent Cortina",
+              "titular": "Robert Vincent Cortina",
               "tipo": "SS",
               "children": []
             },
@@ -326,7 +326,7 @@
                 {
                   "id": "DGPTU",
                   "nombre": "DG. Promoción Turística",
-                  "titular": "Lila Araceli Baciagalupo",
+                  "titular": "Lila Araceli Bacigalupo",
                   "tipo": "DG",
                   "children": []
                 }
@@ -540,7 +540,7 @@
             {
               "id": "IVC",
               "nombre": "Instituto de Vivienda de la Ciudad",
-              "titular": "Leonardo Coppola",
+              "titular": "Leonardo Lucas Coppola",
               "tipo": "ORG",
               "dashed": true,
               "children": []
@@ -708,7 +708,7 @@
                 {
                   "id": "DGEGE",
                   "nombre": "DG. Educación de Gestión Estatal",
-                  "titular": "Nancy Elizabeth Rosana Sorfo",
+                  "titular": "Nancy Elizabeth Roxana Sorfo",
                   "tipo": "DG",
                   "children": []
                 }
@@ -732,7 +732,7 @@
             {
               "id": "UAIMEPHU",
               "nombre": "Unidad de Auditoría Interna MEPHU",
-              "titular": "Diego Cuesta",
+              "titular": "Diego Maximiliano Cuesta",
               "tipo": "ORG",
               "dashed": true,
               "children": []
@@ -766,7 +766,7 @@
                     {
                       "id": "EMUI",
                       "nombre": "Ente de Mantenimiento Urbano Integral (E.M.U.I) Ley N° 473",
-                      "titular": "Joel Franco Iacarin",
+                      "titular": "Joel Franco Iacarini",
                       "tipo": "ORG",
                       "dashed": true,
                       "children": []
@@ -835,7 +835,7 @@
             {
               "id": "DGCGEST",
               "nombre": "DG. Control de Gestión",
-              "titular": "Antonela Fiorella Pagano",
+              "titular": "Antonella Fiorella Pagano",
               "tipo": "DG",
               "children": []
             },
@@ -958,7 +958,7 @@
                 {
                   "id": "DGOGPP",
                   "nombre": "DG. Oficina de Gestión Pública y Presupuesto (OGEPU)",
-                  "titular": "Antonella Mitidieri",
+                  "titular": "Antonella Carla Mitidieri",
                   "tipo": "DG",
                   "children": []
                 },
@@ -971,7 +971,7 @@
                     {
                       "id": "DGCGADJ",
                       "nombre": "DG. Contaduría Adjunta",
-                      "titular": "Ramon Gauto",
+                      "titular": "Ramón José Gauto",
                       "tipo": "DG",
                       "children": []
                     }
@@ -1019,7 +1019,7 @@
             {
               "id": "BCOCIUDAD",
               "nombre": "Banco Ciudad de Buenos aires",
-              "titular": "Guillermo Laje",
+              "titular": "Guillermo Alejandro Laje",
               "tipo": "ORG",
               "dashed": true,
               "children": []
@@ -1027,7 +1027,7 @@
             {
               "id": "OSBA",
               "nombre": "Obra Social de la Ciudad de Buenos Aires Ley N° 472",
-              "titular": "Alejandro Amor",
+              "titular": "Ángel Armando Alejandro Amor",
               "tipo": "ORG",
               "dashed": true,
               "children": []
@@ -1108,7 +1108,7 @@
                 {
                   "id": "DGPCGT",
                   "nombre": "DG. Planificación y Coordinación de la Gestión Tributaria",
-                  "titular": "",
+                  "titular": "Luciano Almada",
                   "tipo": "DG",
                   "children": []
                 },
@@ -1130,7 +1130,7 @@
                 {
                   "id": "DGR",
                   "nombre": "DG. Rentas",
-                  "titular": "",
+                  "titular": "Maria Guadalupe Morera",
                   "tipo": "DG",
                   "children": [
                     {
@@ -1340,7 +1340,7 @@
                     {
                       "id": "DGAJU",
                       "nombre": "DG. Acceso a la Justicia",
-                      "titular": "Janine Weideman",
+                      "titular": "Janine Weidemann",
                       "tipo": "DG",
                       "children": []
                     },
@@ -1441,7 +1441,7 @@
             {
               "id": "UAIMJ",
               "nombre": "Unidad de Auditoria Interna MJGC",
-              "titular": "Sandra Karina Ibendhal",
+              "titular": "Sandra Karina Ibendahl",
               "tipo": "ORG",
               "dashed": true,
               "children": []
@@ -1788,7 +1788,7 @@
                 {
                   "id": "DGSAM",
                   "nombre": "DG. Salud Mental",
-                  "titular": "",
+                  "titular": "Sergio José Luis Giordano",
                   "tipo": "DG",
                   "children": [
                     {
@@ -2026,7 +2026,7 @@
                     {
                       "id": "SJPCDAD",
                       "nombre": "Subjefatura Policía de la Ciudad",
-                      "titular": "Carla Mangiameli",
+                      "titular": "Carla Virginia Mangiameli",
                       "tipo": "ORG",
                       "dashed": true,
                       "children": []
@@ -2121,7 +2121,7 @@
                         {
                           "id": "SJCBCDAD",
                           "nombre": "Subjefatura del Cuerpo de Bomberos de la Ciudad",
-                          "titular": "",
+                          "titular": "Roberto Ángel Parente",
                           "tipo": "ORG",
                           "children": []
                         }
@@ -2211,7 +2211,7 @@
                 {
                   "id": "SSGA",
                   "nombre": "SS. Gestión Administrativa",
-                  "titular": "Claudio Alberto Panichetti",
+                  "titular": "Claudio Alberto Panichelli",
                   "tipo": "SS",
                   "children": [
                     {
@@ -2268,7 +2268,7 @@
                     {
                       "id": "DGARHC",
                       "nombre": "DG. Administración de Recursos Humanos y Compensaciones",
-                      "titular": "Emanuel Maximiliano Gil",
+                      "titular": "Emmanuel Maximiliano Gil",
                       "tipo": "DG",
                       "children": []
                     },
@@ -2301,7 +2301,7 @@
             {
               "id": "OTCEPCDAD",
               "nombre": "Oficina de Transparencia y Control Externo de la Policía de la Ciudad",
-              "titular": "Adrián Sisro",
+              "titular": "Ignacio Adrián Sisro",
               "tipo": "ORG",
               "dashed": true,
               "children": []
@@ -2423,7 +2423,7 @@
                 {
                   "id": "UAIEHU",
                   "nombre": "Unidad de auditoría interna",
-                  "titular": "Sergio Rodríguez Díaz",
+                  "titular": "Rogelio Sergio Rodríguez Díaz",
                   "tipo": "ORG",
                   "dashed": true,
                   "children": []
@@ -2551,7 +2551,7 @@
                 {
                   "id": "DGSEI",
                   "nombre": "DG. Seguridad Informática",
-                  "titular": "Gustavo Linares",
+                  "titular": "Gustavo Andrés Linares",
                   "tipo": "DG",
                   "children": []
                 }
@@ -2653,7 +2653,7 @@
                 {
                   "id": "DGFIS",
                   "nombre": "DG. Fiscalización",
-                  "titular": "Mario Javier Carmona",
+                  "titular": "Mariano Javier Carmona",
                   "tipo": "DG",
                   "children": []
                 }
@@ -2691,7 +2691,7 @@
                 {
                   "id": "DGGPEIDA",
                   "nombre": "DG. Gestión de Proyectos e Infraestructura del Autódromo",
-                  "titular": "Camila Gabriela Piris Machad",
+                  "titular": "Camila Gabriela Piris Machado",
                   "tipo": "DG",
                   "children": []
                 },
@@ -2908,7 +2908,7 @@
     {
       "id": "VJG",
       "nombre": "Vicejefatura de Gobierno",
-      "titular": "Clara Muzzio",
+      "titular": "María Clara Muzzio",
       "tipo": "VJG",
       "children": [
         {
@@ -3447,7 +3447,7 @@
         {
           "id": "DGIOC",
           "nombre": "DG. Investigación y Opinión Ciudadana",
-          "titular": "Ramiro Fernández",
+          "titular": "Ramiro Fernández Vizcaychipi",
           "tipo": "DG",
           "children": []
         },
@@ -3594,7 +3594,7 @@
             {
               "id": "DGPVEE",
               "nombre": "D.G. Planificación y Vinculación Estratégica de Eventos",
-              "titular": "Julieta Valeria Vega Rodríguez",
+              "titular": "Julieta Valeria Vegas Rodríguez",
               "tipo": "DG",
               "children": []
             }
