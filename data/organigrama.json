@@ -2889,14 +2889,6 @@
           "children": []
         },
         {
-          "id": "COMUNAS",
-          "nombre": "Comunas",
-          "titular": "",
-          "tipo": "ORG",
-          "dashed": true,
-          "children": []
-        },
-        {
           "id": "GGACSGCBA",
           "nombre": "Gerencia General Auditoría de Comunas",
           "titular": "Juan Carlos Valero",
@@ -3811,6 +3803,14 @@
               "children": []
             }
           ]
+        },
+        {
+          "id": "COMUNAS",
+          "nombre": "Comunas",
+          "titular": "",
+          "tipo": "ORG",
+          "dashed": true,
+          "children": []
         }
       ]
     }
