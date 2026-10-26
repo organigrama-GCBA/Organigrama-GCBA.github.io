@@ -3653,11 +3653,6 @@ function App(){
     window.open("visor.html#imprimir","_blank","noopener");
   }
 
-  // Sin uso desde que el botón manda al visor. Armaba su propio dibujo a
-  // partir de las posiciones de layout.json: diecinueve hojas en vez de
-  // treinta y dos, y sin las áreas que no tienen posición guardada, que por
-  // eso no se dibujaban en ningún lado.
-
   // La hoja de un área sale del visor, igual que el organigrama completo: la
   // dibuja desde data/organigrama.json con el tamaño de hoja del oficial. Si
   // el área no es una de las 32 hojas, el visor imprime la que la contiene.
@@ -3665,10 +3660,6 @@ function App(){
     if(!area)return;
     window.open("visor.html#imprimir="+encodeURIComponent(area.id),"_blank","noopener");
   }
-
-  // Sin uso desde que la exportación por área sale del visor. Armaba la hoja
-  // desde las posiciones guardadas a mano en layout.json y descartaba en
-  // silencio las áreas que no tenían una, que por eso no se dibujaban.
 
   const color=selected?getColor(selected):"#003D6E";
 
