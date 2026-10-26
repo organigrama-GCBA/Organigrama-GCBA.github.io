@@ -268,7 +268,7 @@ select,input,button,textarea{font:inherit;font-family:var(--texto)}
      hacen que el dibujo se achique para entrar en vez de quedar cortado. El
      SVG mantiene su proporción solo, así que achicar no deforma. */
   .lienzo svg{width:var(--ancho-impreso);height:var(--alto-impreso);min-width:0;
-    max-width:100%;max-height:calc(100vh - 26mm)}
+    max-width:100%;max-height:calc(100vh - 26mm);display:block;margin-inline:auto}
   .tarjeta{cursor:auto}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
@@ -1133,11 +1133,23 @@ $("#bajar").addEventListener("click", () => {
 // falta. El ancho es 297,7 mm salvo en las hojas que no entran, que llevan el
 // suyo.
 const MM_POR_UNIDAD = 35.3 / ANCHO, MARGEN = 9, ANCHO_OFICIAL = 297.7;
+// Las hojas chicas usaban una fracción de la página: el Consejo de los
+// Derechos de Niñas, Niños y Adolescentes entraba en el 42% del ancho y el
+// Ecoparque en el 18%. Se las agranda hasta llenar la página y se las centra.
+// El tope evita que una hoja de tres cajas quede con letra de cartel, y el
+// alto máximo evita que una hoja angosta y larga se estire sin fin.
+const AMPLIAR_MAX = 2.5, ALTO_UTIL_MAX = 560;
 function medidasDeImpresion() {
   const reglas = [];
   D.hojas.forEach((h, i) => {
     const d = disponer(h.id, h.ids);
-    const anchoMM = d.anchoTot * MM_POR_UNIDAD, altoMM = d.altoTot * MM_POR_UNIDAD;
+    const anchoBase = d.anchoTot * MM_POR_UNIDAD, altoBase = d.altoTot * MM_POR_UNIDAD;
+    const utilOficial = ANCHO_OFICIAL - 2 * MARGEN;
+    // Solo se agranda; las hojas que ya desbordan el ancho oficial se dejan
+    // como están, con su página más ancha.
+    const escala = anchoBase >= utilOficial ? 1
+      : Math.min(AMPLIAR_MAX, utilOficial / anchoBase, ALTO_UTIL_MAX / altoBase);
+    const anchoMM = anchoBase * escala, altoMM = altoBase * escala;
     const hoja = Math.max(ANCHO_OFICIAL, +(anchoMM + 2 * MARGEN).toFixed(1));
     const alto = +(altoMM + 2 * MARGEN + 14).toFixed(1);
     reglas.push(
