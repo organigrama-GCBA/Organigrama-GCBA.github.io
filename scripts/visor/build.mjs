@@ -387,7 +387,7 @@ const ANCHO = 132, COL = 168, ALTO_MIN = 34, FILA = 11, PADX = 14, PADY = 14;
 // esa columna se quedaba con el pasillo de la de al lado: cada subsecretaría
 // empujaba a la siguiente una columna a la derecha y la última terminaba con
 // la espina del lado equivocado de sus hijas, cruzándolas de lado a lado.
-const CALLE_SEP = 34, CANAL = 24;
+const CALLE_SEP = 40, CANAL = 24;
 const H_SIGLA = 13, H_TITULAR = 21, MAX_PILA = 6;
 
 const RANGO_CALLE = { JG: 1, VJG: 1, MIN: 1, SEC: 1, SS: 2, DG: 3, GG: 3, GO: 4, SGO: 4 };
@@ -515,6 +515,16 @@ function disponer(raiz, ids, cortar = true) {
   // cabecera y a su misma altura.
   uaisRaiz.forEach((x, n) => poner(x, 0, pos.get(raiz).k + 1 + n));
 
+  // colocar() solo baja por las ramas, así que un fuera de nivel cuyo padre
+  // quedó como hoja de su columna —o que cuelga de otro fuera de nivel— no lo
+  // recoge nadie y no se dibuja en ninguna hoja. Se barren acá los que
+  // falten. Eran diez: los dos consejos de memoria de la DG Derechos
+  // Humanos, las subjefaturas de Policía y Bomberos, tres unidades de
+  // auditoría interna y cuatro más.
+  for (const x of ids) {
+    if (x !== raiz && !pos.has(x) && !fuera.includes(x) && calleDe(x, raiz) === FUERA) fuera.push(x);
+  }
+
   // Los fuera de nivel van todos juntos en la calle de abajo, pero cada uno
   // bajo la columna de su padre: así la punteada cae casi a plomo y se ve de
   // dónde cuelga. Repartirlos en orden de llegada hacía que las líneas
@@ -610,7 +620,9 @@ function svgDe(d, rotulo, interno = false) {
   // El organigrama oficial no rotula las calles: separa con una sola línea
   // horizontal lo que está fuera de nivel de lo que está en la estructura.
   if (calles.includes(FUERA) && calles.length > 1) {
-    const yr = yCalle.get(FUERA) - CALLE_SEP / 2 - 4;
+    // Diez unidades por encima del pasillo de salida de la calle de arriba: a
+    // cuatro corrían en paralelo y se leían como una sola línea doble.
+    const yr = yCalle.get(FUERA) - CALLE_SEP / 2 - 10;
     fondo += \`<line x1="\${PADX}" y1="\${yr}" x2="\${anchoTot - PADX}" y2="\${yr}" stroke="var(--tinta-3)" stroke-width="1.6"/>\`;
   }
 
@@ -661,10 +673,11 @@ function svgDe(d, rotulo, interno = false) {
     // En estricto va solo la tanda de separación entera: la media (11) deja
     // dos líneas de padres distintos a doce unidades, que es justo lo que se
     // lee como pegado.
-    const tandas = estricto
-      ? [[SEP_LINEAS, CLARO]]
-      : [[SEP_LINEAS, CLARO], [SEP_LINEAS / 2, CLARO], [0, CLARO], [0, 6]];
-    for (const [sep, claro] of tandas) {
+    // Una sola tanda: o hay pasillo con separación entera y holgura entera, o
+    // no lo hay y se elige por puntaje. Las tandas que aflojaban la
+    // separación devolvían la x del ideal aunque ya la usara otro padre, y
+    // dos trazos quedaban exactamente encimados.
+    for (const [sep, claro] of [[SEP_LINEAS, CLARO]]) {
       for (const x of huecos) if (adentro(x) && sirve(x, sep, claro)) return x;
       if (adentro(xIdeal) && sirve(xIdeal, sep, claro)) return xIdeal;
       for (let d = 2; d <= 3 * COL; d += 2) {
@@ -672,7 +685,37 @@ function svgDe(d, rotulo, interno = false) {
         if (adentro(xIdeal + d) && sirve(xIdeal + d, sep, claro)) return xIdeal + d;
       }
     }
-    return estricto ? null : Math.min(Math.max(xIdeal, PADX / 2), anchoTot - PADX / 2);
+    if (estricto) return null;
+    // Último recurso: antes que encimarse sobre la línea de otro, se toma la
+    // vertical que más lejos quede de todas las ajenas, con tal de que no
+    // cruce ninguna caja. Devolver el ideal a secas dejaba dos trazos de
+    // padres distintos exactamente sobre la misma x.
+    const roza = (x, claro) => todas.some((c) =>
+      x > c.x - claro && x < c.x + c.w + claro && z > c.y && a < c.y + c.h);
+    // El pie que sale del pasillo hacia cada caja no puede atravesar a nadie:
+    // un pasillo lejano obliga a un pie largo, y el pie cruza lo que haya en
+    // el camino.
+    const piesLimpios = (x, claro) =>
+      pies.every(({ caja, y }) => !corta(x, y, bordeMasCerca(x, caja), new Set([caja]), claro));
+    const limpias = [...huecos, xIdeal].filter((x) => adentro(x) && !roza(x, 6) && piesLimpios(x, 2));
+    if (limpias.length) {
+      const ajenas = verticales.filter((v) => v.padre !== dePadre && z > v.a && a < v.z);
+      // Lo que molesta no es que haya otra línea cerca, sino cuánto corren
+      // juntas. Medir solo la distancia a la más cercana empataba en cero a
+      // todos los huecos de una calle —todos tienen la espina de su
+      // subsecretaría— y entonces ganaba el más próximo al ideal, que podía
+      // ser el que corría cuatrocientas unidades encimado. Se mide el largo
+      // del tramo compartido.
+      const conflicto = (x) => ajenas.reduce((t, v) => t + (Math.abs(v.x - x) < SEP_LINEAS
+        ? Math.max(0, Math.min(z, v.z) - Math.max(a, v.a)) : 0), 0);
+      limpias.sort((u, w) =>
+        (piesLimpios(u, CLARO) ? 0 : 1) - (piesLimpios(w, CLARO) ? 0 : 1) ||
+        (roza(u, CLARO) ? 1 : 0) - (roza(w, CLARO) ? 1 : 0) ||
+        conflicto(u) - conflicto(w) ||
+        Math.abs(u - xIdeal) - Math.abs(w - xIdeal));
+      return limpias[0];
+    }
+    return Math.min(Math.max(xIdeal, PADX / 2), anchoTot - PADX / 2);
   }
 
   // Vínculos, agrupados por padre y columna: una espina vertical con un pie a
@@ -720,12 +763,26 @@ function svgDe(d, rotulo, interno = false) {
     // misma columna: era lo que pasaba con los organismos fuera de nivel, que
     // cuelgan del ministerio y se dibujan al pie de la hoja.
     const salida = yCalle.get(pc.calle) + altoCalle.get(pc.calle) + CALLE_SEP / 2;
+    // La bajada del padre hasta el pie de su calle atraviesa por el medio lo
+    // que tenga apilado debajo en su misma columna. Cuando hay algo, el trazo
+    // sale de costado por la separación que queda justo debajo del padre.
+    const tapado = todas.some((c) =>
+      c !== pc && px > c.x - 2 && px < c.x + c.w + 2 && c.y > py && c.y < salida);
+    const mismaCol = pc.calle === hijos[0].calle && pc.col === hijos[0].col;
+    const antesDeFuera = calles[calles.indexOf(pc.calle) + 1] === FUERA;
+    const corredor = mismaCol || tapado ? py + FILA / 2 : salida + (antesDeFuera ? 10 : 0);
     const salta = calles.indexOf(hijos[0].calle) - calles.indexOf(pc.calle) > 1;
     // Una adjunta va apilada justo debajo de su titular, en la misma columna y
     // en la misma calle: el trazo es un tramo corto y recto. Mandarlo por el
     // pasillo lo hacía bajar hasta el pie de la calle y volver a subir,
     // cruzando las cajas del medio.
-    if (pc.calle === hijos[0].calle && pc.col === hijos[0].col) {
+    // El tramo recto solo sirve si no hay nada apilado en el medio. Con una
+    // caja intercalada lo atraviesa por la mitad: pasaba del Servicio
+    // Penitenciario al Instituto de Educación y Trabajo, con dos unidades
+    // encima en la misma columna.
+    const derecho = (h) => !todas.some((c) =>
+      c !== pc && c !== h && px > c.x - 2 && px < c.x + c.w + 2 && c.y < h.y - 1 && c.y + c.h > py + 1);
+    if (pc.calle === hijos[0].calle && pc.col === hijos[0].col && hijos.every(derecho)) {
       for (const h of hijos) {
         lineas += \`<path d="M\${px} \${py} V\${h.y}" \${trazo}/>\`;
         anotar(px, py, h.y, p);
@@ -785,8 +842,18 @@ function svgDe(d, rotulo, interno = false) {
         c.padre !== p && Math.abs(c.y - y) < 16 && Math.min(c.z, z) - Math.max(c.a, a) > 10);
       // El canal se corre hacia afuera hasta despegarse de cualquier otra
       // línea que ya baje por el margen.
-      let ext = Math.min(...todas.map((c) => c.x)) - 26;
-      while (verticales.some((v) => v.padre !== p && Math.abs(v.x - ext) < SEP_LINEAS && bus > v.a && salida < v.z)) ext -= 12;
+      // La barrida hasta el borde cruza toda la hoja a lo ancho, así que no
+      // puede ir a la altura de salida, que es la que usan las espinas de
+      // todos los padres de esa calle: se baja un escalón.
+      const salidaMargen = corredor + 9;
+      // Por el borde más cercano. Saliendo siempre por la izquierda, un área
+      // del extremo derecho barría la hoja entera a lo ancho y corría pegada
+      // a las espinas de todos los padres de su calle.
+      const izq = Math.min(...todas.map((c) => c.x)) - 26;
+      const der = Math.max(...todas.map((c) => c.x + c.w)) + 26;
+      const porDerecha = Math.abs(px - der) < Math.abs(px - izq);
+      let ext = porDerecha ? der : izq;
+      while (verticales.some((v) => v.padre !== p && Math.abs(v.x - ext) < SEP_LINEAS && bus > v.a && corredor < v.z)) ext += porDerecha ? 12 : -12;
       // El bus queda por debajo de la fila, así que la vertical sube hasta la
       // caja MÁS ALTA del grupo; si fuera hasta la más baja, los pies de las
       // de arriba quedarían sueltos.
@@ -798,23 +865,23 @@ function svgDe(d, rotulo, interno = false) {
       // la nada, como ICBA y UA, que están en la columna de su propia
       // subsecretaría y se alcanzaban dando la vuelta a la hoja entera.
       const ideal = hijos[0].x - (COL - ANCHO) / 2;
-      const local = pasilloLibre(ideal, salida, abajo, pies, p, true)
-        ?? pasilloLibre(hijos[0].x + ANCHO + (COL - ANCHO) / 2, salida, abajo, pies, p, true);
+      const local = pasilloLibre(ideal, corredor, abajo, pies, p, true)
+        ?? pasilloLibre(hijos[0].x + ANCHO + (COL - ANCHO) / 2, corredor, abajo, pies, p, true);
       if (local !== null && Math.abs(local - ideal) < COL * 1.25) {
-        const falta = troncoPropio(local, salida, abajo);
+        const falta = troncoPropio(local, corredor, abajo);
         lineas += falta === null
           ? \`<path d="M\${px} \${py} V\${salida} H\${local} V\${abajo}" \${trazo}/>\`
           : falta;
         for (const k of ids) lineas += \`<path d="M\${local} \${anclaAlto(k, cajas.get(k))} H\${bordeMasCerca(local, cajas.get(k))}" \${trazo}/>\`;
-        anotar(local, salida, abajo, p);
+        anotar(local, corredor, abajo, p);
         continue;
       }
       const sx = pasilloLibre(ideal, bus, arriba, pies, p);
       while (chocaBus(bus, Math.min(ext, sx), Math.max(ext, sx)) && bus > altoTot - 41) bus -= 21;
       carriles.push({ y: bus, a: Math.min(ext, sx), z: Math.max(ext, sx), padre: p });
-      lineas += \`<path d="M\${px} \${py} V\${salida} H\${ext} V\${bus} H\${sx} V\${arriba}" \${trazo}/>\`;
+      lineas += \`<path d="M\${px} \${py} V\${salidaMargen} H\${ext} V\${bus} H\${sx} V\${arriba}" \${trazo}/>\`;
       for (const k of ids) lineas += \`<path d="M\${sx} \${anclaAlto(k, cajas.get(k))} H\${bordeMasCerca(sx, cajas.get(k))}" \${trazo}/>\`;
-      anotar(ext, salida, bus, p);
+      anotar(ext, salidaMargen, bus, p);
       anotar(sx, arriba, bus, p);
       continue;
     }
@@ -826,15 +893,15 @@ function svgDe(d, rotulo, interno = false) {
     const zIzq = hijos[0].x - (COL - ANCHO) / 2;
     const zDer = hijos[0].x + ANCHO + (COL - ANCHO) / 2;
     const fin = anclaAlto(ultima, cajas.get(ultima));
-    const sx = pasilloLibre(zIzq, salida, fin, pies, p, true)
-      ?? pasilloLibre(zDer, salida, fin, pies, p, true)
-      ?? pasilloLibre(zIzq, salida, fin, pies, p);
-    const falta = troncoPropio(sx, salida, fin);
+    const sx = pasilloLibre(zIzq, corredor, fin, pies, p, true)
+      ?? pasilloLibre(zDer, corredor, fin, pies, p, true)
+      ?? pasilloLibre(zIzq, corredor, fin, pies, p);
+    const falta = troncoPropio(sx, corredor, fin);
     lineas += falta === null
-      ? \`<path d="M\${px} \${py} V\${salida} H\${sx} V\${fin}" \${trazo}/>\`
+      ? \`<path d="M\${px} \${py} V\${corredor} H\${sx} V\${fin}" \${trazo}/>\`
       : falta;
     for (const k of ids) lineas += \`<path d="M\${sx} \${anclaAlto(k, cajas.get(k))} H\${bordeMasCerca(sx, cajas.get(k))}" \${trazo}/>\`;
-    anotar(sx, salida, fin, p);
+    anotar(sx, corredor, fin, p);
   }
 
   let s = fondo + lineas;
@@ -859,6 +926,13 @@ function render() {
       <div class="hoja-tit"><h2>\${esc(h.nombre)}</h2><span>\${h.ids.length} área\${h.ids.length === 1 ? "" : "s"}</span></div>
       <div class="lienzo">\${dibujar(h)}</div>
     </section>\`).join("");
+  // Que el área esté en la lista de una hoja no quiere decir que la caja se
+  // haya dibujado. Diez fuera de nivel estuvieron sin aparecer en ninguna
+  // hoja mientras la cuenta por listas daba 515 de 515, así que la cuenta se
+  // hace sobre lo dibujado.
+  const puestas = new Set([...document.querySelectorAll(".hoja g.tarjeta")].map((g) => g.dataset.id));
+  self.__sinDibujar = Object.keys(D.nodos).filter((id) => !puestas.has(id));
+  if (self.__sinDibujar.length) console.error("Áreas sin dibujar:", self.__sinDibujar);
   document.querySelectorAll(".tarjeta").forEach((g) => {
     g.addEventListener("click", () => elegir(g.dataset.id));
     g.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); elegir(g.dataset.id); } });
