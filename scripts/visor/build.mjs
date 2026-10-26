@@ -200,7 +200,11 @@ select,input,button,textarea{font:inherit;font-family:var(--texto)}
 .hoja-tit h2{font-size:15.5px}
 .hoja-tit span{font-size:11.5px;color:var(--tinta-3);font-variant-numeric:tabular-nums}
 .lienzo{overflow-x:auto}
-.lienzo svg{display:block;height:auto;max-width:100%;min-width:100%}
+/* En el teléfono una hoja grande achicada a 368px queda ilegible. Se le pone
+   un piso y se la deja correr adentro de su propia caja; el cuerpo de la
+   página nunca scrollea de lado. */
+.lienzo svg{display:block;height:auto;max-width:100%;min-width:min(640px,100%)}
+@media (max-width:700px){.lienzo svg{max-width:none;min-width:640px}}
 .tarjeta{cursor:pointer}
 .tarjeta:focus{outline:none}
 .tarjeta .marco{transition:opacity .12s}
@@ -232,7 +236,31 @@ select,input,button,textarea{font:inherit;font-family:var(--texto)}
 .aviso{margin-top:14px;padding:11px 12px;background:var(--acento-suave);border-radius:8px;font-size:12px;color:var(--tinta-2)}
 .pie{color:var(--tinta-3);font-size:12px;padding-block:8px 28px;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-@media print{.barra,.panel,.pie{display:none}.cuerpo{display:block;padding:0}.hoja{break-inside:avoid;box-shadow:none;border-color:#bbb}}
+/* Impresión: A3 vertical, una jurisdicción por hoja y nada recortado. El
+   dibujo se escala solo porque el SVG lleva viewBox; el tope de alto deja
+   lugar para el título de la hoja. */
+.portada{display:none}
+@page{size:A3 portrait;margin:9mm}
+@media print{
+  :root{--papel:#fff;--hoja:#fff;--linea:#9aa6b8;--linea-2:#c6cedb;--tinta:#101e37;--tinta-2:#3c4a63;--tinta-3:#6b7892}
+  body{background:#fff;font-size:10pt}
+  .barra,.panel,.pie,.intro,#res{display:none!important}
+  .cuerpo{display:block;padding:0}
+  .portada{display:block;break-after:page}
+  .portada h1{font-size:26pt;line-height:1.15;margin-bottom:6mm}
+  .portada .bajada{font-size:11pt;color:var(--tinta-2);max-width:none;margin-bottom:8mm}
+  .portada .cifras{border:0;padding:0;margin:0 0 8mm;gap:14mm}
+  .portada .leyenda{border:0;padding:0;margin:0 0 10mm;font-size:9pt}
+  .portada ol{columns:2;column-gap:10mm;font-size:9.5pt;color:var(--tinta-2);margin:0;padding-left:5mm}
+  .portada li{break-inside:avoid;margin-bottom:1.2mm}
+  .hoja{break-before:page;break-inside:avoid;border:0;border-radius:0;margin:0;box-shadow:none}
+  .hoja-tit{border-bottom:1.2pt solid var(--tinta);padding:0 0 2mm;margin-bottom:3mm}
+  .hoja-tit h2{font-size:14pt}
+  .hoja-tit span{font-size:9pt}
+  .lienzo{overflow:visible}
+  .lienzo svg{width:auto;height:auto;min-width:0;max-width:100%;max-height:378mm}
+  .tarjeta{cursor:auto}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
@@ -247,7 +275,9 @@ select,input,button,textarea{font:inherit;font-family:var(--texto)}
       </label>
       <select id="ir" aria-label="Ir a una hoja"></select>
       <button type="button" class="btn" id="copiar">Copiar JSON</button>
-      <button type="button" class="btn pri" id="bajar">Guardar copia</button>
+      <button type="button" class="btn" id="pliego">Pliego SVG</button>
+      <button type="button" class="btn" id="bajar">Guardar copia</button>
+      <button type="button" class="btn pri" id="imprimir">Imprimir A3</button>
     </span>
   </div>
 </header>
@@ -266,6 +296,19 @@ select,input,button,textarea{font:inherit;font-family:var(--texto)}
         <span class="cifra"><b>${conFunciones}</b><span>con misiones y funciones</span></span>
       </div>
       <div class="leyenda" id="leyenda"></div>
+    </section>
+    <section class="portada">
+      <h1>Organigrama del Gobierno de la Ciudad Autónoma de Buenos Aires</h1>
+      <p class="bajada">Poder Ejecutivo completo al ${datos.generado}: ${total} áreas en ${ordenHojas.length} hojas,
+         una por jurisdicción. Incluye los organismos fuera de nivel y las unidades de auditoría interna,
+         que se dibujan con el borde punteado.</p>
+      <div class="cifras">
+        <span class="cifra"><b>${total}</b><span>áreas</span></span>
+        <span class="cifra"><b>${ordenHojas.length}</b><span>hojas</span></span>
+        <span class="cifra"><b>${conFunciones}</b><span>con misiones y funciones</span></span>
+      </div>
+      <div class="leyenda" id="leyenda-portada"></div>
+      <ol id="indice"></ol>
     </section>
     <div id="hojas"></div>
   </main>
@@ -291,8 +334,11 @@ const RANGO = {
 };
 const rango = (t) => RANGO[t] || RANGO.ORG;
 
-$("#leyenda").innerHTML = [["JG", "Jefatura"], ["MIN", "Ministerio"], ["SEC", "Secretaría"], ["SS", "Subsecretaría"], ["DG", "Dirección General"], ["ORG", "Organismo fuera de nivel"]]
+const LEYENDA = [["JG", "Jefatura"], ["MIN", "Ministerio"], ["SEC", "Secretaría"], ["SS", "Subsecretaría"], ["DG", "Dirección General"], ["ORG", "Organismo fuera de nivel"]]
   .map(([t, n]) => \`<span><i style="background:\${rango(t)[1]}"></i>\${n}</span>\`).join("");
+$("#leyenda").innerHTML = LEYENDA;
+$("#leyenda-portada").innerHTML = LEYENDA;
+$("#indice").innerHTML = D.hojas.map((h) => \`<li>\${esc(h.nombre)} — \${h.ids.length} área\${h.ids.length === 1 ? "" : "s"}</li>\`).join("");
 
 // ── Medición de texto, para que el nombre entre en la caja ──────────────
 const cx = document.createElement("canvas").getContext("2d");
@@ -320,9 +366,14 @@ function ajustar(txt, ancho, alto, max, min, peso) {
 // un árbol de arriba hacia abajo se va de ancho y obliga a hacer scroll
 // lateral. Así cada nivel es una columna y los hermanos bajan, que es como se
 // lee una lista.
-const ANCHO = 206, COL = 250, ALTO_MIN = 54, FILA = 10, PADX = 18, PADY = 18;
+// Medidas elegidas midiendo el A3 impreso: con cajas más anchas el nombre
+// entra en menos líneas, el dibujo baja de alto y, como en A3 vertical lo que
+// ata es el alto, la letra sale más grande. De 206 a 250 de ancho, la hoja
+// peor —Hacienda, 42 áreas— pasa de 6 a 7 puntos y el dibujo usa el 97% del
+// ancho de la página en vez del 60%.
+const ANCHO = 250, COL = 296, ALTO_MIN = 48, FILA = 6, PADX = 18, PADY = 18;
 
-function disponer(raiz, ids) {
+function disponer(raiz, ids, cortar = true) {
   const dentro = new Set(ids);
   const cajas = new Map();
   let y = PADY;
@@ -335,7 +386,7 @@ function disponer(raiz, ids) {
     const kids = (N[id].hijos || []).filter((k) => dentro.has(k) && k !== id);
     const h = alto(id);
     const propio = y;
-    if (!kids.length || (esHojaPropia(id) && id !== raiz)) {
+    if (!kids.length || (cortar && esHojaPropia(id) && id !== raiz)) {
       cajas.set(id, { x: PADX + prof * COL, y: propio, w: ANCHO, h, prof });
       y = propio + h + FILA;
       return { centro: propio + h / 2 };
@@ -372,17 +423,15 @@ function tarjetaSVG(id, c) {
     const tt = ajustar(n.titular, c.w - 14, 13, 9.5, 7, "400");
     s += \`<text x="\${c.x + c.w / 2}" y="\${c.y + c.h - 4.6}" font-family="var(--texto)" font-size="\${tt.fs}" fill="\${fg}" fill-opacity=".92" text-anchor="middle">\${esc(tt.lineas[0])}</text>\`;
   }
-  if (esHojaPropia(id) && id !== cajaRaiz) {
+  if (!pliego && esHojaPropia(id) && id !== cajaRaiz) {
     s += \`<circle cx="\${c.x + c.w - 11}" cy="\${c.y + 11}" r="7.5" fill="#ffffff" fill-opacity=".85"/>\`;
     s += \`<text x="\${c.x + c.w - 11}" y="\${c.y + 14.6}" font-size="10" font-weight="700" fill="#101e37" text-anchor="middle">↗</text>\`;
   }
   return s + "</g>";
 }
 
-let cajaRaiz = null;
-function dibujar(hoja) {
-  cajaRaiz = hoja.id;
-  const { cajas, anchoTot, altoTot } = disponer(hoja.id, hoja.ids);
+let cajaRaiz = null, pliego = false;
+function svgDe(cajas, anchoTot, altoTot, rotulo) {
   let s = "";
   for (const [id, c] of cajas) {
     const p = N[id].padre;
@@ -393,7 +442,12 @@ function dibujar(hoja) {
     s += \`<path d="M\${x1} \${y1} H\${xm} V\${y2} H\${x2}" fill="none" stroke="var(--linea)" stroke-width="1.5"/>\`;
   }
   for (const [id, c] of cajas) s += tarjetaSVG(id, c);
-  return \`<svg viewBox="0 0 \${anchoTot} \${altoTot}" width="\${anchoTot}" height="\${altoTot}" role="img" aria-label="Organigrama de \${esc(hoja.nombre)}">\${s}</svg>\`;
+  return \`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 \${anchoTot} \${altoTot}" width="\${anchoTot}" height="\${altoTot}" role="img" aria-label="Organigrama de \${esc(rotulo)}">\${s}</svg>\`;
+}
+function dibujar(hoja) {
+  cajaRaiz = hoja.id; pliego = false;
+  const { cajas, anchoTot, altoTot } = disponer(hoja.id, hoja.ids);
+  return svgDe(cajas, anchoTot, altoTot, hoja.nombre);
 }
 
 function render() {
@@ -543,6 +597,35 @@ $("#bajar").addEventListener("click", () => {
   a.download = "Organigrama_GCBA_" + D.generado + ".html";
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+});
+
+// Antes de imprimir hay que cerrar el buscador: su menú tapa la primera hoja.
+$("#imprimir").addEventListener("click", () => { $("#res").hidden = true; window.print(); });
+
+// Pliego: el árbol entero en un solo dibujo, sin cortar en las otras hojas.
+// Sirve para plotter o imprenta; en A3 habría que mosaiquearlo.
+function resolverVars(svg) {
+  const cs = getComputedStyle(document.documentElement);
+  return svg.replace(/var\((--[a-z0-9-]+)\)/g, (_, v) => cs.getPropertyValue(v).trim() || "#8894a8");
+}
+$("#pliego").addEventListener("click", (e) => {
+  const btn = e.currentTarget;
+  btn.textContent = "Armando…";
+  setTimeout(() => {
+    pliego = true; cajaRaiz = D.raiz;
+    const { cajas, anchoTot, altoTot } = disponer(D.raiz, Object.keys(N), false);
+    const svg = resolverVars(svgDe(cajas, anchoTot, altoTot, "Gobierno de la Ciudad Autónoma de Buenos Aires"));
+    pliego = false;
+    const mm = (u) => Math.round(u * 25.4 / 96);
+    const blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>\\n' + svg], { type: "image/svg+xml;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "Organigrama_GCBA_pliego_" + D.generado + ".svg";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    btn.textContent = \`\${mm(anchoTot)} × \${mm(altoTot)} mm\`;
+    setTimeout(() => { btn.textContent = "Pliego SVG"; }, 6000);
+  }, 20);
 });
 
 render();
