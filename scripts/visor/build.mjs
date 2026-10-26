@@ -510,10 +510,19 @@ function disponer(raiz, ids, cortar = true) {
   // cabecera y a su misma altura.
   uaisRaiz.forEach((x, n) => poner(x, 0, pos.get(raiz).k + 1 + n));
 
-  // Los fuera de nivel van todos juntos en la calle de abajo, en el orden en
-  // que aparecen sus padres, y doblan a una fila nueva cuando no entran.
-  const anchoCols = Math.max(1, cursor);
-  fuera.forEach((x, n) => poner(x, FUERA, n % anchoCols));
+  // Los fuera de nivel van todos juntos en la calle de abajo, pero cada uno
+  // bajo la columna de su padre: así la punteada cae casi a plomo y se ve de
+  // dónde cuelga. Repartirlos en orden de llegada hacía que las líneas
+  // cruzaran media hoja y no se entendiera qué conectaba con qué.
+  const ocupadas = new Map();
+  for (const x of fuera) {
+    const p = pos.get(N[x].padre);
+    const base = p ? Math.round(p.k) : 0;
+    let k = base, paso = 0;
+    while ((ocupadas.get(k) || 0) >= MAX_PILA) { paso++; k = base + (paso % 2 ? Math.ceil(paso / 2) : -Math.ceil(paso / 2)); }
+    ocupadas.set(k, (ocupadas.get(k) || 0) + 1);
+    poner(x, FUERA, Math.max(0, k));
+  }
 
   // Alto de cada calle: la columna más cargada manda.
   const altos = new Map([...pos.keys()].map((id) => [id, alto(id)]));
@@ -601,20 +610,28 @@ function svgDe(d, rotulo, interno = false) {
   // y taparle el pasillo a otro trazo. En vez de confiar en la grilla, se
   // busca la vertical libre más cercana a la deseada.
   const todas = [...cajas.values()];
-  // Sirve una vertical si no toca ninguna caja Y si los pies horizontales que
-  // salen de ella hacia cada hija tampoco. Validar solo la vertical dejaba
-  // pies largos cruzando a las vecinas.
+  // Sirve una vertical si pasa holgada de toda caja Y si los pies
+  // horizontales que salen de ella tampoco rozan a nadie. No alcanza con "no
+  // tocar": a tres unidades de una caja la línea se ve pegada a ella y parece
+  // que la conecta. Se prueban primero los centros de los huecos entre
+  // columnas, que es por donde tiene que ir.
+  const CLARO = 14;
   function pasilloLibre(xIdeal, y1, y2, pies = []) {
     const a = Math.min(y1, y2), z = Math.max(y1, y2);
     const corta = (x1, yy, x2, saltar) => todas.some((c) =>
-      !saltar.has(c) && Math.max(x1, x2) > c.x + 1 && Math.min(x1, x2) < c.x + c.w - 1 &&
+      !saltar.has(c) && Math.max(x1, x2) > c.x - CLARO && Math.min(x1, x2) < c.x + c.w + CLARO &&
       yy > c.y + 1 && yy < c.y + c.h - 1);
     const sirve = (x) => {
-      if (todas.some((c) => x > c.x - 3 && x < c.x + c.w + 3 && z > c.y && a < c.y + c.h)) return false;
+      if (todas.some((c) => x > c.x - CLARO && x < c.x + c.w + CLARO && z > c.y && a < c.y + c.h)) return false;
       return pies.every(({ caja, y }) => !corta(x, y, caja.x, new Set([caja])));
     };
+    const maxCol = Math.max(...todas.map((c) => (c.x - PADX - CANAL) / COL));
+    const huecos = [];
+    for (let k = 0; k <= Math.ceil(maxCol) + 1; k++) huecos.push(PADX + CANAL + k * COL - (COL - ANCHO) / 2);
+    huecos.sort((p, q) => Math.abs(p - xIdeal) - Math.abs(q - xIdeal));
+    for (const x of huecos) if (sirve(x)) return x;
     if (sirve(xIdeal)) return xIdeal;
-    for (let d = 3; d <= 2 * COL; d += 3) {
+    for (let d = 2; d <= 3 * COL; d += 2) {
       if (sirve(xIdeal - d)) return xIdeal - d;
       if (sirve(xIdeal + d)) return xIdeal + d;
     }
