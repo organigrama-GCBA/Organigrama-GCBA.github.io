@@ -238,7 +238,12 @@ select,input,button,textarea{font:inherit;font-family:var(--texto)}
    dibujo se escala solo porque el SVG lleva viewBox; el tope de alto deja
    lugar para el título de la hoja. */
 .portada{display:none}
-@page{size:A3 landscape;margin:9mm}
+/* Como el organigrama oficial: la caja mide siempre lo mismo y la hoja crece
+   lo que haga falta. En docs/Organigrama_GCBA_2026.pdf el ancho es fijo
+   —843,97 pt, 297,7 mm— y el alto va de 960 a 2054 pt según la página. Así la
+   letra sale igual de grande en las 32, en vez de achicarse en las cargadas.
+   Las medidas de cada hoja se calculan y se inyectan al imprimir. */
+@page{size:297.7mm 472.6mm;margin:9mm}
 @media print{
   :root{--papel:#fff;--hoja:#fff;--linea:#9aa6b8;--linea-2:#c6cedb;--tinta:#101e37;--tinta-2:#3c4a63;--tinta-3:#6b7892}
   body{background:#fff;font-size:10pt}
@@ -258,7 +263,7 @@ select,input,button,textarea{font:inherit;font-family:var(--texto)}
   .hoja-tit h2{font-size:14pt}
   .hoja-tit span{font-size:9pt}
   .lienzo{overflow:visible}
-  .lienzo svg{width:auto;height:auto;min-width:0;max-width:100%;max-height:262mm}
+  .lienzo svg{width:var(--ancho-impreso);height:var(--alto-impreso);min-width:0;max-width:none;max-height:none}
   .tarjeta{cursor:auto}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
@@ -405,6 +410,32 @@ function disponer(raiz, ids, cortar = true) {
   const dentro = new Set(ids);
   const hijosEn = (id) => (N[id].hijos || []).filter((k) => dentro.has(k) && k !== id);
   const corta = (id) => cortar && esHojaPropia(id) && id !== raiz;
+  // Una columna propia se abre solo si debajo hay OTRA calle: una
+  // subsecretaría la abre porque de ella cuelgan direcciones generales, pero
+  // una dirección general con su adjunta no, porque la adjunta es de su misma
+  // calle. Así lo dibuja el oficial: las cinco direcciones de la Subsecretaría
+  // de Hacienda —adjuntas incluidas— van en una sola columna.
+  const abreCol = (id) => {
+    const b = calleDe(id, raiz);
+    let hay = false;
+    (function rec(x) {
+      if (hay || corta(x)) return;
+      for (const k of hijosEn(x)) {
+        const c = calleDe(k, raiz);
+        if (c !== FUERA && c > b) { hay = true; return; }
+        rec(k);
+      }
+    })(id);
+    return hay;
+  };
+  const linajeDe = (x) => {
+    const out = [x];
+    const b = calleDe(x, raiz);
+    (function rec(y) {
+      for (const k of corta(y) ? [] : hijosEn(y)) if (calleDe(k, raiz) === b) { out.push(k); rec(k); }
+    })(x);
+    return out;
+  };
   intermedios = new Set(
     hijosEn(raiz).filter((k) => !corta(k) && hijosEn(k).length &&
       (N[k].dashed || ["ORG", "OTRO"].includes(N[k].tipo)) && !esUAI(k)),
@@ -446,20 +477,27 @@ function disponer(raiz, ids, cortar = true) {
     })(id);
     const normales = sueltos.filter((x) => calleDe(x, raiz) !== FUERA);
     sueltos.filter((x) => calleDe(x, raiz) === FUERA).forEach((x) => fuera.push(x));
-    const ramas = normales.filter(abre);
-    const hojas = normales.filter((x) => !abre(x));
+    const ramas = normales.filter(abreCol);
+    const hojas = normales.filter((x) => !abreCol(x)).flatMap(linajeDe);
     const tramos = ramas.map(colocar);
     // Una pila muy larga deja la hoja alta y flaca, y en A3 la letra se vuelve
     // ilegible: se la reparte en columnas, como hace el organigrama oficial
     // con los ministerios.
     if (hojas.length) {
-      const trozos = Math.ceil(hojas.length / MAX_PILA);
-      const porColumna = Math.ceil(hojas.length / trozos);
-      for (let i = 0; i < trozos; i++) {
-        const k = cursor++;
-        for (const x of hojas.slice(i * porColumna, (i + 1) * porColumna)) poner(x, calleDe(x, raiz), k);
-        tramos.push([k, k]);
+      // Se agrupan por calle: una pila mezcla direcciones generales con
+      // subsecretarías sin estructura, y cada una va a la suya.
+      const porCalle = new Map();
+      for (const x of hojas) {
+        const c = calleDe(x, raiz);
+        (porCalle.get(c) || porCalle.set(c, []).get(c)).push(x);
       }
+      const trozos = Math.max(...[...porCalle.values()].map((v) => Math.ceil(v.length / MAX_PILA)));
+      const cols = Array.from({ length: trozos }, () => cursor++);
+      for (const [c, v] of porCalle) {
+        const porColumna = Math.ceil(v.length / trozos);
+        v.forEach((x, n) => poner(x, c, cols[Math.min(trozos - 1, Math.floor(n / porColumna))]));
+      }
+      for (const k of cols) tramos.push([k, k]);
     }
     let a, z;
     if (tramos.length) { a = Math.min(...tramos.map((t) => t[0])); z = Math.max(...tramos.map((t) => t[1])); }
@@ -747,8 +785,31 @@ $("#bajar").addEventListener("click", () => {
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 });
 
-// Antes de imprimir hay que cerrar el buscador: su menú tapa la primera hoja.
-$("#imprimir").addEventListener("click", () => { $("#res").hidden = true; window.print(); });
+// Antes de imprimir se calcula el tamaño de cada hoja y se inyecta una regla
+// @page por hoja. La escala es fija —la caja mide 35,3 mm, como en el
+// oficial— así que la letra sale igual en las 32 y la hoja crece lo que haga
+// falta. El ancho es 297,7 mm salvo en las hojas que no entran, que llevan el
+// suyo.
+const MM_POR_UNIDAD = 35.3 / ANCHO, MARGEN = 9, ANCHO_OFICIAL = 297.7;
+function medidasDeImpresion() {
+  const reglas = [];
+  D.hojas.forEach((h, i) => {
+    const d = disponer(h.id, h.ids);
+    const anchoMM = d.anchoTot * MM_POR_UNIDAD, altoMM = d.altoTot * MM_POR_UNIDAD;
+    const hoja = Math.max(ANCHO_OFICIAL, +(anchoMM + 2 * MARGEN).toFixed(1));
+    const alto = +(altoMM + 2 * MARGEN + 14).toFixed(1);
+    reglas.push(
+      \`@page h\${i} { size: \${hoja}mm \${alto}mm; margin: \${MARGEN}mm }\`,
+      \`#h-\${CSS.escape(h.id)} { page: h\${i} }\`,
+      \`#h-\${CSS.escape(h.id)} .lienzo svg { --ancho-impreso: \${anchoMM.toFixed(1)}mm; --alto-impreso: \${altoMM.toFixed(1)}mm }\`,
+    );
+  });
+  let est = document.getElementById("medidas-impresion");
+  if (!est) { est = document.createElement("style"); est.id = "medidas-impresion"; document.head.appendChild(est); }
+  est.textContent = "@media print{" + reglas.join("\\n") + "}";
+}
+$("#imprimir").addEventListener("click", () => { $("#res").hidden = true; medidasDeImpresion(); window.print(); });
+medidasDeImpresion();
 
 // Pliego: el árbol entero en un solo dibujo, sin cortar en las otras hojas.
 // Sirve para plotter o imprenta; en A3 habría que mosaiquearlo.
