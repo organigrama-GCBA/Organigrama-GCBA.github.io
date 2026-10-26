@@ -350,10 +350,7 @@ select,input,button,textarea{font:inherit;font-family:var(--texto)}
       ${LOGO ? `<img src="${LOGO}" alt="Sindicatura General de la Ciudad de Buenos Aires">` : ""}
       <h1>Organigrama GCBA</h1>
       <p class="caratula-sub">Poder Ejecutivo de la Ciudad Autónoma de Buenos Aires</p>
-      <p class="caratula-fechas">
-        <span>Actualizado al <b>${datos.generado.split("-").reverse().join("/")}</b></span>
-        <span>Descargado el <b id="cara-hoy"></b></span>
-      </p>
+      <p class="caratula-fechas"><span>Actualizado al <b id="cara-hoy"></b></span></p>
     </section>
     <div id="hojas"></div>
   </main>
@@ -1274,9 +1271,9 @@ $("#pliego").addEventListener("click", (e) => {
   }, 20);
 });
 
-// La carátula lleva dos fechas: la de los datos, que es cuándo se actualizó
-// el organigrama, y la del día en que se baja. Son cosas distintas y conviene
-// que se vean las dos: si el sitio quedó sin publicar, la diferencia canta.
+// La fecha de la carátula es la del día en que se baja: el organigrama se
+// publica con cada cambio, así que lo que se descarga está actualizado a esa
+// fecha. Si alguna vez el sitio quedara sin publicar, esta fecha adelantaría.
 const hoy = new Date();
 $("#cara-hoy").textContent =
   \`\${String(hoy.getDate()).padStart(2, "0")}/\${String(hoy.getMonth() + 1).padStart(2, "0")}/\${hoy.getFullYear()}\`;
