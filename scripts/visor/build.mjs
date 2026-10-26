@@ -39,12 +39,23 @@ function descendientes(id) {
 // organismo con su estructura. Un área grande que cuelga de otra se lleva su
 // propia hoja para que ninguna quede ilegible; el umbral sale de los datos: con
 // 15 descendientes quedan 33 hojas de entre 3 y 42 áreas.
-const UMBRAL_HOJA = 15;
+// Igual que los anexos: una hoja de primeros niveles por jurisdicción y
+// después una por cada subsecretaría con estructura propia. El anexo del
+// Decreto 306/26 para Hacienda son 13 páginas armadas así.
+const UMBRAL_HOJA = 5;
 const hojas = [org.id];
 for (const c of hijos(org.id)) if (hijos(c).length) hojas.push(c);
 for (const c of hijos("MJGGC")) if (hijos(c).length) hojas.push(c);
+const jurisdicciones = new Set(hojas);
+const fueraDeNivel = (id) => nodos.get(id).dashed || ["ORG", "OTRO"].includes(nodos.get(id).tipo);
 for (const id of nodos.keys()) {
-  if (!hojas.includes(id) && descendientes(id) >= UMBRAL_HOJA) hojas.push(id);
+  if (hojas.includes(id)) continue;
+  const p = padre.get(id);
+  // Un organismo fuera de nivel con estructura SIEMPRE abre hoja: en el dibujo
+  // por calles sus direcciones generales irían a la calle de arriba, es decir
+  // por encima del organismo del que dependen.
+  if (hijos(id).length && (fueraDeNivel(id) || (p && jurisdicciones.has(p)))) hojas.push(id);
+  else if (descendientes(id) >= UMBRAL_HOJA) hojas.push(id);
 }
 const esHoja = new Set(hojas);
 
@@ -64,6 +75,13 @@ const ordenHojas = hojas.slice().sort((a, b) => {
   const rb = padre.get(b) === org.id ? 0 : 1;
   return ra - rb || nodos.get(a).nombre.localeCompare(nodos.get(b).nombre, "es");
 });
+
+const cubiertos = new Set(ordenHojas.flatMap((id) => subarbol(id)));
+const sueltos = [...nodos.keys()].filter((id) => !cubiertos.has(id));
+if (sueltos.length) {
+  console.error(`Hay ${sueltos.length} área(s) que no caen en ninguna hoja: ${sueltos.join(", ")}`);
+  process.exit(1);
+}
 
 const datos = {
   generado: new Date().toISOString().slice(0, 10),
@@ -251,14 +269,15 @@ select,input,button,textarea{font:inherit;font-family:var(--texto)}
   .portada .bajada{font-size:11pt;color:var(--tinta-2);max-width:none;margin-bottom:8mm}
   .portada .cifras{border:0;padding:0;margin:0 0 8mm;gap:14mm}
   .portada .leyenda{border:0;padding:0;margin:0 0 10mm;font-size:9pt}
-  .portada ol{columns:2;column-gap:10mm;font-size:9.5pt;color:var(--tinta-2);margin:0;padding-left:5mm}
-  .portada li{break-inside:avoid;margin-bottom:1.2mm}
+  .portada ol{columns:3;column-gap:8mm;font-size:8.2pt;color:var(--tinta-2);margin:0;padding:0;list-style:none}
+  .portada li{break-inside:avoid;margin-bottom:.9mm}
+  .portada li b{font-variant-numeric:tabular-nums;color:var(--tinta);font-weight:600}
   .hoja{break-before:page;break-inside:avoid;border:0;border-radius:0;margin:0;box-shadow:none}
   .hoja-tit{border-bottom:1.2pt solid var(--tinta);padding:0 0 2mm;margin-bottom:3mm}
   .hoja-tit h2{font-size:14pt}
   .hoja-tit span{font-size:9pt}
   .lienzo{overflow:visible}
-  .lienzo svg{width:auto;height:auto;min-width:0;max-width:100%;max-height:378mm}
+  .lienzo svg{width:auto;height:auto;min-width:0;max-width:100%;max-height:363mm}
   .tarjeta{cursor:auto}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
@@ -338,7 +357,8 @@ const LEYENDA = [["JG", "Jefatura"], ["MIN", "Ministerio"], ["SEC", "Secretaría
   .map(([t, n]) => \`<span><i style="background:\${rango(t)[1]}"></i>\${n}</span>\`).join("");
 $("#leyenda").innerHTML = LEYENDA;
 $("#leyenda-portada").innerHTML = LEYENDA;
-$("#indice").innerHTML = D.hojas.map((h) => \`<li>\${esc(h.nombre)} — \${h.ids.length} área\${h.ids.length === 1 ? "" : "s"}</li>\`).join("");
+// La hoja n se imprime en la página n+1: la portada ocupa la primera.
+$("#indice").innerHTML = D.hojas.map((h, i) => \`<li><b>\${i + 2}</b> · \${esc(h.nombre)}</li>\`).join("");
 
 // ── Medición de texto, para que el nombre entre en la caja ──────────────
 const cx = document.createElement("canvas").getContext("2d");
@@ -361,45 +381,108 @@ function ajustar(txt, ancho, alto, max, min, peso) {
   return { lineas: l.slice(0, Math.max(1, Math.floor(alto / (min * 1.22)))), fs: min };
 }
 
-// ── Disposición: árbol de izquierda a derecha ───────────────────────────
-// Vertical y no horizontal a propósito: con 42 áreas y hasta cuatro niveles,
-// un árbol de arriba hacia abajo se va de ancho y obliga a hacer scroll
-// lateral. Así cada nivel es una columna y los hermanos bajan, que es como se
-// lee una lista.
-// Medidas elegidas midiendo el A3 impreso: con cajas más anchas el nombre
-// entra en menos líneas, el dibujo baja de alto y, como en A3 vertical lo que
-// ata es el alto, la letra sale más grande. De 206 a 250 de ancho, la hoja
-// peor —Hacienda, 42 áreas— pasa de 6 a 7 puntos y el dibujo usa el 97% del
-// ancho de la página en vez del 60%.
-const ANCHO = 250, COL = 296, ALTO_MIN = 48, FILA = 6, PADX = 18, PADY = 18;
+// ── Disposición: calles por rango ──────────────────────────────────────
+// Como los anexos oficiales: una calle horizontal por rango —MINISTERIO,
+// SUBSECRETARÍA, DIRECCIÓN GENERAL— y los organismos fuera de nivel todos
+// juntos en la calle de abajo.
+//
+// La caja va en la calle de SU RANGO, no en la de su profundidad en el árbol.
+// Importa: una Dirección General que cuelga directo del ministerio baja igual
+// a la calle de direcciones generales, con la línea cruzando la calle de
+// subsecretarías. Ponerla por profundidad la dejaba al lado de las
+// subsecretarías, como si fuera una de ellas.
+//
+// Dentro de una calle, las hijas de un mismo padre se apilan en una columna,
+// con una espina vertical y un pie a cada caja. Así el ancho lo da la cantidad
+// de padres y no la de hijas, que es lo que mantiene la hoja imprimible.
+const ANCHO = 250, COL = 296, ALTO_MIN = 44, FILA = 7, PADX = 16, PADY = 16;
+const CALLE_SEP = 46, CANAL = 86;
+
+const RANGO_CALLE = { JG: 1, VJG: 1, MIN: 1, SEC: 1, SS: 2, DG: 3, GG: 3, GO: 4, SGO: 4 };
+const FUERA = 9;
+const ROTULO_CALLE = { 0: "", 1: "MINISTERIO", 2: "SUBSECRETARÍA", 3: "DIRECCIÓN GENERAL", 4: "GERENCIA", 9: "FUERA DE NIVEL" };
+function calleDe(id, raiz) {
+  if (id === raiz) return 0;
+  const t = N[id].tipo;
+  if (t === "ORG" || t === "OTRO" || N[id].dashed) return FUERA;
+  return RANGO_CALLE[t] ?? FUERA;
+}
 
 function disponer(raiz, ids, cortar = true) {
   const dentro = new Set(ids);
-  const cajas = new Map();
-  let y = PADY;
+  const hijosEn = (id) => (N[id].hijos || []).filter((k) => dentro.has(k) && k !== id);
+  const corta = (id) => cortar && esHojaPropia(id) && id !== raiz;
+  const abre = (id) => hijosEn(id).length > 0 && !corta(id);
+
   function alto(id) {
     const n = N[id];
-    const t = ajustar(n.nombre, ANCHO - 20, 42, 12.5, 8.5, "600").lineas.length;
-    return Math.max(ALTO_MIN, 16 + t * 15 + (n.titular ? 15 : 0));
+    const t = ajustar(n.nombre, ANCHO - 18, 40, 12.5, 8, "600").lineas.length;
+    return Math.max(ALTO_MIN, 14 + t * 14.5 + (n.titular ? 14 : 0));
   }
-  function rec(id, prof) {
-    const kids = (N[id].hijos || []).filter((k) => dentro.has(k) && k !== id);
-    const h = alto(id);
-    const propio = y;
-    if (!kids.length || (cortar && esHojaPropia(id) && id !== raiz)) {
-      cajas.set(id, { x: PADX + prof * COL, y: propio, w: ANCHO, h, prof });
-      y = propio + h + FILA;
-      return { centro: propio + h / 2 };
+
+  const pos = new Map();          // id -> {c: calle, k: columna, i: orden de apilado}
+  const cuenta = new Map();
+  const poner = (id, c, k) => {
+    const key = c + "|" + k;
+    const i = cuenta.get(key) || 0;
+    cuenta.set(key, i + 1);
+    pos.set(id, { c, k, i });
+  };
+
+  let cursor = 0;
+  const fuera = [];
+  function colocar(id) {
+    const kids = corta(id) ? [] : hijosEn(id);
+    const normales = kids.filter((x) => calleDe(x, raiz) !== FUERA);
+    kids.filter((x) => calleDe(x, raiz) === FUERA).forEach((x) => fuera.push(x));
+    const ramas = normales.filter(abre);
+    const hojas = normales.filter((x) => !abre(x));
+    const tramos = ramas.map(colocar);
+    if (hojas.length) {
+      const k = cursor++;
+      for (const x of hojas) poner(x, calleDe(x, raiz), k);
+      tramos.push([k, k]);
     }
-    const cen = kids.map((k) => rec(k, prof + 1).centro);
-    const mid = (cen[0] + cen[cen.length - 1]) / 2;
-    cajas.set(id, { x: PADX + prof * COL, y: Math.max(propio, mid - h / 2), w: ANCHO, h, prof });
-    return { centro: cajas.get(id).y + h / 2 };
+    let a, z;
+    if (tramos.length) { a = Math.min(...tramos.map((t) => t[0])); z = Math.max(...tramos.map((t) => t[1])); }
+    else { a = z = cursor++; }
+    poner(id, calleDe(id, raiz), (a + z) / 2);
+    return [a, z];
   }
-  rec(raiz, 0);
+  colocar(raiz);
+
+  // Los fuera de nivel van todos juntos en la calle de abajo, en el orden en
+  // que aparecen sus padres, y doblan a una fila nueva cuando no entran.
+  const anchoCols = Math.max(1, cursor);
+  fuera.forEach((x, n) => poner(x, FUERA, n % anchoCols));
+
+  // Alto de cada calle: la columna más cargada manda.
+  const altos = new Map([...pos.keys()].map((id) => [id, alto(id)]));
+  const calles = [...new Set([...pos.values()].map((p) => p.c))].sort((a, b) => a - b);
+  const yCalle = new Map(), altoCalle = new Map();
+  for (const c of calles) {
+    const porCol = new Map();
+    for (const [id, p] of pos) if (p.c === c) porCol.set(p.k, (porCol.get(p.k) || 0) + altos.get(id) + FILA);
+    altoCalle.set(c, Math.max(...porCol.values()) - FILA);
+  }
+  let yy = PADY;
+  for (const c of calles) { yCalle.set(c, yy); yy += altoCalle.get(c) + CALLE_SEP; }
+  const altoTot = yy - CALLE_SEP + PADY;
+
+  // Coordenadas finales. Dentro de una columna se apila por orden de llegada.
+  const cajas = new Map();
+  const acum = new Map();
+  for (const [id, p] of [...pos].sort((a, b) => a[1].c - b[1].c || a[1].k - b[1].k || a[1].i - b[1].i)) {
+    const key = p.c + "|" + p.k;
+    const dy = acum.get(key) || 0;
+    cajas.set(id, {
+      x: PADX + CANAL + p.k * COL, y: yCalle.get(p.c) + dy,
+      w: ANCHO, h: altos.get(id), calle: p.c, col: p.k,
+    });
+    acum.set(key, dy + altos.get(id) + FILA);
+  }
   const anchoTot = Math.max(...[...cajas.values()].map((c) => c.x + c.w)) + PADX;
-  const altoTot = Math.max(...[...cajas.values()].map((c) => c.y + c.h)) + PADY;
-  return { cajas, anchoTot, altoTot };
+  return { cajas, anchoTot, altoTot, calles, yCalle, altoCalle };
 }
 const hojaIds = new Set(D.hojas.map((h) => h.id));
 const esHojaPropia = (id) => hojaIds.has(id);
@@ -408,46 +491,79 @@ const esHojaPropia = (id) => hojaIds.has(id);
 function tarjetaSVG(id, c) {
   const n = N[id];
   const [, bg, fg] = rango(n.tipo);
-  const hTit = n.titular ? c.h - 15 : c.h;
-  const t = ajustar(n.nombre, c.w - 20, hTit - 14, 12.5, 8.5, "600");
-  const y0 = c.y + (hTit - t.lineas.length * t.fs * 1.22) / 2 + t.fs * 0.92;
+  const hTit = n.titular ? c.h - 14 : c.h;
+  const t = ajustar(n.nombre, c.w - 18, hTit - 12, 12.5, 8, "600");
+  const y0 = c.y + (hTit - t.lineas.length * t.fs * 1.2) / 2 + t.fs * 0.9;
   const guion = n.dashed ? ' stroke-dasharray="5 3"' : "";
   let s = \`<g class="tarjeta" data-id="\${esc(id)}" tabindex="0" role="button" aria-label="\${esc(n.nombre)}">\`;
   s += \`<title>\${esc(n.nombre)}\${n.titular ? " — " + esc(n.titular) : ""}</title>\`;
-  s += \`<rect class="marco" x="\${c.x}" y="\${c.y}" width="\${c.w}" height="\${c.h}" rx="6" fill="\${bg}" stroke="#00000022"\${guion}/>\`;
+  s += \`<rect class="marco" x="\${c.x}" y="\${c.y}" width="\${c.w}" height="\${c.h}" rx="5" fill="\${bg}" stroke="#00000022"\${guion}/>\`;
   s += \`<text font-family="var(--texto)" font-size="\${t.fs}" font-weight="600" fill="\${fg}" text-anchor="middle">\`;
-  s += t.lineas.map((l, i) => \`<tspan x="\${c.x + c.w / 2}" y="\${y0 + i * t.fs * 1.22}">\${esc(l)}</tspan>\`).join("");
+  s += t.lineas.map((l, i) => \`<tspan x="\${c.x + c.w / 2}" y="\${y0 + i * t.fs * 1.2}">\${esc(l)}</tspan>\`).join("");
   s += "</text>";
   if (n.titular) {
-    s += \`<rect x="\${c.x}" y="\${c.y + c.h - 15}" width="\${c.w}" height="15" fill="#00000026"/>\`;
-    const tt = ajustar(n.titular, c.w - 14, 13, 9.5, 7, "400");
-    s += \`<text x="\${c.x + c.w / 2}" y="\${c.y + c.h - 4.6}" font-family="var(--texto)" font-size="\${tt.fs}" fill="\${fg}" fill-opacity=".92" text-anchor="middle">\${esc(tt.lineas[0])}</text>\`;
+    s += \`<rect x="\${c.x}" y="\${c.y + c.h - 14}" width="\${c.w}" height="14" fill="#00000026"/>\`;
+    const tt = ajustar(n.titular, c.w - 12, 12, 9, 6.5, "400");
+    s += \`<text x="\${c.x + c.w / 2}" y="\${c.y + c.h - 4.2}" font-family="var(--texto)" font-size="\${tt.fs}" fill="\${fg}" fill-opacity=".92" text-anchor="middle">\${esc(tt.lineas[0])}</text>\`;
   }
   if (!pliego && esHojaPropia(id) && id !== cajaRaiz) {
-    s += \`<circle cx="\${c.x + c.w - 11}" cy="\${c.y + 11}" r="7.5" fill="#ffffff" fill-opacity=".85"/>\`;
-    s += \`<text x="\${c.x + c.w - 11}" y="\${c.y + 14.6}" font-size="10" font-weight="700" fill="#101e37" text-anchor="middle">↗</text>\`;
+    s += \`<circle cx="\${c.x + c.w - 10}" cy="\${c.y + 10}" r="7" fill="#ffffff" fill-opacity=".85"/>\`;
+    s += \`<text x="\${c.x + c.w - 10}" y="\${c.y + 13.4}" font-size="9.5" font-weight="700" fill="#101e37" text-anchor="middle">↗</text>\`;
   }
   return s + "</g>";
 }
 
 let cajaRaiz = null, pliego = false;
-function svgDe(cajas, anchoTot, altoTot, rotulo) {
-  let s = "";
+function svgDe(d, rotulo, interno = false) {
+  const { cajas, anchoTot, altoTot, calles, yCalle, altoCalle } = d;
+  let fondo = "", lineas = "";
+
+  // Rótulo de cada calle en el canal de la izquierda, como en los anexos.
+  for (const c of calles) {
+    if (!ROTULO_CALLE[c]) continue;
+    const y0 = yCalle.get(c), y1 = y0 + altoCalle.get(c);
+    fondo += \`<line x1="\${PADX}" y1="\${y0 - CALLE_SEP / 2}" x2="\${anchoTot - PADX}" y2="\${y0 - CALLE_SEP / 2}" stroke="var(--linea)" stroke-width="1" stroke-dasharray="6 5"/>\`;
+    fondo += \`<text x="\${PADX + 20}" y="\${(y0 + y1) / 2}" transform="rotate(-90 \${PADX + 20} \${(y0 + y1) / 2})" text-anchor="middle" font-family="var(--display)" font-size="11" font-weight="700" letter-spacing="1.1" fill="var(--tinta-3)">\${esc(ROTULO_CALLE[c])}</text>\`;
+  }
+
+  // Vínculos, agrupados por padre y columna: una espina vertical con un pie a
+  // cada caja, que es como los dibuja el organigrama oficial.
+  const grupos = new Map();
   for (const [id, c] of cajas) {
     const p = N[id].padre;
     if (!cajas.has(p)) continue;
-    const pc = cajas.get(p);
-    const x1 = pc.x + pc.w, y1 = pc.y + pc.h / 2, x2 = c.x, y2 = c.y + c.h / 2;
-    const xm = x1 + (COL - ANCHO) / 2;
-    s += \`<path d="M\${x1} \${y1} H\${xm} V\${y2} H\${x2}" fill="none" stroke="var(--linea)" stroke-width="1.5"/>\`;
+    const key = p + "|" + c.calle + "|" + c.col;
+    (grupos.get(key) || grupos.set(key, []).get(key)).push(id);
   }
+  for (const [key, miembros] of grupos) {
+    const p = key.split("|")[0];
+    const pc = cajas.get(p);
+    const hijos = miembros.map((id) => cajas.get(id)).sort((a, b) => a.y - b.y);
+    const punteado = N[miembros[0]].dashed || calleDe(miembros[0], cajaRaiz) === FUERA;
+    const trazo = \`stroke="var(--linea)" stroke-width="1.4" fill="none"\${punteado ? ' stroke-dasharray="4 3"' : ""}\`;
+    const px = pc.x + pc.w / 2, py = pc.y + pc.h;
+    const bus = hijos[0].y - CALLE_SEP / 2;
+    // Si el hijo está más de una calle abajo, el trazo recto le pasaría por
+    // encima a las cajas del medio: se lo manda por el canal de la izquierda.
+    const salta = calles.indexOf(hijos[0].calle) - calles.indexOf(pc.calle) > 1;
+    if (!salta && hijos.length === 1 && Math.abs(hijos[0].x + hijos[0].w / 2 - px) < 1) {
+      lineas += \`<path d="M\${px} \${py} V\${hijos[0].y}" \${trazo}/>\`;
+      continue;
+    }
+    const sx = hijos[0].x - (COL - ANCHO) / 2;
+    const ultima = hijos[hijos.length - 1];
+    lineas += \`<path d="M\${px} \${py} V\${bus} H\${sx} V\${ultima.y + ultima.h / 2}" \${trazo}/>\`;
+    for (const h of hijos) lineas += \`<path d="M\${sx} \${h.y + h.h / 2} H\${h.x}" \${trazo}/>\`;
+  }
+
+  let s = fondo + lineas;
   for (const [id, c] of cajas) s += tarjetaSVG(id, c);
+  if (interno) return s;
   return \`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 \${anchoTot} \${altoTot}" width="\${anchoTot}" height="\${altoTot}" role="img" aria-label="Organigrama de \${esc(rotulo)}">\${s}</svg>\`;
 }
 function dibujar(hoja) {
   cajaRaiz = hoja.id; pliego = false;
-  const { cajas, anchoTot, altoTot } = disponer(hoja.id, hoja.ids);
-  return svgDe(cajas, anchoTot, altoTot, hoja.nombre);
+  return svgDe(disponer(hoja.id, hoja.ids), hoja.nombre);
 }
 
 function render() {
@@ -612,9 +728,28 @@ $("#pliego").addEventListener("click", (e) => {
   const btn = e.currentTarget;
   btn.textContent = "Armando…";
   setTimeout(() => {
-    pliego = true; cajaRaiz = D.raiz;
-    const { cajas, anchoTot, altoTot } = disponer(D.raiz, Object.keys(N), false);
-    const svg = resolverVars(svgDe(cajas, anchoTot, altoTot, "Gobierno de la Ciudad Autónoma de Buenos Aires"));
+    // Las 108 hojas apiladas en un dibujo solo. No se arma con un único árbol
+    // porque las calles son por rango: las direcciones generales de un
+    // organismo fuera de nivel caerían por encima del organismo mismo.
+    pliego = true;
+    const SEP = 96;
+    let y = 0, anchoTot = 0;
+    const partes = [];
+    for (const h of D.hojas) {
+      cajaRaiz = h.id;
+      const d = disponer(h.id, h.ids);
+      partes.push({ h, d, y });
+      anchoTot = Math.max(anchoTot, d.anchoTot);
+      y += d.altoTot + SEP;
+    }
+    const altoTot = y - SEP + 40;
+    let cuerpo = "";
+    for (const { h, d, y: yy } of partes) {
+      cajaRaiz = h.id;
+      cuerpo += \`<text x="16" y="\${yy + 26}" font-family="var(--display)" font-size="21" font-weight="700" fill="var(--tinta)">\${esc(h.nombre)}</text>\`;
+      cuerpo += \`<svg x="0" y="\${yy + 38}" width="\${d.anchoTot}" height="\${d.altoTot}" viewBox="0 0 \${d.anchoTot} \${d.altoTot}">\${svgDe(d, h.nombre, true)}</svg>\`;
+    }
+    const svg = resolverVars(\`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 \${anchoTot} \${altoTot}" width="\${anchoTot}" height="\${altoTot}" role="img" aria-label="Organigrama completo del Gobierno de la Ciudad Autónoma de Buenos Aires">\${cuerpo}</svg>\`);
     pliego = false;
     const mm = (u) => Math.round(u * 25.4 / 96);
     const blob = new Blob(['<?xml version="1.0" encoding="UTF-8"?>\\n' + svg], { type: "image/svg+xml;charset=utf-8" });
