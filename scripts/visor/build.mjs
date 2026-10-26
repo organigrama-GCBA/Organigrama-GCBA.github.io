@@ -581,7 +581,9 @@ function tarjetaSVG(id, c) {
 // Los vínculos se enganchan al bloque del nombre, no al titular, que queda
 // suelto debajo de la caja.
 const anclaAlto = (id, c) => c.y + (c.h - H_SIGLA - (N[id].titular ? H_TITULAR : 0)) / 2;
-const anclaPie = (id, c) => c.y + c.h - H_SIGLA - (N[id].titular ? H_TITULAR : 0) + H_SIGLA;
+// El trazo arranca por debajo de TODA la tarjeta, titular incluido: si salía
+// del pie de la franja de sigla, bajaba por encima del nombre del titular.
+const anclaPie = (id, c) => c.y + c.h;
 
 let cajaRaiz = null, pliego = false;
 function svgDe(d, rotulo, interno = false) {
@@ -593,6 +595,30 @@ function svgDe(d, rotulo, interno = false) {
   if (calles.includes(FUERA) && calles.length > 1) {
     const yr = yCalle.get(FUERA) - CALLE_SEP / 2 - 4;
     fondo += \`<line x1="\${PADX}" y1="\${yr}" x2="\${anchoTot - PADX}" y2="\${yr}" stroke="var(--tinta-3)" stroke-width="1.6"/>\`;
+  }
+
+  // Un padre se centra sobre sus hijas, así que puede quedar en media columna
+  // y taparle el pasillo a otro trazo. En vez de confiar en la grilla, se
+  // busca la vertical libre más cercana a la deseada.
+  const todas = [...cajas.values()];
+  // Sirve una vertical si no toca ninguna caja Y si los pies horizontales que
+  // salen de ella hacia cada hija tampoco. Validar solo la vertical dejaba
+  // pies largos cruzando a las vecinas.
+  function pasilloLibre(xIdeal, y1, y2, pies = []) {
+    const a = Math.min(y1, y2), z = Math.max(y1, y2);
+    const corta = (x1, yy, x2, saltar) => todas.some((c) =>
+      !saltar.has(c) && Math.max(x1, x2) > c.x + 1 && Math.min(x1, x2) < c.x + c.w - 1 &&
+      yy > c.y + 1 && yy < c.y + c.h - 1);
+    const sirve = (x) => {
+      if (todas.some((c) => x > c.x - 3 && x < c.x + c.w + 3 && z > c.y && a < c.y + c.h)) return false;
+      return pies.every(({ caja, y }) => !corta(x, y, caja.x, new Set([caja])));
+    };
+    if (sirve(xIdeal)) return xIdeal;
+    for (let d = 3; d <= 2 * COL; d += 3) {
+      if (sirve(xIdeal - d)) return xIdeal - d;
+      if (sirve(xIdeal + d)) return xIdeal + d;
+    }
+    return xIdeal;
   }
 
   // Vínculos, agrupados por padre y columna: una espina vertical con un pie a
@@ -611,18 +637,34 @@ function svgDe(d, rotulo, interno = false) {
     const punteado = N[miembros[0]].dashed || calleDe(miembros[0], cajaRaiz) === FUERA;
     const trazo = \`stroke="var(--linea)" stroke-width="1.4" fill="none"\${punteado ? ' stroke-dasharray="4 3"' : ""}\`;
     const px = pc.x + pc.w / 2, py = anclaPie(p, pc);
-    const bus = hijos[0].y - CALLE_SEP / 2;
-    // Si el hijo está más de una calle abajo, el trazo recto le pasaría por
-    // encima a las cajas del medio: se lo manda por el canal de la izquierda.
+    // El trazo sale de la caja del padre y dobla enseguida, en el pasillo que
+    // queda justo debajo de SU calle. Si bajara derecho hasta la altura del
+    // hijo, atravesaría por el medio todas las cajas que tiene debajo en su
+    // misma columna: era lo que pasaba con los organismos fuera de nivel, que
+    // cuelgan del ministerio y se dibujan al pie de la hoja.
+    const salida = yCalle.get(pc.calle) + altoCalle.get(pc.calle) + CALLE_SEP / 2;
     const salta = calles.indexOf(hijos[0].calle) - calles.indexOf(pc.calle) > 1;
-    if (!salta && hijos.length === 1 && Math.abs(hijos[0].x + hijos[0].w / 2 - px) < 1) {
+    // Una adjunta va apilada justo debajo de su titular, en la misma columna y
+    // en la misma calle: el trazo es un tramo corto y recto. Mandarlo por el
+    // pasillo lo hacía bajar hasta el pie de la calle y volver a subir,
+    // cruzando las cajas del medio.
+    if (pc.calle === hijos[0].calle && pc.col === hijos[0].col) {
+      for (const h of hijos) lineas += \`<path d="M\${px} \${py} V\${h.y}" \${trazo}/>\`;
+      continue;
+    }
+    const primeroDeSuPila = hijos[0].y <= yCalle.get(hijos[0].calle) + 0.5;
+    if (!salta && primeroDeSuPila && hijos.length === 1 && Math.abs(hijos[0].x + hijos[0].w / 2 - px) < 1) {
       lineas += \`<path d="M\${px} \${py} V\${hijos[0].y}" \${trazo}/>\`;
       continue;
     }
-    const sx = hijos[0].x - (COL - ANCHO) / 2;
+    // El pasillo vertical va en el espacio libre que hay a la izquierda de la
+    // columna: todas las cajas miden ANCHO y la columna avanza de a COL, así
+    // que esa franja está siempre vacía en todas las calles.
     const ids = miembros.slice().sort((a, b) => cajas.get(a).y - cajas.get(b).y);
     const ultima = ids[ids.length - 1];
-    lineas += \`<path d="M\${px} \${py} V\${bus} H\${sx} V\${anclaAlto(ultima, cajas.get(ultima))}" \${trazo}/>\`;
+    const pies = ids.map((k) => ({ caja: cajas.get(k), y: anclaAlto(k, cajas.get(k)) }));
+    const sx = pasilloLibre(hijos[0].x - (COL - ANCHO) / 2, salida, anclaAlto(ultima, cajas.get(ultima)), pies);
+    lineas += \`<path d="M\${px} \${py} V\${salida} H\${sx} V\${anclaAlto(ultima, cajas.get(ultima))}" \${trazo}/>\`;
     for (const k of ids) lineas += \`<path d="M\${sx} \${anclaAlto(k, cajas.get(k))} H\${cajas.get(k).x}" \${trazo}/>\`;
   }
 
