@@ -48,6 +48,52 @@ comparador por sí solo no habría tomado —como descartar la Unidad Red de Odo
 texto prefija "FUERA DE NIVEL" pero el diagrama ubica por debajo de Dirección General—. Correr
 el importador en modo completo las habría reintroducido.
 
+## Corrección posterior: el pie de página del GEDO
+
+Esta importación dejó basura del pie de página del GEDO dentro del texto de 12 entradas. El
+parser filtraba el pie solo cuando ocupaba una línea entera, y con `pdftotext -layout` eso no
+alcanza. Se arregló al aplicar el Decreto 355/26 y se limpiaron los datos acto seguido.
+
+El pie se colaba de tres maneras distintas:
+
+1. **El número de expediente a mitad de oración** (8 entradas). Cuando el pie cae a la misma
+   altura que el cuerpo, `pdftotext` los junta en una sola línea, a veces sin espacio:
+   _"…dar cumplimiento a las Leyes 342, `IF-2026-39728655-GCABA-MSEGC` 6.353 y 5.835…"_
+
+2. **La hoja de firmas entera** (4 entradas). Es la última página del PDF y cae después del
+   último título, así que se la quedaba la última área de cada anexo. La DG. General de la Mujer
+   terminó "firmada" por el Ministerio de Educación.
+
+3. **Secciones descartadas en silencio** (2 entradas). Cuando el pie se pegaba al rótulo
+   —"Descripción de Responsabilidades Primarias `IF-2026-39728655-GCABA-MSEGC`"— la línea pasaba
+   de 70 caracteres y el guardia "un rótulo es una línea corta" la descartaba. Sin rótulo, el
+   cuerpo entero de esa sección se perdía y el área conservaba su texto anterior. Les pasó a
+   `DGPCP` y `DGLF`, que quedaron con el del Decreto 174/26 en vez del 306/26.
+
+Esta tercera forma es la más perversa: no deja rastro en los datos. No se la encuentra buscando
+basura, porque lo que produce es una ausencia.
+
+### Cómo se verificó que la limpieza está completa
+
+Correr los 5 anexos afectados alcanza, pero no prueba que no haya más. Así que se corrieron **los
+17 anexos dos veces**, con el parser viejo y con el nuevo, partiendo ambos del mismo estado, y se
+compararon los dos resultados entre sí. Cualquier ruido de matching aparece igual en los dos y se
+cancela; queda solo lo que cambió el arreglo.
+
+El experimento difiere en **13 entradas**, exactamente las 13 que se aplicaron, con el texto
+idéntico. Las entradas con basura pasan de 11 a 0.
+
+| | |
+|---|---|
+| `DGDIYDP`, `DGMCV`, `SSPCU` | hoja de firmas entera (−662, −372, −680 caracteres) |
+| `DGPR`, `ISSP`, `SECC`, `SECSEG`, `SSCDI`, `SSCH`, `SSTI`, `UAIMSE` | expediente a mitad de oración (−28/−29 cada una) |
+| `DGPCP`, `DGLF` | sección descartada: pasan del 174/26 al 306/26 |
+
+Una entrada más se limpió a mano: el campo `objetivos` de `DGMCV`, que eran 276 caracteres de
+hoja de firmas y nada más. El importador no lo pisó porque el anexo no le da objetivos a esa área,
+y el importador no borra un campo que la extracción nueva no trae. Es la única de su clase, y no
+puede volver a aparecer: el parser ahora corta el texto en la hoja de firmas, antes de parsear.
+
 ## Pendiente
 
 - `JG` (la raíz), `CGSERV` y `DGAGA` siguen sin entrada de funciones.
