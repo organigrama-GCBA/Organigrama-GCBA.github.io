@@ -734,6 +734,24 @@ function svgDe(d, rotulo, interno = false) {
     // El pasillo vertical va en el espacio libre que hay a la izquierda de la
     // columna: todas las cajas miden ANCHO y la columna avanza de a COL, así
     // que esa franja está siempre vacía en todas las calles.
+    // Si el pasillo elegido es el mismo por el que ya baja OTRA línea de este
+    // mismo padre, no se dibuja una segunda vertical encima: se arranca donde
+    // termina la anterior. Dos trazos superpuestos, uno firme y uno punteado,
+    // tapaban el punteado, y la línea a los fuera de nivel parecía empezar de
+    // la nada a mitad de la hoja.
+    // Devuelve el tramo que falta, o null si no hay tronco propio y hay que
+    // dibujar el trazo entero. El tronco puede quedar corto por abajo o por
+    // arriba, según de qué lado del padre esté la hija.
+    const troncoPropio = (x, desde, hasta) => {
+      const propias = verticales.filter((v) =>
+        v.padre === p && Math.abs(v.x - x) < 2 && v.a <= desde + 1 && v.z >= desde - 1);
+      if (!propias.length) return null;
+      const z = Math.max(...propias.map((v) => v.z));
+      const a = Math.min(...propias.map((v) => v.a));
+      if (hasta > z + 1) return \`<path d="M\${x} \${z} V\${hasta}" \${trazo}/>\`;
+      if (hasta < a - 1) return \`<path d="M\${x} \${a} V\${hasta}" \${trazo}/>\`;
+      return "";
+    };
     const ids = miembros.slice().sort((a, b) => cajas.get(a).y - cajas.get(b).y);
     const ultima = ids[ids.length - 1];
     const pies = ids.map((k) => ({ caja: cajas.get(k), y: anclaAlto(k, cajas.get(k)) }));
@@ -770,7 +788,10 @@ function svgDe(d, rotulo, interno = false) {
       const ideal = hijos[0].x - (COL - ANCHO) / 2;
       const local = pasilloLibre(ideal, salida, abajo, pies, p, true);
       if (local !== null && Math.abs(local - ideal) < COL * 0.75) {
-        lineas += \`<path d="M\${px} \${py} V\${salida} H\${local} V\${abajo}" \${trazo}/>\`;
+        const falta = troncoPropio(local, salida, abajo);
+        lineas += falta === null
+          ? \`<path d="M\${px} \${py} V\${salida} H\${local} V\${abajo}" \${trazo}/>\`
+          : falta;
         for (const k of ids) lineas += \`<path d="M\${local} \${anclaAlto(k, cajas.get(k))} H\${bordeMasCerca(local, cajas.get(k))}" \${trazo}/>\`;
         anotar(local, salida, abajo, p);
         continue;
@@ -793,7 +814,10 @@ function svgDe(d, rotulo, interno = false) {
     const sx = pasilloLibre(zIzq, salida, fin, pies, p, true)
       ?? pasilloLibre(zDer, salida, fin, pies, p, true)
       ?? pasilloLibre(zIzq, salida, fin, pies, p);
-    lineas += \`<path d="M\${px} \${py} V\${salida} H\${sx} V\${fin}" \${trazo}/>\`;
+    const falta = troncoPropio(sx, salida, fin);
+    lineas += falta === null
+      ? \`<path d="M\${px} \${py} V\${salida} H\${sx} V\${fin}" \${trazo}/>\`
+      : falta;
     for (const k of ids) lineas += \`<path d="M\${sx} \${anclaAlto(k, cajas.get(k))} H\${bordeMasCerca(sx, cajas.get(k))}" \${trazo}/>\`;
     anotar(sx, salida, fin, p);
   }
