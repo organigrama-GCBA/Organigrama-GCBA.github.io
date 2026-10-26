@@ -671,7 +671,9 @@ function svgDe(d, rotulo, interno = false) {
     const pc = cajas.get(p);
     const hijos = miembros.map((id) => cajas.get(id)).sort((a, b) => a.y - b.y);
     const punteado = N[miembros[0]].dashed || calleDe(miembros[0], cajaRaiz) === FUERA;
-    const trazo = \`stroke="var(--linea)" stroke-width="1.4" fill="none"\${punteado ? ' stroke-dasharray="4 3"' : ""}\`;
+    // El id del área de la que sale queda en el trazo: sirve para comprobar
+    // que dos líneas de padres distintos no terminen corriendo pegadas.
+    const trazo = \`data-padre="\${esc(p)}" stroke="var(--linea)" stroke-width="1.4" fill="none"\${punteado ? ' stroke-dasharray="4 3"' : ""}\`;
     const px = pc.x + pc.w / 2, py = anclaPie(p, pc);
     // El trazo sale de la caja del padre y dobla enseguida, en el pasillo que
     // queda justo debajo de SU calle. Si bajara derecho hasta la altura del
@@ -703,6 +705,28 @@ function svgDe(d, rotulo, interno = false) {
     const ids = miembros.slice().sort((a, b) => cajas.get(a).y - cajas.get(b).y);
     const ultima = ids[ids.length - 1];
     const pies = ids.map((k) => ({ caja: cajas.get(k), y: anclaAlto(k, cajas.get(k)) }));
+
+    // Los organismos que dependen de la cabecera de la hoja se alcanzan por el
+    // canal de afuera. Si la punteada bajara entre las columnas correría al
+    // lado de una secretaría durante toda la hoja y parecería salir de ella:
+    // era lo que pasaba con el Instituto de Estadística y Censos, que cuelga
+    // de Jefatura de Gabinete y se leía como de la Secretaría Ordenamiento
+    // Urbano. Por afuera no hay nada con qué confundirlo.
+    if (p === cajaRaiz && hijos[0].calle === FUERA) {
+      const bus = yCalle.get(FUERA) - CALLE_SEP / 2 + 6;
+      // El canal se corre hacia afuera hasta despegarse de cualquier otra
+      // línea que ya baje por el margen.
+      let ext = Math.min(...todas.map((c) => c.x)) - 26;
+      while (verticales.some((v) => v.padre !== p && Math.abs(v.x - ext) < SEP_LINEAS && bus > v.a && salida < v.z)) ext -= 12;
+      const sx = pasilloLibre(hijos[0].x - (COL - ANCHO) / 2, bus, anclaAlto(ultima, cajas.get(ultima)), pies, p);
+      lineas += \`<path d="M\${px} \${py} V\${salida} H\${ext} V\${bus} H\${sx} V\${anclaAlto(ultima, cajas.get(ultima))}" \${trazo}/>\`;
+      for (const k of ids) lineas += \`<path d="M\${sx} \${anclaAlto(k, cajas.get(k))} H\${cajas.get(k).x}" \${trazo}/>\`;
+      verticales.push({ x: px, a: py, z: salida, padre: p });
+      verticales.push({ x: ext, a: salida, z: bus, padre: p });
+      verticales.push({ x: sx, a: bus, z: anclaAlto(ultima, cajas.get(ultima)), padre: p });
+      continue;
+    }
+
     const sx = pasilloLibre(hijos[0].x - (COL - ANCHO) / 2, salida, anclaAlto(ultima, cajas.get(ultima)), pies, p);
     lineas += \`<path d="M\${px} \${py} V\${salida} H\${sx} V\${anclaAlto(ultima, cajas.get(ultima))}" \${trazo}/>\`;
     for (const k of ids) lineas += \`<path d="M\${sx} \${anclaAlto(k, cajas.get(k))} H\${cajas.get(k).x}" \${trazo}/>\`;
@@ -715,7 +739,7 @@ function svgDe(d, rotulo, interno = false) {
   if (interno) return s;
   // Red de seguridad: el lienzo se estira hasta abarcar todo lo dibujado. Si
   // un trazo tuviera que salirse, se vería igual en vez de quedar recortado.
-  const xs = [...(fondo + lineas).matchAll(/[MH](-?[\d.]+)/g)].map((m) => +m[1]);
+  const xs = [...(fondo + lineas).matchAll(/[MH](-?[\\d.]+)/g)].map((m) => +m[1]);
   const x0 = Math.min(0, ...xs.map((v) => v - 5));
   const x1 = Math.max(anchoTot, ...xs.map((v) => v + 5));
   const ancho = x1 - x0;
