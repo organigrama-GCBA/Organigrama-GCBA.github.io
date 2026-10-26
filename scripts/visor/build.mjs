@@ -39,10 +39,12 @@ function descendientes(id) {
 // organismo con su estructura. Un área grande que cuelga de otra se lleva su
 // propia hoja para que ninguna quede ilegible; el umbral sale de los datos: con
 // 15 descendientes quedan 33 hojas de entre 3 y 42 áreas.
-// Igual que los anexos: una hoja de primeros niveles por jurisdicción y
-// después una por cada subsecretaría con estructura propia. El anexo del
-// Decreto 306/26 para Hacienda son 13 páginas armadas así.
-const UMBRAL_HOJA = 5;
+// Una hoja por jurisdicción, con todo adentro: las subsecretarías lado a lado
+// y las direcciones generales apiladas bajo cada una. Partir por subsecretaría
+// —como hace el anexo oficial, que para Hacienda son 13 páginas— dejaba las
+// direcciones generales en otra hoja, y entonces no se veía de qué
+// subsecretaría cuelga cada una, que es lo que el dibujo tiene que mostrar.
+const UMBRAL_HOJA = 15;
 const hojas = [org.id];
 for (const c of hijos(org.id)) if (hijos(c).length) hojas.push(c);
 for (const c of hijos("MJGGC")) if (hijos(c).length) hojas.push(c);
@@ -54,7 +56,10 @@ for (const id of nodos.keys()) {
   // Un organismo fuera de nivel con estructura SIEMPRE abre hoja: en el dibujo
   // por calles sus direcciones generales irían a la calle de arriba, es decir
   // por encima del organismo del que dependen.
-  if (hijos(id).length && (fueraDeNivel(id) || (p && jurisdicciones.has(p)))) hojas.push(id);
+  // Un organismo fuera de nivel con estructura siempre abre hoja: en el dibujo
+  // por calles sus direcciones generales irían a la calle de arriba, es decir
+  // por encima del organismo del que dependen.
+  if (hijos(id).length && fueraDeNivel(id)) hojas.push(id);
   else if (descendientes(id) >= UMBRAL_HOJA) hojas.push(id);
 }
 const esHoja = new Set(hojas);
@@ -135,7 +140,7 @@ const html = `<!doctype html>
   --tinta:#101e37; --tinta-2:#3c4a63; --tinta-3:#6b7892;
   --papel:#eef1f5; --hoja:#ffffff; --linea:#d4dae4; --linea-2:#e7ebf1;
   --acento:#005387; --acento-suave:#e8f0f7; --marca:#ffd400;
-  --jg:#9b1c1c; --min:#f5871f; --sec:#ffd400; --ss:#004f86; --dg:#268948;
+  --jg:#9b1c1c; --min:#f5871f; --sec:#ffd400; --ss:#004f86; --dg:#268948; --sigla-bg:#4a5568;
   --orgc:#e4e9ed; --orgc-fg:#1d2735;
   --edit:#b45309; --edit-bg:#fef3c7;
   --sombra:0 1px 2px #101e370d, 0 8px 24px #101e3712;
@@ -146,7 +151,7 @@ const html = `<!doctype html>
   --tinta:#e8ecf3; --tinta-2:#aab6cb; --tinta-3:#7f8da6;
   --papel:#10151f; --hoja:#19202e; --linea:#2c3647; --linea-2:#232c3b;
   --acento:#6cb6e8; --acento-suave:#1b2a3b; --marca:#ffd400;
-  --orgc:#56637a; --orgc-fg:#eef2f8; --edit:#fbbf24; --edit-bg:#3b2f14;
+  --orgc:#56637a; --orgc-fg:#eef2f8; --sigla-bg:#2b3444; --edit:#fbbf24; --edit-bg:#3b2f14;
   --sombra:0 1px 2px #0006, 0 8px 24px #0004;
   color-scheme:dark;
 }}
@@ -154,7 +159,7 @@ const html = `<!doctype html>
   --tinta:#e8ecf3; --tinta-2:#aab6cb; --tinta-3:#7f8da6;
   --papel:#10151f; --hoja:#19202e; --linea:#2c3647; --linea-2:#232c3b;
   --acento:#6cb6e8; --acento-suave:#1b2a3b; --marca:#ffd400;
-  --orgc:#56637a; --orgc-fg:#eef2f8; --edit:#fbbf24; --edit-bg:#3b2f14;
+  --orgc:#56637a; --orgc-fg:#eef2f8; --sigla-bg:#2b3444; --edit:#fbbf24; --edit-bg:#3b2f14;
   --sombra:0 1px 2px #0006, 0 8px 24px #0004;
   color-scheme:dark;
 }
@@ -258,7 +263,7 @@ select,input,button,textarea{font:inherit;font-family:var(--texto)}
    dibujo se escala solo porque el SVG lleva viewBox; el tope de alto deja
    lugar para el título de la hoja. */
 .portada{display:none}
-@page{size:A3 portrait;margin:9mm}
+@page{size:A3 landscape;margin:9mm}
 @media print{
   :root{--papel:#fff;--hoja:#fff;--linea:#9aa6b8;--linea-2:#c6cedb;--tinta:#101e37;--tinta-2:#3c4a63;--tinta-3:#6b7892}
   body{background:#fff;font-size:10pt}
@@ -269,7 +274,7 @@ select,input,button,textarea{font:inherit;font-family:var(--texto)}
   .portada .bajada{font-size:11pt;color:var(--tinta-2);max-width:none;margin-bottom:8mm}
   .portada .cifras{border:0;padding:0;margin:0 0 8mm;gap:14mm}
   .portada .leyenda{border:0;padding:0;margin:0 0 10mm;font-size:9pt}
-  .portada ol{columns:3;column-gap:8mm;font-size:8.2pt;color:var(--tinta-2);margin:0;padding:0;list-style:none}
+  .portada ol{columns:4;column-gap:8mm;font-size:8.2pt;color:var(--tinta-2);margin:0;padding:0;list-style:none}
   .portada li{break-inside:avoid;margin-bottom:.9mm}
   .portada li b{font-variant-numeric:tabular-nums;color:var(--tinta);font-weight:600}
   .hoja{break-before:page;break-inside:avoid;border:0;border-radius:0;margin:0;box-shadow:none}
@@ -277,7 +282,7 @@ select,input,button,textarea{font:inherit;font-family:var(--texto)}
   .hoja-tit h2{font-size:14pt}
   .hoja-tit span{font-size:9pt}
   .lienzo{overflow:visible}
-  .lienzo svg{width:auto;height:auto;min-width:0;max-width:100%;max-height:363mm}
+  .lienzo svg{width:auto;height:auto;min-width:0;max-width:100%;max-height:262mm}
   .tarjeta{cursor:auto}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
@@ -395,14 +400,20 @@ function ajustar(txt, ancho, alto, max, min, peso) {
 // Dentro de una calle, las hijas de un mismo padre se apilan en una columna,
 // con una espina vertical y un pie a cada caja. Así el ancho lo da la cantidad
 // de padres y no la de hijas, que es lo que mantiene la hoja imprimible.
-const ANCHO = 250, COL = 296, ALTO_MIN = 44, FILA = 7, PADX = 16, PADY = 16;
-const CALLE_SEP = 46, CANAL = 86;
+const ANCHO = 170, COL = 206, ALTO_MIN = 34, FILA = 13, PADX = 16, PADY = 16;
+const CALLE_SEP = 34, CANAL = 10;
+const H_SIGLA = 13, H_TITULAR = 21, MAX_PILA = 6;
 
 const RANGO_CALLE = { JG: 1, VJG: 1, MIN: 1, SEC: 1, SS: 2, DG: 3, GG: 3, GO: 4, SGO: 4 };
 const FUERA = 9;
 const ROTULO_CALLE = { 0: "", 1: "MINISTERIO", 2: "SUBSECRETARÍA", 3: "DIRECCIÓN GENERAL", 4: "GERENCIA", 9: "FUERA DE NIVEL" };
+const esUAI = (id) => /^unidad de auditor[íi]a interna/i.test(N[id].nombre);
 function calleDe(id, raiz) {
   if (id === raiz) return 0;
+  // La unidad de auditoría interna de la jurisdicción va arriba, al lado de la
+  // cabecera, y no abajo con los organismos fuera de nivel. Así la dibuja el
+  // organigrama oficial.
+  if (esUAI(id) && N[id].padre === raiz) return 0;
   const t = N[id].tipo;
   if (t === "ORG" || t === "OTRO" || N[id].dashed) return FUERA;
   return RANGO_CALLE[t] ?? FUERA;
@@ -416,8 +427,8 @@ function disponer(raiz, ids, cortar = true) {
 
   function alto(id) {
     const n = N[id];
-    const t = ajustar(n.nombre, ANCHO - 18, 40, 12.5, 8, "600").lineas.length;
-    return Math.max(ALTO_MIN, 14 + t * 14.5 + (n.titular ? 14 : 0));
+    const t = ajustar(n.nombre, ANCHO - 14, 46, 10.5, 7, "700").lineas.length;
+    return Math.max(ALTO_MIN, 11 + t * 12) + H_SIGLA + (n.titular ? H_TITULAR : 0);
   }
 
   const pos = new Map();          // id -> {c: calle, k: columna, i: orden de apilado}
@@ -430,26 +441,50 @@ function disponer(raiz, ids, cortar = true) {
   };
 
   let cursor = 0;
-  const fuera = [];
+  const fuera = [], uaisRaiz = [];
   function colocar(id) {
-    const kids = corta(id) ? [] : hijosEn(id);
-    const normales = kids.filter((x) => calleDe(x, raiz) !== FUERA);
-    kids.filter((x) => calleDe(x, raiz) === FUERA).forEach((x) => fuera.push(x));
+    const miCalle = calleDe(id, raiz);
+    // Una adjunta es una Dirección General que depende de otra Dirección
+    // General: misma calle que su padre. Va apilada justo debajo de él y en su
+    // misma columna; si no, queda al costado y se lee como si fuera su par.
+    const linaje = [id];
+    const sueltos = [];
+    (function juntar(x) {
+      for (const k of corta(x) ? [] : hijosEn(x)) {
+        // La UAI comparte calle con la cabecera pero no es una adjunta suya:
+        // va al costado, no apilada debajo.
+        if (esUAI(k) && N[k].padre === raiz) { uaisRaiz.push(k); continue; }
+        if (miCalle !== FUERA && calleDe(k, raiz) === miCalle) { linaje.push(k); juntar(k); }
+        else sueltos.push(k);
+      }
+    })(id);
+    const normales = sueltos.filter((x) => calleDe(x, raiz) !== FUERA);
+    sueltos.filter((x) => calleDe(x, raiz) === FUERA).forEach((x) => fuera.push(x));
     const ramas = normales.filter(abre);
     const hojas = normales.filter((x) => !abre(x));
     const tramos = ramas.map(colocar);
+    // Una pila muy larga deja la hoja alta y flaca, y en A3 la letra se vuelve
+    // ilegible: se la reparte en columnas, como hace el organigrama oficial
+    // con los ministerios.
     if (hojas.length) {
-      const k = cursor++;
-      for (const x of hojas) poner(x, calleDe(x, raiz), k);
-      tramos.push([k, k]);
+      const trozos = Math.ceil(hojas.length / MAX_PILA);
+      const porColumna = Math.ceil(hojas.length / trozos);
+      for (let i = 0; i < trozos; i++) {
+        const k = cursor++;
+        for (const x of hojas.slice(i * porColumna, (i + 1) * porColumna)) poner(x, calleDe(x, raiz), k);
+        tramos.push([k, k]);
+      }
     }
     let a, z;
     if (tramos.length) { a = Math.min(...tramos.map((t) => t[0])); z = Math.max(...tramos.map((t) => t[1])); }
     else { a = z = cursor++; }
-    poner(id, calleDe(id, raiz), (a + z) / 2);
+    for (const x of linaje) poner(x, miCalle, (a + z) / 2);
     return [a, z];
   }
   colocar(raiz);
+  // La unidad de auditoría interna de la jurisdicción, a la derecha de la
+  // cabecera y a su misma altura.
+  uaisRaiz.forEach((x, n) => poner(x, 0, pos.get(raiz).k + 1 + n));
 
   // Los fuera de nivel van todos juntos en la calle de abajo, en el orden en
   // que aparecen sus padres, y doblan a una fila nueva cuando no entran.
@@ -491,39 +526,49 @@ const esHojaPropia = (id) => hojaIds.has(id);
 function tarjetaSVG(id, c) {
   const n = N[id];
   const [, bg, fg] = rango(n.tipo);
-  const hTit = n.titular ? c.h - 14 : c.h;
-  const t = ajustar(n.nombre, c.w - 18, hTit - 12, 12.5, 8, "600");
-  const y0 = c.y + (hTit - t.lineas.length * t.fs * 1.2) / 2 + t.fs * 0.9;
-  const guion = n.dashed ? ' stroke-dasharray="5 3"' : "";
+  const hTit = n.titular ? H_TITULAR : 0;
+  const hNom = c.h - H_SIGLA - hTit;
+  const t = ajustar(n.nombre, c.w - 14, hNom - 6, 10.5, 7, "700");
+  const y0 = c.y + (hNom - t.lineas.length * t.fs * 1.18) / 2 + t.fs * 0.88;
+  const guion = n.dashed ? ' stroke-dasharray="4 3"' : "";
   let s = \`<g class="tarjeta" data-id="\${esc(id)}" tabindex="0" role="button" aria-label="\${esc(n.nombre)}">\`;
   s += \`<title>\${esc(n.nombre)}\${n.titular ? " — " + esc(n.titular) : ""}</title>\`;
-  s += \`<rect class="marco" x="\${c.x}" y="\${c.y}" width="\${c.w}" height="\${c.h}" rx="5" fill="\${bg}" stroke="#00000022"\${guion}/>\`;
-  s += \`<text font-family="var(--texto)" font-size="\${t.fs}" font-weight="600" fill="\${fg}" text-anchor="middle">\`;
-  s += t.lineas.map((l, i) => \`<tspan x="\${c.x + c.w / 2}" y="\${y0 + i * t.fs * 1.2}">\${esc(l)}</tspan>\`).join("");
+  s += \`<rect class="marco" x="\${c.x}" y="\${c.y}" width="\${c.w}" height="\${hNom}" fill="\${bg}" stroke="#00000022"\${guion}/>\`;
+  s += \`<text font-family="var(--texto)" font-size="\${t.fs}" font-weight="700" fill="\${fg}" text-anchor="middle">\`;
+  s += t.lineas.map((l, i) => \`<tspan x="\${c.x + c.w / 2}" y="\${y0 + i * t.fs * 1.18}">\${esc(l)}</tspan>\`).join("");
   s += "</text>";
+  // Franja de la sigla, como en el organigrama oficial.
+  s += \`<rect x="\${c.x}" y="\${c.y + hNom}" width="\${c.w}" height="\${H_SIGLA}" fill="var(--sigla-bg)"/>\`;
+  s += \`<text x="\${c.x + c.w / 2}" y="\${c.y + hNom + 9.3}" font-family="var(--display)" font-size="7.6" font-weight="700" letter-spacing=".4" fill="#ffffff" text-anchor="middle">\${esc(id)}</text>\`;
   if (n.titular) {
-    s += \`<rect x="\${c.x}" y="\${c.y + c.h - 14}" width="\${c.w}" height="14" fill="#00000026"/>\`;
-    const tt = ajustar(n.titular, c.w - 12, 12, 9, 6.5, "400");
-    s += \`<text x="\${c.x + c.w / 2}" y="\${c.y + c.h - 4.2}" font-family="var(--texto)" font-size="\${tt.fs}" fill="\${fg}" fill-opacity=".92" text-anchor="middle">\${esc(tt.lineas[0])}</text>\`;
+    const tt = ajustar(n.titular, c.w - 6, H_TITULAR - 3, 8, 6, "400");
+    const yt = c.y + hNom + H_SIGLA + (H_TITULAR - tt.lineas.length * tt.fs * 1.15) / 2 + tt.fs * 0.9;
+    s += \`<text font-family="var(--texto)" font-size="\${tt.fs}" fill="var(--tinta-2)" text-anchor="middle">\`;
+    s += tt.lineas.slice(0, 2).map((l, i) => \`<tspan x="\${c.x + c.w / 2}" y="\${yt + i * tt.fs * 1.15}">\${esc(l)}</tspan>\`).join("");
+    s += "</text>";
   }
   if (!pliego && esHojaPropia(id) && id !== cajaRaiz) {
-    s += \`<circle cx="\${c.x + c.w - 10}" cy="\${c.y + 10}" r="7" fill="#ffffff" fill-opacity=".85"/>\`;
-    s += \`<text x="\${c.x + c.w - 10}" y="\${c.y + 13.4}" font-size="9.5" font-weight="700" fill="#101e37" text-anchor="middle">↗</text>\`;
+    s += \`<circle cx="\${c.x + c.w - 9}" cy="\${c.y + 9}" r="6.5" fill="#ffffff" fill-opacity=".88"/>\`;
+    s += \`<text x="\${c.x + c.w - 9}" y="\${c.y + 12.2}" font-size="9" font-weight="700" fill="#101e37" text-anchor="middle">↗</text>\`;
   }
   return s + "</g>";
 }
+
+// Los vínculos se enganchan al bloque del nombre, no al titular, que queda
+// suelto debajo de la caja.
+const anclaAlto = (id, c) => c.y + (c.h - H_SIGLA - (N[id].titular ? H_TITULAR : 0)) / 2;
+const anclaPie = (id, c) => c.y + c.h - H_SIGLA - (N[id].titular ? H_TITULAR : 0) + H_SIGLA;
 
 let cajaRaiz = null, pliego = false;
 function svgDe(d, rotulo, interno = false) {
   const { cajas, anchoTot, altoTot, calles, yCalle, altoCalle } = d;
   let fondo = "", lineas = "";
 
-  // Rótulo de cada calle en el canal de la izquierda, como en los anexos.
-  for (const c of calles) {
-    if (!ROTULO_CALLE[c]) continue;
-    const y0 = yCalle.get(c), y1 = y0 + altoCalle.get(c);
-    fondo += \`<line x1="\${PADX}" y1="\${y0 - CALLE_SEP / 2}" x2="\${anchoTot - PADX}" y2="\${y0 - CALLE_SEP / 2}" stroke="var(--linea)" stroke-width="1" stroke-dasharray="6 5"/>\`;
-    fondo += \`<text x="\${PADX + 20}" y="\${(y0 + y1) / 2}" transform="rotate(-90 \${PADX + 20} \${(y0 + y1) / 2})" text-anchor="middle" font-family="var(--display)" font-size="11" font-weight="700" letter-spacing="1.1" fill="var(--tinta-3)">\${esc(ROTULO_CALLE[c])}</text>\`;
+  // El organigrama oficial no rotula las calles: separa con una sola línea
+  // horizontal lo que está fuera de nivel de lo que está en la estructura.
+  if (calles.includes(FUERA) && calles.length > 1) {
+    const yr = yCalle.get(FUERA) - CALLE_SEP / 2 - 4;
+    fondo += \`<line x1="\${PADX}" y1="\${yr}" x2="\${anchoTot - PADX}" y2="\${yr}" stroke="var(--tinta-3)" stroke-width="1.6"/>\`;
   }
 
   // Vínculos, agrupados por padre y columna: una espina vertical con un pie a
@@ -541,7 +586,7 @@ function svgDe(d, rotulo, interno = false) {
     const hijos = miembros.map((id) => cajas.get(id)).sort((a, b) => a.y - b.y);
     const punteado = N[miembros[0]].dashed || calleDe(miembros[0], cajaRaiz) === FUERA;
     const trazo = \`stroke="var(--linea)" stroke-width="1.4" fill="none"\${punteado ? ' stroke-dasharray="4 3"' : ""}\`;
-    const px = pc.x + pc.w / 2, py = pc.y + pc.h;
+    const px = pc.x + pc.w / 2, py = anclaPie(p, pc);
     const bus = hijos[0].y - CALLE_SEP / 2;
     // Si el hijo está más de una calle abajo, el trazo recto le pasaría por
     // encima a las cajas del medio: se lo manda por el canal de la izquierda.
@@ -551,9 +596,10 @@ function svgDe(d, rotulo, interno = false) {
       continue;
     }
     const sx = hijos[0].x - (COL - ANCHO) / 2;
-    const ultima = hijos[hijos.length - 1];
-    lineas += \`<path d="M\${px} \${py} V\${bus} H\${sx} V\${ultima.y + ultima.h / 2}" \${trazo}/>\`;
-    for (const h of hijos) lineas += \`<path d="M\${sx} \${h.y + h.h / 2} H\${h.x}" \${trazo}/>\`;
+    const ids = miembros.slice().sort((a, b) => cajas.get(a).y - cajas.get(b).y);
+    const ultima = ids[ids.length - 1];
+    lineas += \`<path d="M\${px} \${py} V\${bus} H\${sx} V\${anclaAlto(ultima, cajas.get(ultima))}" \${trazo}/>\`;
+    for (const k of ids) lineas += \`<path d="M\${sx} \${anclaAlto(k, cajas.get(k))} H\${cajas.get(k).x}" \${trazo}/>\`;
   }
 
   let s = fondo + lineas;
