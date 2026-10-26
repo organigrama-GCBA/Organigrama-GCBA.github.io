@@ -60,6 +60,31 @@ Agregar las diez cajas destapó tres defectos de trazado que antes no se daban:
   aunque ya lo usara otro padre: dos trazos exactamente encimados. Ahora elige por puntaje y
   prefiere el que menos tramo comparta con líneas ajenas.
 
+## La fila de abajo, ordenada por dependencia
+
+En la hoja de Justicia las cajas quedaban intercaladas: el Instituto de Educación y Trabajo, que
+depende del Servicio Penitenciario, caía al final de la columna con dos áreas de otra
+subsecretaría en el medio, y su línea tenía que rodearlas dando una vuelta en forma de caja.
+
+La fila de fuera de nivel se arma ahora en profundidad: cada organismo seguido inmediatamente por
+los que dependen de él. El Instituto queda pegado debajo del Servicio Penitenciario y lo alcanza
+un tramo recto.
+
+## Las rutas por el margen, anidadas
+
+Dos rutas que salen por el mismo borde se cruzaban entre sí. No alcanza con separarlas: la que
+sale más afuera tiene que ir además por el carril más bajo del pie, o su tramo horizontal corta la
+vertical con que la otra sube hasta sus cajas. Y cuál va más afuera no lo decide el orden de
+llegada sino el ancho del recorrido, así que se calcula antes de dibujar.
+
+Con eso los cruces entre líneas de áreas distintas quedaron en uno solo en todo el organigrama, en
+Jefatura de Gabinete, donde la salida al borde de la Secretaría de Higiene Urbana cruza el pasillo
+de la primera columna. Para evitarlo habría que mover el pasillo, y mover el pasillo acerca esa
+línea a otra.
+
+Este cruce tampoco se estaba comprobando: los verificadores miraban línea contra caja y líneas
+paralelas, pero no líneas cortándose entre sí.
+
 ## Lo que queda
 
 Un solo solape, en la hoja de Salud: la punteada de la DG Salud Mental a su UPE comparte 23

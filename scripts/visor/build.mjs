@@ -529,8 +529,22 @@ function disponer(raiz, ids, cortar = true) {
   // bajo la columna de su padre: así la punteada cae casi a plomo y se ve de
   // dónde cuelga. Repartirlos en orden de llegada hacía que las líneas
   // cruzaran media hoja y no se entendiera qué conectaba con qué.
+  // Cada uno seguido inmediatamente por los suyos. Si un organismo y su
+  // dependencia quedan separados por cajas de otro padre, el trazo tiene que
+  // rodearlas: el Instituto de Educación y Trabajo quedaba al final de la
+  // columna, con dos áreas de otra subsecretaría en el medio, y su línea daba
+  // una vuelta en forma de caja alrededor de las dos.
+  const enFila = [], yaEsta = new Set();
+  const bajar = (x) => {
+    if (yaEsta.has(x)) return;
+    yaEsta.add(x);
+    enFila.push(x);
+    for (const k of fuera) if (N[k].padre === x) bajar(k);
+  };
+  for (const x of fuera) bajar(x);
+
   const ocupadas = new Map();
-  for (const x of fuera) {
+  for (const x of enFila) {
     const p = pos.get(N[x].padre);
     const base = p ? Math.round(p.k) : 0;
     let k = base, paso = 0;
@@ -553,7 +567,7 @@ function disponer(raiz, ids, cortar = true) {
   // Pie extra cuando hay fuera de nivel: ahí abajo corren los buses de las
   // rutas por el margen, y necesitan un carril cada una. Sin esta reserva
   // todas iban a la misma altura, encimadas, y no se podía seguir ninguna.
-  const altoTot = yy - CALLE_SEP + PADY + (calles.includes(FUERA) ? 40 : 0);
+  const altoTot = yy - CALLE_SEP + PADY + (calles.includes(FUERA) ? 52 : 0);
 
   // Coordenadas finales. Dentro de una columna se apila por orden de llegada.
   const cajas = new Map();
@@ -748,6 +762,29 @@ function svgDe(d, rotulo, interno = false) {
     verticales.push({ x: pc0.x + pc0.w / 2, a: anclaPie(p0, pc0), z: s0, padre: p0 });
   }
 
+  // Qué ruta por el margen va por qué carril. No alcanza con anidar canal y
+  // bus: la más ANCHA tiene que ir por afuera y por abajo, o su bus cruza la
+  // vertical con que la más angosta sube hasta sus cajas. El orden de llegada
+  // no dice nada del ancho, así que se calcula antes.
+  const bordeIzq = Math.min(...todas.map((c) => c.x)) - 26;
+  const bordeDer = Math.max(...todas.map((c) => c.x + c.w)) + 26;
+  const candidatas = [];
+  for (const [key, miembros] of ordenados) {
+    const p0 = key.split("|")[0];
+    const pc0 = cajas.get(p0);
+    const h0 = miembros.map((id) => cajas.get(id)).sort((a, b) => a.y - b.y)[0];
+    if (!pc0 || h0.calle !== FUERA || calles.indexOf(FUERA) - calles.indexOf(pc0.calle) <= 1) continue;
+    const cx = pc0.x + pc0.w / 2;
+    const derecha = Math.abs(cx - bordeDer) < Math.abs(cx - bordeIzq);
+    const borde = derecha ? bordeDer : bordeIzq;
+    candidatas.push({ key, derecha, ancho: Math.abs(borde - (h0.x - (COL - ANCHO) / 2)) });
+  }
+  const nivelDe = new Map();
+  for (const lado of [true, false]) {
+    candidatas.filter((c) => c.derecha === lado).sort((a, b) => b.ancho - a.ancho)
+      .forEach((c, i) => nivelDe.set(c.key, Math.min(2, i)));
+  }
+
   for (const [key, miembros] of ordenados) {
     const p = key.split("|")[0];
     const pc = cajas.get(p);
@@ -830,30 +867,33 @@ function svgDe(d, rotulo, interno = false) {
     // cabecera: si tiene que atravesar más de una calle, por adentro termina
     // dando un rodeo entre las columnas y pegándose a lo que encuentra.
     if (hijos[0].calle === FUERA && calles.indexOf(FUERA) - calles.indexOf(pc.calle) > 1) {
-      // El bus va por DEBAJO de toda la fila, no por arriba: arriba corría a
-      // diez unidades de la raya que separa los fuera de nivel, en paralelo a
-      // ella durante toda la hoja, y se leía como una sola línea doble.
-      // Abajo no hay nada.
-      // Un carril por ruta: si dos buses de padres distintos se cruzan en x,
-      // el segundo baja un escalón. Los del mismo padre comparten carril, que
-      // es lo que hace que se lean como un solo trazo.
-      let bus = altoTot - 5;
-      const chocaBus = (y, a, z) => carriles.some((c) =>
-        c.padre !== p && Math.abs(c.y - y) < 16 && Math.min(c.z, z) - Math.max(c.a, a) > 10);
-      // El canal se corre hacia afuera hasta despegarse de cualquier otra
-      // línea que ya baje por el margen.
-      // La barrida hasta el borde cruza toda la hoja a lo ancho, así que no
-      // puede ir a la altura de salida, que es la que usan las espinas de
-      // todos los padres de esa calle: se baja un escalón.
-      const salidaMargen = corredor + 9;
-      // Por el borde más cercano. Saliendo siempre por la izquierda, un área
-      // del extremo derecho barría la hoja entera a lo ancho y corría pegada
-      // a las espinas de todos los padres de su calle.
+      // El bus va por DEBAJO de toda la fila, no por arriba: arriba corría
+      // en paralelo a la raya que separa los fuera de nivel durante toda la
+      // hoja y se leía como una sola línea doble. Abajo no hay nada.
+      //
+      // Sale por el borde más cercano: saliendo siempre por la izquierda, un
+      // área del extremo derecho barría la hoja entera a lo ancho.
       const izq = Math.min(...todas.map((c) => c.x)) - 26;
       const der = Math.max(...todas.map((c) => c.x + c.w)) + 26;
       const porDerecha = Math.abs(px - der) < Math.abs(px - izq);
-      let ext = porDerecha ? der : izq;
-      while (verticales.some((v) => v.padre !== p && Math.abs(v.x - ext) < SEP_LINEAS && bus > v.a && corredor < v.z)) ext += porDerecha ? 12 : -12;
+      // Las rutas de un mismo borde se anidan: la que sale más afuera va por
+      // el carril más bajo. Repartiendo los carriles por orden de llegada,
+      // una ruta ancha terminaba cruzando la vertical de otra más angosta.
+      // Anidadas: la que sale MÁS AFUERA tiene que ir por el carril MÁS BAJO,
+      // o su bus cruza la vertical de la otra. Como el carril más bajo es el
+      // del pie de la hoja, la primera ruta se queda con ese y con el canal
+      // más de afuera, y las siguientes van entrando.
+      const nivel = nivelDe.get(key) ?? 0;
+      const bus = altoTot - 5 - nivel * 21;
+      let ext = (porDerecha ? der : izq) + (porDerecha ? 1 : -1) * (2 - nivel) * 24;
+      while (verticales.some((v) =>
+        v.padre !== p && Math.abs(v.x - ext) < SEP_LINEAS && bus > v.a && corredor < v.z)) {
+        ext += porDerecha ? 12 : -12;
+      }
+      // La barrida hasta el borde cruza la hoja a lo ancho, así que no puede
+      // ir a la altura de salida, que es la que usan las espinas de todos los
+      // padres de esa calle: baja un escalón.
+      const salidaMargen = corredor + 9;
       // El bus queda por debajo de la fila, así que la vertical sube hasta la
       // caja MÁS ALTA del grupo; si fuera hasta la más baja, los pies de las
       // de arriba quedarían sueltos.
@@ -877,8 +917,7 @@ function svgDe(d, rotulo, interno = false) {
         continue;
       }
       const sx = pasilloLibre(ideal, bus, arriba, pies, p);
-      while (chocaBus(bus, Math.min(ext, sx), Math.max(ext, sx)) && bus > altoTot - 41) bus -= 21;
-      carriles.push({ y: bus, a: Math.min(ext, sx), z: Math.max(ext, sx), padre: p });
+      carriles.push({ y: bus, a: Math.min(ext, sx), z: Math.max(ext, sx), padre: p, derecha: porDerecha });
       lineas += \`<path d="M\${px} \${py} V\${salidaMargen} H\${ext} V\${bus} H\${sx} V\${arriba}" \${trazo}/>\`;
       for (const k of ids) lineas += \`<path d="M\${sx} \${anclaAlto(k, cajas.get(k))} H\${bordeMasCerca(sx, cajas.get(k))}" \${trazo}/>\`;
       anotar(ext, salidaMargen, bus, p);
