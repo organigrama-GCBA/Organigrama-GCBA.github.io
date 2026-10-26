@@ -540,7 +540,10 @@ function disponer(raiz, ids, cortar = true) {
   }
   let yy = PADY;
   for (const c of calles) { yCalle.set(c, yy); yy += altoCalle.get(c) + CALLE_SEP; }
-  const altoTot = yy - CALLE_SEP + PADY;
+  // Pie extra cuando hay fuera de nivel: ahí abajo corren los buses de las
+  // rutas por el margen, y necesitan un carril cada una. Sin esta reserva
+  // todas iban a la misma altura, encimadas, y no se podía seguir ninguna.
+  const altoTot = yy - CALLE_SEP + PADY + (calles.includes(FUERA) ? 40 : 0);
 
   // Coordenadas finales. Dentro de una columna se apila por orden de llegada.
   const cajas = new Map();
@@ -625,6 +628,7 @@ function svgDe(d, rotulo, interno = false) {
   // derecho. Entrar siempre por el izquierdo obligaba a cruzar la caja entera.
   const bordeMasCerca = (x, c) => (x > c.x + c.w ? c.x + c.w : c.x);
   const verticales = [];          // las que ya se dibujaron, para no encimarse
+  const carriles = [];            // buses del margen, al pie de la hoja
   // Siempre de menor a mayor: cuando la hija queda POR ENCIMA del padre el
   // tramo va de abajo hacia arriba, y guardarlo sin ordenar dejaba un rango
   // invertido que no se solapaba con nada. La comprobación pasaba siempre.
@@ -654,8 +658,11 @@ function svgDe(d, rotulo, interno = false) {
     // distancia a las otras líneas y después la holgura con las cajas; irse
     // del lienzo dejaba el trazo dibujado donde nadie lo ve.
     const adentro = (x) => x >= PADX / 2 && x <= anchoTot - PADX / 2;
+    // En estricto va solo la tanda de separación entera: la media (11) deja
+    // dos líneas de padres distintos a doce unidades, que es justo lo que se
+    // lee como pegado.
     const tandas = estricto
-      ? [[SEP_LINEAS, CLARO], [SEP_LINEAS / 2, CLARO]]
+      ? [[SEP_LINEAS, CLARO]]
       : [[SEP_LINEAS, CLARO], [SEP_LINEAS / 2, CLARO], [0, CLARO], [0, 6]];
     for (const [sep, claro] of tandas) {
       for (const x of huecos) if (adentro(x) && sirve(x, sep, claro)) return x;
@@ -770,7 +777,12 @@ function svgDe(d, rotulo, interno = false) {
       // diez unidades de la raya que separa los fuera de nivel, en paralelo a
       // ella durante toda la hoja, y se leía como una sola línea doble.
       // Abajo no hay nada.
-      const bus = altoTot - 5;
+      // Un carril por ruta: si dos buses de padres distintos se cruzan en x,
+      // el segundo baja un escalón. Los del mismo padre comparten carril, que
+      // es lo que hace que se lean como un solo trazo.
+      let bus = altoTot - 5;
+      const chocaBus = (y, a, z) => carriles.some((c) =>
+        c.padre !== p && Math.abs(c.y - y) < 16 && Math.min(c.z, z) - Math.max(c.a, a) > 10);
       // El canal se corre hacia afuera hasta despegarse de cualquier otra
       // línea que ya baje por el margen.
       let ext = Math.min(...todas.map((c) => c.x)) - 26;
@@ -786,8 +798,9 @@ function svgDe(d, rotulo, interno = false) {
       // la nada, como ICBA y UA, que están en la columna de su propia
       // subsecretaría y se alcanzaban dando la vuelta a la hoja entera.
       const ideal = hijos[0].x - (COL - ANCHO) / 2;
-      const local = pasilloLibre(ideal, salida, abajo, pies, p, true);
-      if (local !== null && Math.abs(local - ideal) < COL * 0.75) {
+      const local = pasilloLibre(ideal, salida, abajo, pies, p, true)
+        ?? pasilloLibre(hijos[0].x + ANCHO + (COL - ANCHO) / 2, salida, abajo, pies, p, true);
+      if (local !== null && Math.abs(local - ideal) < COL * 1.25) {
         const falta = troncoPropio(local, salida, abajo);
         lineas += falta === null
           ? \`<path d="M\${px} \${py} V\${salida} H\${local} V\${abajo}" \${trazo}/>\`
@@ -797,6 +810,8 @@ function svgDe(d, rotulo, interno = false) {
         continue;
       }
       const sx = pasilloLibre(ideal, bus, arriba, pies, p);
+      while (chocaBus(bus, Math.min(ext, sx), Math.max(ext, sx)) && bus > altoTot - 41) bus -= 21;
+      carriles.push({ y: bus, a: Math.min(ext, sx), z: Math.max(ext, sx), padre: p });
       lineas += \`<path d="M\${px} \${py} V\${salida} H\${ext} V\${bus} H\${sx} V\${arriba}" \${trazo}/>\`;
       for (const k of ids) lineas += \`<path d="M\${sx} \${anclaAlto(k, cajas.get(k))} H\${bordeMasCerca(sx, cajas.get(k))}" \${trazo}/>\`;
       anotar(ext, salida, bus, p);
