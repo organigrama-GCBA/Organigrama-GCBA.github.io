@@ -382,7 +382,12 @@ function ajustar(txt, ancho, alto, max, min, peso) {
 // con una espina vertical y un pie a cada caja. Así el ancho lo da la cantidad
 // de padres y no la de hijas, que es lo que mantiene la hoja imprimible.
 const ANCHO = 132, COL = 168, ALTO_MIN = 34, FILA = 11, PADX = 14, PADY = 14;
-const CALLE_SEP = 34, CANAL = 10;
+// CANAL tiene que ser más ancho que medio hueco entre columnas ((COL-ANCHO)/2
+// = 18). Con 10, el pasillo de la columna 0 caía en x=6, afuera del lienzo, y
+// esa columna se quedaba con el pasillo de la de al lado: cada subsecretaría
+// empujaba a la siguiente una columna a la derecha y la última terminaba con
+// la espina del lado equivocado de sus hijas, cruzándolas de lado a lado.
+const CALLE_SEP = 34, CANAL = 24;
 const H_SIGLA = 13, H_TITULAR = 21, MAX_PILA = 6;
 
 const RANGO_CALLE = { JG: 1, VJG: 1, MIN: 1, SEC: 1, SS: 2, DG: 3, GG: 3, GO: 4, SGO: 4 };
@@ -616,8 +621,19 @@ function svgDe(d, rotulo, interno = false) {
   // que la conecta. Se prueban primero los centros de los huecos entre
   // columnas, que es por donde tiene que ir.
   const CLARO = 14, SEP_LINEAS = 22;
+  // Si la espina queda a la derecha de la caja, el pie entra por el borde
+  // derecho. Entrar siempre por el izquierdo obligaba a cruzar la caja entera.
+  const bordeMasCerca = (x, c) => (x > c.x + c.w ? c.x + c.w : c.x);
   const verticales = [];          // las que ya se dibujaron, para no encimarse
-  function pasilloLibre(xIdeal, y1, y2, pies = [], dePadre = null) {
+  // Siempre de menor a mayor: cuando la hija queda POR ENCIMA del padre el
+  // tramo va de abajo hacia arriba, y guardarlo sin ordenar dejaba un rango
+  // invertido que no se solapaba con nada. La comprobación pasaba siempre.
+  const anotar = (x, y1, y2, padre) =>
+    verticales.push({ x, a: Math.min(y1, y2), z: Math.max(y1, y2), padre });
+  // Con estricto, solo acepta un pasillo que respete la separación con las
+  // líneas de otros padres, y devuelve null si no hay: sirve para decidir si
+  // conviene el pasillo local o el rodeo por el margen.
+  function pasilloLibre(xIdeal, y1, y2, pies = [], dePadre = null, estricto = false) {
     const a = Math.min(y1, y2), z = Math.max(y1, y2);
     const corta = (x1, yy, x2, saltar, claro) => todas.some((c) =>
       !saltar.has(c) && Math.max(x1, x2) > c.x - claro && Math.min(x1, x2) < c.x + c.w + claro &&
@@ -628,7 +644,7 @@ function svgDe(d, rotulo, interno = false) {
       // salen de la misma caja no se confunden entre sí, y obligarlos a
       // apartarse mandaba la punteada a dar un rodeo por el borde de la hoja.
       if (sep > 0 && verticales.some((v) => v.padre !== dePadre && Math.abs(v.x - x) < sep && z > v.a && a < v.z)) return false;
-      return pies.every(({ caja, y }) => !corta(x, y, caja.x, new Set([caja]), claro));
+      return pies.every(({ caja, y }) => !corta(x, y, bordeMasCerca(x, caja), new Set([caja]), claro));
     };
     const maxCol = Math.max(...todas.map((c) => (c.x - PADX - CANAL) / COL));
     const huecos = [];
@@ -638,7 +654,10 @@ function svgDe(d, rotulo, interno = false) {
     // distancia a las otras líneas y después la holgura con las cajas; irse
     // del lienzo dejaba el trazo dibujado donde nadie lo ve.
     const adentro = (x) => x >= PADX / 2 && x <= anchoTot - PADX / 2;
-    for (const [sep, claro] of [[SEP_LINEAS, CLARO], [SEP_LINEAS / 2, CLARO], [0, CLARO], [0, 6]]) {
+    const tandas = estricto
+      ? [[SEP_LINEAS, CLARO], [SEP_LINEAS / 2, CLARO]]
+      : [[SEP_LINEAS, CLARO], [SEP_LINEAS / 2, CLARO], [0, CLARO], [0, 6]];
+    for (const [sep, claro] of tandas) {
       for (const x of huecos) if (adentro(x) && sirve(x, sep, claro)) return x;
       if (adentro(xIdeal) && sirve(xIdeal, sep, claro)) return xIdeal;
       for (let d = 2; d <= 3 * COL; d += 2) {
@@ -646,7 +665,7 @@ function svgDe(d, rotulo, interno = false) {
         if (adentro(xIdeal + d) && sirve(xIdeal + d, sep, claro)) return xIdeal + d;
       }
     }
-    return Math.min(Math.max(xIdeal, PADX / 2), anchoTot - PADX / 2);
+    return estricto ? null : Math.min(Math.max(xIdeal, PADX / 2), anchoTot - PADX / 2);
   }
 
   // Vínculos, agrupados por padre y columna: una espina vertical con un pie a
@@ -666,6 +685,19 @@ function svgDe(d, rotulo, interno = false) {
     const pb = calleDe(b[1][0], cajaRaiz) === FUERA || N[b[1][0]].dashed;
     return (pa ? 1 : 0) - (pb ? 1 : 0);
   });
+  // El tramo que sale de cada padre es fijo: no se elige, sale del centro de
+  // su caja. Se anotan todos antes de buscar un solo pasillo, porque si no un
+  // pasillo elegido temprano puede quedar justo debajo de un padre que todavía
+  // no se dibujó. Eran diecisiete superposiciones entre líneas de áreas
+  // distintas.
+  for (const [key, miembros] of ordenados) {
+    const p0 = key.split("|")[0];
+    const pc0 = cajas.get(p0);
+    if (!pc0) continue;
+    const s0 = yCalle.get(pc0.calle) + altoCalle.get(pc0.calle) + CALLE_SEP / 2;
+    verticales.push({ x: pc0.x + pc0.w / 2, a: anclaPie(p0, pc0), z: s0, padre: p0 });
+  }
+
   for (const [key, miembros] of ordenados) {
     const p = key.split("|")[0];
     const pc = cajas.get(p);
@@ -689,14 +721,14 @@ function svgDe(d, rotulo, interno = false) {
     if (pc.calle === hijos[0].calle && pc.col === hijos[0].col) {
       for (const h of hijos) {
         lineas += \`<path d="M\${px} \${py} V\${h.y}" \${trazo}/>\`;
-        verticales.push({ x: px, a: py, z: h.y, padre: p });
+        anotar(px, py, h.y, p);
       }
       continue;
     }
     const primeroDeSuPila = hijos[0].y <= yCalle.get(hijos[0].calle) + 0.5;
     if (!salta && primeroDeSuPila && hijos.length === 1 && Math.abs(hijos[0].x + hijos[0].w / 2 - px) < 1) {
       lineas += \`<path d="M\${px} \${py} V\${hijos[0].y}" \${trazo}/>\`;
-      verticales.push({ x: px, a: py, z: hijos[0].y, padre: p });
+      anotar(px, py, hijos[0].y, p);
       continue;
     }
     // El pasillo vertical va en el espacio libre que hay a la izquierda de la
@@ -729,20 +761,41 @@ function svgDe(d, rotulo, interno = false) {
       // caja MÁS ALTA del grupo; si fuera hasta la más baja, los pies de las
       // de arriba quedarían sueltos.
       const arriba = anclaAlto(ids[0], cajas.get(ids[0]));
-      const sx = pasilloLibre(hijos[0].x - (COL - ANCHO) / 2, bus, arriba, pies, p);
+      const abajo = anclaAlto(ultima, cajas.get(ultima));
+      // Antes del rodeo se prueba el pasillo de la propia columna, bajando
+      // derecho. El rodeo por el borde solo se justifica cuando esa columna
+      // está tapada: mandarlo siempre al margen dejaba líneas que salían de
+      // la nada, como ICBA y UA, que están en la columna de su propia
+      // subsecretaría y se alcanzaban dando la vuelta a la hoja entera.
+      const ideal = hijos[0].x - (COL - ANCHO) / 2;
+      const local = pasilloLibre(ideal, salida, abajo, pies, p, true);
+      if (local !== null && Math.abs(local - ideal) < COL * 0.75) {
+        lineas += \`<path d="M\${px} \${py} V\${salida} H\${local} V\${abajo}" \${trazo}/>\`;
+        for (const k of ids) lineas += \`<path d="M\${local} \${anclaAlto(k, cajas.get(k))} H\${bordeMasCerca(local, cajas.get(k))}" \${trazo}/>\`;
+        anotar(local, salida, abajo, p);
+        continue;
+      }
+      const sx = pasilloLibre(ideal, bus, arriba, pies, p);
       lineas += \`<path d="M\${px} \${py} V\${salida} H\${ext} V\${bus} H\${sx} V\${arriba}" \${trazo}/>\`;
-      for (const k of ids) lineas += \`<path d="M\${sx} \${anclaAlto(k, cajas.get(k))} H\${cajas.get(k).x}" \${trazo}/>\`;
-      verticales.push({ x: px, a: py, z: salida, padre: p });
-      verticales.push({ x: ext, a: salida, z: bus, padre: p });
-      verticales.push({ x: sx, a: arriba, z: bus, padre: p });
+      for (const k of ids) lineas += \`<path d="M\${sx} \${anclaAlto(k, cajas.get(k))} H\${bordeMasCerca(sx, cajas.get(k))}" \${trazo}/>\`;
+      anotar(ext, salida, bus, p);
+      anotar(sx, arriba, bus, p);
       continue;
     }
 
-    const sx = pasilloLibre(hijos[0].x - (COL - ANCHO) / 2, salida, anclaAlto(ultima, cajas.get(ultima)), pies, p);
-    lineas += \`<path d="M\${px} \${py} V\${salida} H\${sx} V\${anclaAlto(ultima, cajas.get(ultima))}" \${trazo}/>\`;
-    for (const k of ids) lineas += \`<path d="M\${sx} \${anclaAlto(k, cajas.get(k))} H\${cajas.get(k).x}" \${trazo}/>\`;
-    verticales.push({ x: px, a: py, z: salida, padre: p });
-    verticales.push({ x: sx, a: salida, z: anclaAlto(ultima, cajas.get(ultima)), padre: p });
+    // Dos padres distintos pueden tener hijas en la misma columna, y entonces
+    // hay un solo hueco a la izquierda para las dos espinas. El segundo se va
+    // al hueco de la derecha de la columna, que lee igual de bien, en vez de
+    // quedar encimado sobre el primero.
+    const zIzq = hijos[0].x - (COL - ANCHO) / 2;
+    const zDer = hijos[0].x + ANCHO + (COL - ANCHO) / 2;
+    const fin = anclaAlto(ultima, cajas.get(ultima));
+    const sx = pasilloLibre(zIzq, salida, fin, pies, p, true)
+      ?? pasilloLibre(zDer, salida, fin, pies, p, true)
+      ?? pasilloLibre(zIzq, salida, fin, pies, p);
+    lineas += \`<path d="M\${px} \${py} V\${salida} H\${sx} V\${fin}" \${trazo}/>\`;
+    for (const k of ids) lineas += \`<path d="M\${sx} \${anclaAlto(k, cajas.get(k))} H\${bordeMasCerca(sx, cajas.get(k))}" \${trazo}/>\`;
+    anotar(sx, salida, fin, p);
   }
 
   let s = fondo + lineas;
