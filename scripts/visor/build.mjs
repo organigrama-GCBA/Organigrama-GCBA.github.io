@@ -441,9 +441,16 @@ function disponer(raiz, ids, cortar = true) {
     })(x);
     return out;
   };
+  // Solo es escalón intermedio si de él cuelga algo que NO está fuera de
+  // nivel: una dirección general, por ejemplo, que si no quedaría dibujada
+  // por encima de su propia cabecera. Un organismo cuya única dependencia es
+  // su auditoría interna no es un escalón: va abajo con los demás fuera de
+  // nivel. Era lo que levantaba al Ente Autárquico Teatro Colón a la calle de
+  // las subsecretarías.
+  const sueltoDeNivel = (k) => N[k].dashed || ["ORG", "OTRO"].includes(N[k].tipo);
   intermedios = new Set(
-    hijosEn(raiz).filter((k) => !corta(k) && hijosEn(k).length &&
-      (N[k].dashed || ["ORG", "OTRO"].includes(N[k].tipo)) && !esUAI(k)),
+    hijosEn(raiz).filter((k) => !corta(k) && sueltoDeNivel(k) && !esUAI(k) &&
+      hijosEn(k).some((j) => !sueltoDeNivel(j))),
   );
   const abre = (id) => hijosEn(id).length > 0 && !corta(id);
 
