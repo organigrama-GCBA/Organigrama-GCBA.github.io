@@ -712,18 +712,29 @@ function svgDe(d, rotulo, interno = false) {
     // era lo que pasaba con el Instituto de Estadística y Censos, que cuelga
     // de Jefatura de Gabinete y se leía como de la Secretaría Ordenamiento
     // Urbano. Por afuera no hay nada con qué confundirlo.
-    if (p === cajaRaiz && hijos[0].calle === FUERA) {
-      const bus = yCalle.get(FUERA) - CALLE_SEP / 2 + 6;
+    // Por el margen va toda punteada de recorrido largo, no solo la de la
+    // cabecera: si tiene que atravesar más de una calle, por adentro termina
+    // dando un rodeo entre las columnas y pegándose a lo que encuentra.
+    if (hijos[0].calle === FUERA && calles.indexOf(FUERA) - calles.indexOf(pc.calle) > 1) {
+      // El bus va por DEBAJO de toda la fila, no por arriba: arriba corría a
+      // diez unidades de la raya que separa los fuera de nivel, en paralelo a
+      // ella durante toda la hoja, y se leía como una sola línea doble.
+      // Abajo no hay nada.
+      const bus = altoTot - 5;
       // El canal se corre hacia afuera hasta despegarse de cualquier otra
       // línea que ya baje por el margen.
       let ext = Math.min(...todas.map((c) => c.x)) - 26;
       while (verticales.some((v) => v.padre !== p && Math.abs(v.x - ext) < SEP_LINEAS && bus > v.a && salida < v.z)) ext -= 12;
-      const sx = pasilloLibre(hijos[0].x - (COL - ANCHO) / 2, bus, anclaAlto(ultima, cajas.get(ultima)), pies, p);
-      lineas += \`<path d="M\${px} \${py} V\${salida} H\${ext} V\${bus} H\${sx} V\${anclaAlto(ultima, cajas.get(ultima))}" \${trazo}/>\`;
+      // El bus queda por debajo de la fila, así que la vertical sube hasta la
+      // caja MÁS ALTA del grupo; si fuera hasta la más baja, los pies de las
+      // de arriba quedarían sueltos.
+      const arriba = anclaAlto(ids[0], cajas.get(ids[0]));
+      const sx = pasilloLibre(hijos[0].x - (COL - ANCHO) / 2, bus, arriba, pies, p);
+      lineas += \`<path d="M\${px} \${py} V\${salida} H\${ext} V\${bus} H\${sx} V\${arriba}" \${trazo}/>\`;
       for (const k of ids) lineas += \`<path d="M\${sx} \${anclaAlto(k, cajas.get(k))} H\${cajas.get(k).x}" \${trazo}/>\`;
       verticales.push({ x: px, a: py, z: salida, padre: p });
       verticales.push({ x: ext, a: salida, z: bus, padre: p });
-      verticales.push({ x: sx, a: bus, z: anclaAlto(ultima, cajas.get(ultima)), padre: p });
+      verticales.push({ x: sx, a: arriba, z: bus, padre: p });
       continue;
     }
 
