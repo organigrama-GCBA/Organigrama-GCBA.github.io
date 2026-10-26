@@ -263,7 +263,12 @@ select,input,button,textarea{font:inherit;font-family:var(--texto)}
   .hoja-tit h2{font-size:14pt}
   .hoja-tit span{font-size:9pt}
   .lienzo{overflow:visible}
-  .lienzo svg{width:var(--ancho-impreso);height:var(--alto-impreso);min-width:0;max-width:none;max-height:none}
+  /* La medida exacta de la hoja vale cuando el papel coincide. Si el diálogo
+     de impresión impone otro —A4, carta, lo que tenga el equipo—, los topes
+     hacen que el dibujo se achique para entrar en vez de quedar cortado. El
+     SVG mantiene su proporción solo, así que achicar no deforma. */
+  .lienzo svg{width:var(--ancho-impreso);height:var(--alto-impreso);min-width:0;
+    max-width:100%;max-height:calc(100vh - 26mm)}
   .tarjeta{cursor:auto}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
