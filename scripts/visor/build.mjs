@@ -34,33 +34,21 @@ function descendientes(id) {
 }
 
 // ── Hojas ──────────────────────────────────────────────────────────────
-// Una hoja por jurisdicción, como en los organigramas oficiales: el Jefe de
-// Gobierno y su gabinete arriba, y después cada ministerio, secretaría u
-// organismo con su estructura. Un área grande que cuelga de otra se lleva su
-// propia hoja para que ninguna quede ilegible; el umbral sale de los datos: con
-// 15 descendientes quedan 33 hojas de entre 3 y 42 áreas.
-// Una hoja por jurisdicción, con todo adentro: las subsecretarías lado a lado
-// y las direcciones generales apiladas bajo cada una. Partir por subsecretaría
-// —como hace el anexo oficial, que para Hacienda son 13 páginas— dejaba las
-// direcciones generales en otra hoja, y entonces no se veía de qué
-// subsecretaría cuelga cada una, que es lo que el dibujo tiene que mostrar.
-const UMBRAL_HOJA = 15;
-const hojas = [org.id];
-for (const c of hijos(org.id)) if (hijos(c).length) hojas.push(c);
-for (const c of hijos("MJGGC")) if (hijos(c).length) hojas.push(c);
-const jurisdicciones = new Set(hojas);
-const fueraDeNivel = (id) => nodos.get(id).dashed || ["ORG", "OTRO"].includes(nodos.get(id).tipo);
-for (const id of nodos.keys()) {
-  if (hojas.includes(id)) continue;
-  const p = padre.get(id);
-  // Un organismo fuera de nivel con estructura SIEMPRE abre hoja: en el dibujo
-  // por calles sus direcciones generales irían a la calle de arriba, es decir
-  // por encima del organismo del que dependen.
-  // Un organismo fuera de nivel con estructura siempre abre hoja: en el dibujo
-  // por calles sus direcciones generales irían a la calle de arriba, es decir
-  // por encima del organismo del que dependen.
-  if (hijos(id).length && fueraDeNivel(id)) hojas.push(id);
-  else if (descendientes(id) >= UMBRAL_HOJA) hojas.push(id);
+// Las hojas son las 32 del organigrama oficial, en su mismo orden:
+// docs/Organigrama_GCBA_2026.pdf, una página por jurisdicción y por organismo
+// fuera de nivel con estructura propia. Se fija la lista en vez de deducirla
+// con un umbral para que el impreso tenga exactamente las mismas páginas que
+// el modelo.
+const hojas = [
+  "JG", "PG", "CDNNYA", "SGCBA", "URFVI", "VJG", "APRA", "COPIDIS", "UPEEI",
+  "MJGGC", "ASINF", "IDECBA", "MHFGC", "AGIP", "MJGC", "AGC", "MSEGC", "MSGC",
+  "EAIT", "MEDGC", "MDECGC", "ENTUR", "MCGC", "MDHYHGC", "MEPHUGC", "MMIGC",
+  "SECGE", "SECLYT", "SECCO", "SECAE", "SECGVC", "SECME",
+];
+const faltantes = hojas.filter((id) => !nodos.has(id));
+if (faltantes.length) {
+  console.error(`Estas hojas del organigrama oficial no existen en los datos: ${faltantes.join(", ")}`);
+  process.exit(1);
 }
 const esHoja = new Set(hojas);
 
@@ -73,20 +61,7 @@ function subarbol(id, raiz = true) {
   return out;
 }
 
-const ordenHojas = hojas.slice().sort((a, b) => {
-  if (a === org.id) return -1;
-  if (b === org.id) return 1;
-  const ra = padre.get(a) === org.id ? 0 : 1;
-  const rb = padre.get(b) === org.id ? 0 : 1;
-  return ra - rb || nodos.get(a).nombre.localeCompare(nodos.get(b).nombre, "es");
-});
-
-const cubiertos = new Set(ordenHojas.flatMap((id) => subarbol(id)));
-const sueltos = [...nodos.keys()].filter((id) => !cubiertos.has(id));
-if (sueltos.length) {
-  console.error(`Hay ${sueltos.length} área(s) que no caen en ninguna hoja: ${sueltos.join(", ")}`);
-  process.exit(1);
-}
+const ordenHojas = hojas;
 
 const datos = {
   generado: new Date().toISOString().slice(0, 10),
@@ -267,9 +242,10 @@ select,input,button,textarea{font:inherit;font-family:var(--texto)}
 @media print{
   :root{--papel:#fff;--hoja:#fff;--linea:#9aa6b8;--linea-2:#c6cedb;--tinta:#101e37;--tinta-2:#3c4a63;--tinta-3:#6b7892}
   body{background:#fff;font-size:10pt}
-  .barra,.panel,.pie,.intro,#res{display:none!important}
+  /* Sin portada ni índice: el oficial arranca directo en el organigrama de
+     gobierno, y el impreso tiene que tener sus mismas 32 páginas. */
+  .barra,.panel,.pie,.intro,#res,.portada{display:none!important}
   .cuerpo{display:block;padding:0}
-  .portada{display:block;break-after:page}
   .portada h1{font-size:26pt;line-height:1.15;margin-bottom:6mm}
   .portada .bajada{font-size:11pt;color:var(--tinta-2);max-width:none;margin-bottom:8mm}
   .portada .cifras{border:0;padding:0;margin:0 0 8mm;gap:14mm}
@@ -400,7 +376,7 @@ function ajustar(txt, ancho, alto, max, min, peso) {
 // Dentro de una calle, las hijas de un mismo padre se apilan en una columna,
 // con una espina vertical y un pie a cada caja. Así el ancho lo da la cantidad
 // de padres y no la de hijas, que es lo que mantiene la hoja imprimible.
-const ANCHO = 170, COL = 206, ALTO_MIN = 34, FILA = 13, PADX = 16, PADY = 16;
+const ANCHO = 132, COL = 168, ALTO_MIN = 34, FILA = 11, PADX = 14, PADY = 14;
 const CALLE_SEP = 34, CANAL = 10;
 const H_SIGLA = 13, H_TITULAR = 21, MAX_PILA = 6;
 
@@ -408,8 +384,14 @@ const RANGO_CALLE = { JG: 1, VJG: 1, MIN: 1, SEC: 1, SS: 2, DG: 3, GG: 3, GO: 4,
 const FUERA = 9;
 const ROTULO_CALLE = { 0: "", 1: "MINISTERIO", 2: "SUBSECRETARÍA", 3: "DIRECCIÓN GENERAL", 4: "GERENCIA", 9: "FUERA DE NIVEL" };
 const esUAI = (id) => /^unidad de auditor[íi]a interna/i.test(N[id].nombre);
+// Una adjunta de la cabecera —\"PG Adjunta Dictámenes\", la Vicepresidencia del
+// Consejo— figura como organismo en los datos, pero no está fuera de nivel:
+// es un escalón intermedio del que cuelgan direcciones generales. Si fuera a
+// la calle de abajo, sus direcciones quedarían por encima de ella.
+let intermedios = new Set();
 function calleDe(id, raiz) {
   if (id === raiz) return 0;
+  if (intermedios.has(id)) return 1;
   // La unidad de auditoría interna de la jurisdicción va arriba, al lado de la
   // cabecera, y no abajo con los organismos fuera de nivel. Así la dibuja el
   // organigrama oficial.
@@ -423,6 +405,10 @@ function disponer(raiz, ids, cortar = true) {
   const dentro = new Set(ids);
   const hijosEn = (id) => (N[id].hijos || []).filter((k) => dentro.has(k) && k !== id);
   const corta = (id) => cortar && esHojaPropia(id) && id !== raiz;
+  intermedios = new Set(
+    hijosEn(raiz).filter((k) => !corta(k) && hijosEn(k).length &&
+      (N[k].dashed || ["ORG", "OTRO"].includes(N[k].tipo)) && !esUAI(k)),
+  );
   const abre = (id) => hijosEn(id).length > 0 && !corta(id);
 
   function alto(id) {
