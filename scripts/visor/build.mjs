@@ -617,28 +617,36 @@ function svgDe(d, rotulo, interno = false) {
   // columnas, que es por donde tiene que ir.
   const CLARO = 14, SEP_LINEAS = 22;
   const verticales = [];          // las que ya se dibujaron, para no encimarse
-  function pasilloLibre(xIdeal, y1, y2, pies = []) {
+  function pasilloLibre(xIdeal, y1, y2, pies = [], dePadre = null) {
     const a = Math.min(y1, y2), z = Math.max(y1, y2);
-    const encima = (x) => verticales.some((v) => Math.abs(v.x - x) < SEP_LINEAS && z > v.a && a < v.z);
-    const corta = (x1, yy, x2, saltar) => todas.some((c) =>
-      !saltar.has(c) && Math.max(x1, x2) > c.x - CLARO && Math.min(x1, x2) < c.x + c.w + CLARO &&
+    const corta = (x1, yy, x2, saltar, claro) => todas.some((c) =>
+      !saltar.has(c) && Math.max(x1, x2) > c.x - claro && Math.min(x1, x2) < c.x + c.w + claro &&
       yy > c.y + 1 && yy < c.y + c.h - 1);
-    const sirve = (x) => {
-      if (todas.some((c) => x > c.x - CLARO && x < c.x + c.w + CLARO && z > c.y && a < c.y + c.h)) return false;
-      if (encima(x)) return false;
-      return pies.every(({ caja, y }) => !corta(x, y, caja.x, new Set([caja])));
+    const sirve = (x, sep, claro) => {
+      if (todas.some((c) => x > c.x - claro && x < c.x + c.w + claro && z > c.y && a < c.y + c.h)) return false;
+      // Solo hay que separarse de las líneas de OTRO padre: dos trazos que
+      // salen de la misma caja no se confunden entre sí, y obligarlos a
+      // apartarse mandaba la punteada a dar un rodeo por el borde de la hoja.
+      if (sep > 0 && verticales.some((v) => v.padre !== dePadre && Math.abs(v.x - x) < sep && z > v.a && a < v.z)) return false;
+      return pies.every(({ caja, y }) => !corta(x, y, caja.x, new Set([caja]), claro));
     };
     const maxCol = Math.max(...todas.map((c) => (c.x - PADX - CANAL) / COL));
     const huecos = [];
     for (let k = 0; k <= Math.ceil(maxCol) + 1; k++) huecos.push(PADX + CANAL + k * COL - (COL - ANCHO) / 2);
     huecos.sort((p, q) => Math.abs(p - xIdeal) - Math.abs(q - xIdeal));
-    for (const x of huecos) if (sirve(x)) return x;
-    if (sirve(xIdeal)) return xIdeal;
-    for (let d = 2; d <= 3 * COL; d += 2) {
-      if (sirve(xIdeal - d)) return xIdeal - d;
-      if (sirve(xIdeal + d)) return xIdeal + d;
+    // Siempre dentro del dibujo. Si no hay lugar, se afloja primero la
+    // distancia a las otras líneas y después la holgura con las cajas; irse
+    // del lienzo dejaba el trazo dibujado donde nadie lo ve.
+    const adentro = (x) => x >= PADX / 2 && x <= anchoTot - PADX / 2;
+    for (const [sep, claro] of [[SEP_LINEAS, CLARO], [SEP_LINEAS / 2, CLARO], [0, CLARO], [0, 6]]) {
+      for (const x of huecos) if (adentro(x) && sirve(x, sep, claro)) return x;
+      if (adentro(xIdeal) && sirve(xIdeal, sep, claro)) return xIdeal;
+      for (let d = 2; d <= 3 * COL; d += 2) {
+        if (adentro(xIdeal - d) && sirve(xIdeal - d, sep, claro)) return xIdeal - d;
+        if (adentro(xIdeal + d) && sirve(xIdeal + d, sep, claro)) return xIdeal + d;
+      }
     }
-    return xIdeal;
+    return Math.min(Math.max(xIdeal, PADX / 2), anchoTot - PADX / 2);
   }
 
   // Vínculos, agrupados por padre y columna: una espina vertical con un pie a
@@ -679,14 +687,14 @@ function svgDe(d, rotulo, interno = false) {
     if (pc.calle === hijos[0].calle && pc.col === hijos[0].col) {
       for (const h of hijos) {
         lineas += \`<path d="M\${px} \${py} V\${h.y}" \${trazo}/>\`;
-        verticales.push({ x: px, a: py, z: h.y });
+        verticales.push({ x: px, a: py, z: h.y, padre: p });
       }
       continue;
     }
     const primeroDeSuPila = hijos[0].y <= yCalle.get(hijos[0].calle) + 0.5;
     if (!salta && primeroDeSuPila && hijos.length === 1 && Math.abs(hijos[0].x + hijos[0].w / 2 - px) < 1) {
       lineas += \`<path d="M\${px} \${py} V\${hijos[0].y}" \${trazo}/>\`;
-      verticales.push({ x: px, a: py, z: hijos[0].y });
+      verticales.push({ x: px, a: py, z: hijos[0].y, padre: p });
       continue;
     }
     // El pasillo vertical va en el espacio libre que hay a la izquierda de la
@@ -695,17 +703,23 @@ function svgDe(d, rotulo, interno = false) {
     const ids = miembros.slice().sort((a, b) => cajas.get(a).y - cajas.get(b).y);
     const ultima = ids[ids.length - 1];
     const pies = ids.map((k) => ({ caja: cajas.get(k), y: anclaAlto(k, cajas.get(k)) }));
-    const sx = pasilloLibre(hijos[0].x - (COL - ANCHO) / 2, salida, anclaAlto(ultima, cajas.get(ultima)), pies);
+    const sx = pasilloLibre(hijos[0].x - (COL - ANCHO) / 2, salida, anclaAlto(ultima, cajas.get(ultima)), pies, p);
     lineas += \`<path d="M\${px} \${py} V\${salida} H\${sx} V\${anclaAlto(ultima, cajas.get(ultima))}" \${trazo}/>\`;
     for (const k of ids) lineas += \`<path d="M\${sx} \${anclaAlto(k, cajas.get(k))} H\${cajas.get(k).x}" \${trazo}/>\`;
-    verticales.push({ x: px, a: py, z: salida });
-    verticales.push({ x: sx, a: salida, z: anclaAlto(ultima, cajas.get(ultima)) });
+    verticales.push({ x: px, a: py, z: salida, padre: p });
+    verticales.push({ x: sx, a: salida, z: anclaAlto(ultima, cajas.get(ultima)), padre: p });
   }
 
   let s = fondo + lineas;
   for (const [id, c] of cajas) s += tarjetaSVG(id, c);
   if (interno) return s;
-  return \`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 \${anchoTot} \${altoTot}" width="\${anchoTot}" height="\${altoTot}" role="img" aria-label="Organigrama de \${esc(rotulo)}">\${s}</svg>\`;
+  // Red de seguridad: el lienzo se estira hasta abarcar todo lo dibujado. Si
+  // un trazo tuviera que salirse, se vería igual en vez de quedar recortado.
+  const xs = [...(fondo + lineas).matchAll(/[MH](-?[\d.]+)/g)].map((m) => +m[1]);
+  const x0 = Math.min(0, ...xs.map((v) => v - 5));
+  const x1 = Math.max(anchoTot, ...xs.map((v) => v + 5));
+  const ancho = x1 - x0;
+  return \`<svg xmlns="http://www.w3.org/2000/svg" viewBox="\${x0} 0 \${ancho} \${altoTot}" width="\${ancho}" height="\${altoTot}" role="img" aria-label="Organigrama de \${esc(rotulo)}">\${s}</svg>\`;
 }
 function dibujar(hoja) {
   cajaRaiz = hoja.id; pliego = false;
