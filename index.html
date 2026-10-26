@@ -170,7 +170,7 @@ body{margin:0;font-family:'Open Sans','Inter',-apple-system,sans-serif;backgroun
 // ── SVG A3 helpers — plain JS (no Babel) ──
 // Disponibles sincrónicamente para el editor D3
 
-// ── Colores (duplicado para uso en genSVGA3 fuera de Babel) ──
+// ── Colores (duplicado para el editor D3, que corre fuera de Babel) ──
 const COLORS_SVG={
   JG:{bg:"#9B1C1C"},VJG:{bg:"#9B1C1C"},MIN:{bg:"#F5871F"},SEC:{bg:"#FFD400"},
   SS:{bg:"#004F86"},DG:{bg:"#268948"},GG:{bg:"#268948"},GO:{bg:"#268948"},ORG:{bg:"#E4E9ED"}
@@ -319,314 +319,9 @@ function pageKids(node,depth,isJG){
   return (node.children||[]).filter(c=>c.tipo!=="MIN");
 }
 
-function genSVGA3(root,pn=1,tot=1){
-  const PW=1587,PH=1123,MAR=40,HH=68,FH=34;
-  const AW=PW-MAR*2,AH=PH-HH-FH-MAR;
 
-  const today=new Date();
-  const fecha=`${String(today.getDate()).padStart(2,"0")}/${String(today.getMonth()+1).padStart(2,"0")}/${today.getFullYear()}`;
 
-  const isJG=root.tipo==="JG";
-  const savedPos=JSON.parse(localStorage.getItem("gcba_org_positions_v1")||"{}")[root.id]||null;
-  const waypoints=JSON.parse(localStorage.getItem("gcba_org_waypoints_v1")||"{}")[root.id]||{};
-  // Ruteo manual de líneas del editor: { "sid-tid": Y | {y,x} }
-  const savedMidY=JSON.parse(localStorage.getItem("gcba_org_midy_v1")||"{}")[root.id]||{};
-  const _sz=JSON.parse(localStorage.getItem("gcba_org_nodesize_v1")||"{}")[root.id]||null;
-  const ED_NW=_sz?.nw||158,ED_NH=_sz?.nh||50,ED_FS=_sz?.fs||0;
-
-  
-  let nodes=[],links=[],NW,NH;
-
-  // Decidir si usar layout guardado o auto-layout.
-  // Si tenemos savedPos pero >50% de nodos visibles no están allí, caer al auto-layout.
-  // NOTA: los entes fuera de nivel (root.dashed) TAMBIÉN usan su layout guardado
-  // cuando existe — antes se los forzaba a auto-layout y salían distintos al visor.
-  let useSavedLayout=savedPos&&Object.keys(savedPos).length>0;
-  let _visibleCache=null;
-  if(useSavedLayout){
-    _visibleCache=[];
-    (function collect(node,depth){
-      _visibleCache.push(node);
-      if(depth>0&&node.dashed)return; // fuera de nivel: no desplegar su sub-organigrama
-      if(isJG&&!jgDescend(depth,node))return;
-      (pageKids(node,depth,isJG)||[]).forEach(c=>collect(c,depth+1));
-    })(root,0);
-    const haveCount=_visibleCache.filter(n=>savedPos[n.id]!=null).length;
-    if(haveCount<_visibleCache.length*0.5)useSavedLayout=false;
-  }
-
-  if(useSavedLayout){
-    // ── Posiciones del editor ──────────────────────────────
-    const visible=_visibleCache;
-    const visIds=new Set(visible.map(n=>n.id));
-
-    nodes=visible.filter(n=>savedPos[n.id]!=null).map(n=>({x:savedPos[n.id].x,y:savedPos[n.id].y,w:savedPos[n.id].w||ED_NW,h:savedPos[n.id].h||ED_NH,fs:savedPos[n.id].fs||0,data:n}));
-
-    // Links
-    (function walk(node,depth){
-      (pageKids(node,depth,isJG)||[]).forEach(ch=>{
-        if(!visIds.has(ch.id))return;
-        const s=nodes.find(n=>n.data.id===node.id),t=nodes.find(n=>n.data.id===ch.id);
-        if(s&&t)links.push({s,t});
-        if(!ch.dashed&&(!isJG||jgDescend(depth+1,ch)))walk(ch,depth+1);
-      });
-    })(root,0);
-
-    // Normalizar posiciones del editor para que quepan en el A3
-    if(nodes.length>0){
-      const minX=Math.min(...nodes.map(n=>n.x-(n.w||ED_NW)/2))-10;
-      const maxX=Math.max(...nodes.map(n=>n.x+(n.w||ED_NW)/2))+10;
-      const minY=Math.min(...nodes.map(n=>n.y))-10;
-      const maxY=Math.max(...nodes.map(n=>n.y+(n.h||ED_NH)))+10;
-      const scX=AW/(maxX-minX||1);
-      const scY=AH/(maxY-minY||1);
-      const sc=Math.min(scX,scY)*0.80;  // 80% → 20% margen en A3
-      const cxContent=(minX+maxX)/2;
-      const cyContent=(minY+maxY)/2;
-      const offX=MAR+AW/2-cxContent*sc;
-      const offY=HH+AH/2-cyContent*sc;
-      nodes.forEach(n=>{
-        n.x=n.x*sc+offX;
-        n.y=n.y*sc+offY;
-        n.w=(n.w||ED_NW)*sc;
-        n.h=(n.h||ED_NH)*sc;
-        if(n.fs>0)n.fs=n.fs*sc;
-      });
-      // Trasladar el ruteo manual a coords A3: altura (por línea) y tronco (por padre)
-      links.forEach(lk=>{
-        const ov=savedMidY[`${lk.s.data?.id}-${lk.t.data?.id}`];
-        if(ov==null)return;
-        const oy=(typeof ov==="number")?ov:(typeof ov.y==="number"?ov.y:null);
-        const ox=(ov&&typeof ov==="object"&&typeof ov.x==="number")?ov.x:null;
-        if(oy!=null)lk.my=oy*sc+offY;
-        if(ox!=null)lk.trunkX=ox*sc+offX;
-      });
-    }
-    NW=ED_NW; NH=ED_NH;
-
-  }else{
-    // ── Layout D3 automático ───────────────────────────────
-    const HGAP=10,VGAP=24;
-
-    // Detectar si este nodo es de "primer nivel" (JG, o cualquier nodo cuyos
-    // hijos directos son MIN/VJG/SEC — ej: Jefatura de Gabinete NO es isJG
-    // pero tampoco queremos desplegar toda su estructura).
-    // La regla: si el nodo tiene hijos de tipo MIN/VJG/SEC, usar layout de 2 filas.
-    const directHier=(root.children||[]).filter(c=>!c.dashed);
-    const isShallowLayout=isJG||directHier.some(c=>c.tipo==="MIN"||c.tipo==="VJG"||c.tipo==="SEC");
-
-    if(isShallowLayout){
-      // Layout manual: fila 1 = MIN+VJG (o todos los no-SEC), fila 2 = SEC
-      const row1=directHier.filter(c=>c.tipo==="MIN"||c.tipo==="VJG");
-      const row2=directHier.filter(c=>c.tipo==="SEC");
-      // Si no hay row1 (ej: Jefatura de Gabinete que solo tiene SECs), poner todo en row1
-      const useRow1=row1.length>0?row1:directHier.filter(c=>c.tipo!=="SEC");
-      // Si no había MIN/VJG y todo se metió en row1, row2 queda vacía
-      const useRow2=row1.length>0?row2:[];
-      const spanX=Math.max(useRow1.length,useRow2.length,1);
-      const numRows=(useRow2.length>0?3:2); // JG + fila1 + fila2
-      // NW: dividir ancho disponible entre columnas
-      NW=Math.max(80,Math.floor((AW-(spanX-1)*HGAP)/spanX));
-      NW=Math.min(NW,280);
-      // NH: usar el espacio vertical completo dividido en filas
-      NH=Math.min(Math.floor((AH-(numRows-1)*VGAP)/numRows), Math.round(NW/2.6));
-      NH=Math.max(NH,36);
-      const HPAD=Math.max(HGAP,Math.round((AW-NW*spanX)/(spanX+1)));
-      const VPAD=Math.max(VGAP,Math.round((AH-NH*numRows)/(numRows+1)));
-      const makeRow=(items,rowY)=>{
-        const total=items.length*(NW+HPAD)-HPAD;
-        let x=(AW-total)/2+NW/2;
-        return items.map(c=>{const n={x,y:rowY,data:c,depth:1};x+=NW+HPAD;return n;});
-      };
-      const rn={x:AW/2,y:0,data:root,depth:0};
-      const mn=makeRow(useRow1,NH+VPAD);
-      const sn=makeRow(useRow2,NH+VPAD+NH+VPAD);
-      // Nodos fuera de nivel (dashed) — fila al pie
-      const dashedChildren=(root.children||[]).filter(c=>c.dashed);
-      const lastRowY=NH+VPAD+(useRow2.length>0?NH+VPAD:0);
-      const dn=dashedChildren.length>0?(()=>{
-        const total=dashedChildren.length*(NW+HPAD)-HPAD;
-        let x=(AW-total)/2+NW/2;
-        return dashedChildren.map(c=>{const n={x,y:lastRowY,data:c,depth:1};x+=NW+HPAD;return n;});
-      })():[];
-      nodes=[rn,...mn,...sn,...dn];
-      links=[...mn.map(t=>({s:rn,t})),...sn.map(t=>({s:rn,t})),...dn.map(t=>({s:rn,t}))];
-
-    } else {
-      // ── Layout compacto: llena la página A3 al máximo ──────────────
-      // Recopila todos los nodos no-dashed en orden BFS para mantener jerarquía
-      const allNonDashed=[];
-      (function bfs(n){
-        allNonDashed.push(n);
-        (n.children||[]).filter(c=>!c.dashed).forEach(c=>bfs(c));
-      })(root);
-
-      const total=allNonDashed.length;
-
-      // Calcular grilla óptima que llena el A3
-      // Objetivo: NW/NH ratio ~2.8:1 (nodos horizontales)
-      // Encontrar cols que maximice tamaño de nodo
-      let bestNW=0,bestNH=0,bestCols=1;
-      for(let cols=1;cols<=total;cols++){
-        const rows=Math.ceil(total/cols);
-        const nwTry=Math.floor((AW-(cols-1)*HGAP)/cols);
-        const nhTry=Math.floor((AH-(rows-1)*VGAP)/rows);
-        // Mantener ratio razonable (no demasiado alto ni ancho)
-        const ratio=nwTry/nhTry;
-        if(ratio<1.5||ratio>5)continue;
-        const area=nwTry*nhTry;
-        if(area>bestNW*bestNH){bestNW=nwTry;bestNH=nhTry;bestCols=cols;}
-      }
-      NW=Math.max(80,Math.min(280,bestNW));
-      NH=Math.max(34,Math.min(100,bestNH));
-      const cols=bestCols;
-      const HPAD=Math.max(HGAP,Math.floor((AW-NW*cols)/(cols+1)));
-      const rows=Math.ceil(total/cols);
-      const VPAD=Math.max(VGAP,Math.floor((AH-NH*rows)/(rows+1)));
-
-      // Posicionar en grilla manteniendo padre encima de sus hijos
-      // Usar posición BFS: cada nodo ocupa la siguiente celda disponible
-      allNonDashed.forEach((n,idx)=>{
-        const col=idx%cols;
-        const row=Math.floor(idx/cols);
-        const x=HPAD+col*(NW+HPAD)+NW/2;
-        const y=row*(NH+VPAD);
-        nodes.push({x,y,data:n,depth:0});
-      });
-
-      // Links: conectar cada nodo con su padre
-      const nodeById={};
-      nodes.forEach(n=>nodeById[n.data.id]=n);
-      allNonDashed.forEach(n=>{
-        (n.children||[]).filter(c=>!c.dashed).forEach(c=>{
-          const s=nodeById[n.id],t=nodeById[c.id];
-          if(s&&t)links.push({s,t});
-        });
-      });
-
-      // Nodos dashed al pie
-      const dashedChD=(root.children||[]).filter(c=>c.dashed);
-      if(dashedChD.length>0){
-        const maxY=rows*(NH+VPAD);
-        const dashedTotalW=dashedChD.length*(NW+HGAP)-HGAP;
-        let dx=(AW-dashedTotalW)/2+NW/2;
-        const rootNode=nodeById[root.id];
-        dashedChD.forEach(c=>{
-          const dn={x:dx,y:maxY+VGAP,data:c,depth:1};
-          nodes.push(dn);if(rootNode)links.push({s:rootNode,t:dn});
-          dx+=NW+HGAP;
-        });
-      }
-    }
-  }
-
-  // Posiciones ya en coordenadas A3 — offset es 0
-  const ox=0,oy=0;
-
-  // Tamaños de fuente proporcionales al nodo
-  const fsN=ED_FS>0?ED_FS:Math.max(7,Math.min(13,NW/11));
-  const fsT=ED_FS>0?ED_FS*0.82:Math.max(6,Math.min(10.5,NW/15));
-  const sw=Math.max(0.6,NW/220);
-
-  // Líneas. Respeta el ruteo manual del editor: my (altura de barra) y trunkX
-  // (posición horizontal del tronco), si fueron definidos.
-  function lPath(s,t,myOv,trunkOv){
-    const sh=s.h||NH;
-    const sx=s.x,sy=s.y+sh,tx=t.x,ty=t.y;
-    const isDashed=s.data?.dashed||t.data?.dashed;
-    const stroke="#1a2433";
-    const strokeW=isDashed?Math.max(0.9,sw*1.2):Math.max(1.5,sw*1.7);
-    const dash=isDashed?`stroke-dasharray="7,4" opacity="0.75"`:`opacity="0.92"`;
-    const R=Math.max(4,NW*0.04);
-    // Altura de la barra: override del editor o automático (punteadas cerca del destino).
-    const my=(typeof myOv==="number")?myOv:(isDashed?(sy+(ty-sy)*0.82):(sy+(ty-sy)*0.45));
-    const trunkX=(typeof trunkOv==="number")?trunkOv:sx;
-    const useTrunk=Math.abs(trunkX-sx)>=1;
-    let d;
-    if(!useTrunk){
-      if(Math.abs(sx-tx)<1){
-        d=`M${fv(sx)},${fv(sy)}L${fv(tx)},${fv(ty)}`;
-      } else {
-        const dx=tx>sx?R:-R;
-        d=`M${fv(sx)},${fv(sy)}L${fv(sx)},${fv(my-R)}Q${fv(sx)},${fv(my)} ${fv(sx+dx)},${fv(my)}L${fv(tx-dx)},${fv(my)}Q${fv(tx)},${fv(my)} ${fv(tx)},${fv(my+R)}L${fv(tx)},${fv(ty)}`;
-      }
-    } else {
-      // Tronco desplazado: jog arriba hacia trunkX, baja el tronco, barra y caída.
-      // Codo a distancia FIJA del padre: subir/bajar la barra no lo mueve.
-      const gap=Math.min(R*3,Math.max(R,(my-sy)-R*2));
-      const sdir=trunkX>sx?R:-R;
-      d=`M${fv(sx)},${fv(sy)}L${fv(sx)},${fv(sy+gap-R)}Q${fv(sx)},${fv(sy+gap)} ${fv(sx+sdir)},${fv(sy+gap)}L${fv(trunkX-sdir)},${fv(sy+gap)}Q${fv(trunkX)},${fv(sy+gap)} ${fv(trunkX)},${fv(sy+gap+R)}`;
-      if(Math.abs(trunkX-tx)<2){
-        d+=`L${fv(trunkX)},${fv(ty)}`;
-      } else {
-        const tdir=tx>trunkX?R:-R;
-        d+=`L${fv(trunkX)},${fv(my-R)}Q${fv(trunkX)},${fv(my)} ${fv(trunkX+tdir)},${fv(my)}L${fv(tx-tdir)},${fv(my)}Q${fv(tx)},${fv(my)} ${fv(tx)},${fv(my+R)}L${fv(tx)},${fv(ty)}`;
-      }
-    }
-    return`<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${fv(strokeW)}" ${dash}/>`;
-  }
-
-  let linesSVG="",nodesSVG="";
-  links.forEach(lk=>{
-    if(!lk.s||!lk.t)return;
-    linesSVG+=lPath(lk.s,lk.t,lk.my,lk.trunkX);
-  });
-  nodes.forEach(n=>{
-    const nw=n.w||NW,nh=n.h||NH;
-    // Calcular fuente considerando ancho Y alto del nodo
-    let fsNn,fsTn;
-    const nodeFS=(n.fs>0)?n.fs:ED_FS; // tamaño manual por nodo, si existe
-    if(nodeFS>0){fsNn=nodeFS;fsTn=nodeFS*0.82;}
-    else{
-      // Letra que llena la caja: al ensanchar el nodo, menos líneas y más grande.
-      const stripH=(n.data.titular&&n.data.titular.trim())?Math.max(14,nh*0.28):0;
-      fsNn=fitFontSize(n.data.nombre,nw,nh-stripH,7,200);
-      fsTn=Math.max(6,fsNn*0.82);
-    }
-    nodesSVG+=svgBox(n.x-nw/2,n.y,n.data,nw,nh,!!n.data?.dashed,fsNn,fsTn);
-  });
-
-  const leg=[["#9B1C1C","Jefatura"],["#F5871F","Ministerio"],["#FFD400","Secretaría"],
-             ["#004F86","Subsecretaría"],["#268948","Dir. General"],["#E4E9ED","Org. desc."]];
-  const lw=118,lx=(PW-leg.length*lw)/2,ly=PH-FH+11;
-  const legSVG=leg.map((it,i)=>
-    `<rect x="${fv(lx+i*lw)}" y="${fv(ly)}" width="9" height="9" rx="2" fill="${it[0]}"/>` +
-    `<text x="${fv(lx+i*lw+13)}" y="${fv(ly+8)}" font-size="8" fill="#718096" font-family="Inter,Arial,sans-serif">${it[1]}</text>`
-  ).join("");
-  const pgSVG=tot>1?`<text x="${fv(PW-MAR)}" y="${fv(ly+8)}" text-anchor="end" font-size="8" fill="#A0AEC0">${pn}/${tot}</text>`:"";
-  // Si el color del encabezado es claro, la franja lleva texto oscuro (legible).
-  const hc=getColorSVG(root);
-  const hcLight=["#FFD400","#E4E9ED","#F5871F"].some(c=>hc.toUpperCase()===c.toUpperCase());
-  const hTxt=hcLight?"#1A202C":"#fff";
-  const hSub=hcLight?"rgba(26,32,44,0.75)":"rgba(255,255,255,0.7)";
-
-  return`<svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}">
-<defs><linearGradient id="hg${pn}" x1="0" y1="0" x2="1" y2="0">
-  <stop offset="0%" stop-color="${hc}"/><stop offset="100%" stop-color="${hc}CC"/>
-</linearGradient></defs>
-<rect width="${PW}" height="${PH}" fill="#F8FAFC"/>
-<rect x="0" y="0" width="${PW}" height="${HH}" fill="url(#hg${pn})"/>
-<line x1="0" y1="${HH}" x2="${PW}" y2="${HH}" stroke="#E2E8F0" stroke-width="1"/>
-<text x="${fv(PW/2)}" y="${fv(HH*0.45)}" text-anchor="middle" font-size="22" font-weight="700" fill="${hTxt}" font-family="Inter,Arial,sans-serif">${root.nombre}</text>
-<text x="${fv(PW/2)}" y="${fv(HH*0.78)}" text-anchor="middle" font-size="10" fill="${hSub}" font-family="Inter,Arial,sans-serif">Ciudad Autónoma de Buenos Aires · ${fecha}</text>
-<g transform="translate(${fv(ox)},${fv(oy)})">${linesSVG}${nodesSVG}</g>
-<rect x="0" y="${PH-FH}" width="${PW}" height="${FH}" fill="#F8FAFC"/>
-<line x1="0" y1="${PH-FH}" x2="${PW}" y2="${PH-FH}" stroke="#E2E8F0" stroke-width="0.8"/>
-${legSVG}${pgSVG}
-</svg>`;
-}
-
-function dlSVG(svgStr,fname){
-  const blob=new Blob([svgStr],{type:"image/svg+xml"});
-  const url=URL.createObjectURL(blob);
-  Object.assign(document.createElement("a"),{href:url,download:fname}).click();
-  URL.revokeObjectURL(url);
-}
-
-// genSVGA3, dlSVG, wrapTxt — disponibles globalmente
-window.__genSVGA3 = genSVGA3;
-window.genSVGA3   = genSVGA3;
-window.__dlSVG    = dlSVG;
+// wrapTxt y las medidas de texto siguen disponibles para el editor.
 window.__wrapTxt  = wrapTxt;
 window.__fitFontSize = fitFontSize;
 window.__wrapTitular = wrapTitular;
@@ -1999,7 +1694,8 @@ window.__wrapTitular = wrapTitular;
     if(!viewRoot){alert("Esperá que cargue la app.");return;}
     if(!confirm("¿Recalcular posiciones para que el área entre prolija en A3?\nPisa el layout actual de esta vista."))return;
 
-    // Mismas dimensiones útiles que usa genSVGA3 (A3 horizontal con header/footer/margen)
+    // Hoja A3 horizontal con encabezado, pie y margen: es la medida con la
+    // que se acomodaron a mano las posiciones guardadas.
     const PW=1587,PH=1123,MAR=40,HH=68,FH=34;
     const AW=PW-MAR*2;            // ≈1507
     const AH=PH-HH-FH-MAR;        // ≈981
@@ -3950,89 +3646,19 @@ function App(){
   }
 
   // Exportar todo A3
-  function dlAll(){
-    const allNodes=flatList(data);
-    const pmap={};
-    (function bp(n){(n.children||[]).forEach(c=>{pmap[c.id]=n.id;bp(c);});})(data);
-
-    // F/N con estructura propia, indexados por padre
-    const fnByParent={};
-    allNodes.filter(n=>n.dashed&&(n.children||[]).length>0&&n.id!=="SGCBA").forEach(n=>{
-      const p=pmap[n.id]||"JG";
-      if(!fnByParent[p])fnByParent[p]=[];
-      fnByParent[p].push(n);
-    });
-
-    // Orden del PDF: cada ministerio/secretaría seguido de sus F/N
-    const PDF_IDS=["JG","VJG","MJGGC","MHFGC","MJGC","MSEGC","MSGC","MEDGC","MDECGC","MCGC","MDHYHGC","MEPHUGC","MMIGC","SECGE","SECLYT","SECCO","SECAE","SECGVC","SECME"];
-    const areas=[];
-    PDF_IDS.forEach(id=>{
-      const node=allNodes.find(n=>n.id===id);
-      if(node)areas.push(node);
-      // Agregar F/N de este ministerio inmediatamente después
-      (fnByParent[id]||[]).forEach(fn=>areas.push(fn));
-    });
-
-    const PW=1587,PH=1123;
-    const total=areas.length;
-    const pages=areas.map((a,i)=>genSVGA3(a,i+1,total));
-    const jsPDFref=(window.jspdf||{}).jsPDF;
-    if(!jsPDFref){
-      const combined=`<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="${PW}" height="${PH*total}" viewBox="0 0 ${PW} ${PH*total}">${pages.map((p,i)=>`<g transform="translate(0,${i*PH})">${p.replace(/<\/?svg[^>]*>/g,"")}</g>`).join("")}</svg>`;
-      dlSVG(combined,"organigrama-gcba-completo-A3.svg");
-      return;
-    }
-    const SCALE=2,cw=PW*SCALE,ch=PH*SCALE;
-    const pdf=new jsPDFref({orientation:"landscape",unit:"mm",format:"a3"});
-    const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
-    function renderPage(idx){
-      if(idx>=pages.length){pdf.save("organigrama-gcba-completo-A3.pdf");return;}
-      const svg=pages[idx];
-      const blob=new Blob([svg],{type:"image/svg+xml;charset=utf-8"});
-      const url=URL.createObjectURL(blob);
-      const img=new Image();
-      img.onload=function(){
-        const canvas=document.createElement("canvas");
-        canvas.width=cw;canvas.height=ch;
-        const ctx=canvas.getContext("2d");
-        ctx.fillStyle="#ffffff";ctx.fillRect(0,0,cw,ch);
-        ctx.drawImage(img,0,0,cw,ch);
-        URL.revokeObjectURL(url);
-        if(idx>0)pdf.addPage("a3","landscape");
-        pdf.addImage(canvas.toDataURL("image/jpeg",0.92),"JPEG",0,0,pw,ph);
-        renderPage(idx+1);
-      };
-      img.onerror=function(){URL.revokeObjectURL(url);renderPage(idx+1);};
-      img.src=url;
-    }
-    renderPage(0);
+  // El organigrama completo para descargar lo dibuja visor.html, que lo arma
+  // desde data/organigrama.json y sale con el tamaño de hoja del organigrama
+  // oficial. Se abre en modo impresión y el navegador lo guarda como PDF.
+  function abrirOrganigrama(){
+    window.open("visor.html#imprimir","_blank","noopener");
   }
 
-  // Exportar UNA sola área como PDF A3 (no todo el organigrama)
-  function dlAreaPDF(area){
+  // La hoja de un área sale del visor, igual que el organigrama completo: la
+  // dibuja desde data/organigrama.json con el tamaño de hoja del oficial. Si
+  // el área no es una de las 32 hojas, el visor imprime la que la contiene.
+  function abrirHojaDeArea(area){
     if(!area)return;
-    const PW=1587,PH=1123;
-    const svg=genSVGA3(area,1,1);
-    const jsPDFref=(window.jspdf||{}).jsPDF;
-    if(!jsPDFref){ dlSVG(svg,`organigrama-${area.id}-A3.svg`); return; }
-    const SCALE=2,cw=PW*SCALE,ch=PH*SCALE;
-    const pdf=new jsPDFref({orientation:"landscape",unit:"mm",format:"a3"});
-    const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
-    const blob=new Blob([svg],{type:"image/svg+xml;charset=utf-8"});
-    const url=URL.createObjectURL(blob);
-    const img=new Image();
-    img.onload=function(){
-      const canvas=document.createElement("canvas");
-      canvas.width=cw;canvas.height=ch;
-      const ctx=canvas.getContext("2d");
-      ctx.fillStyle="#ffffff";ctx.fillRect(0,0,cw,ch);
-      ctx.drawImage(img,0,0,cw,ch);
-      URL.revokeObjectURL(url);
-      pdf.addImage(canvas.toDataURL("image/jpeg",0.92),"JPEG",0,0,pw,ph);
-      pdf.save(`organigrama-${area.id}-A3.pdf`);
-    };
-    img.onerror=function(){URL.revokeObjectURL(url);dlSVG(svg,`organigrama-${area.id}-A3.svg`);};
-    img.src=url;
+    window.open("visor.html#imprimir="+encodeURIComponent(area.id),"_blank","noopener");
   }
 
   const color=selected?getColor(selected):"#003D6E";
@@ -4071,13 +3697,13 @@ function App(){
 
         {/* RIGHT — Descargar + Admin */}
         <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-          <button onClick={dlAll}
+          <button onClick={abrirOrganigrama}
             style={{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.25)",
               color:"rgba(255,255,255,0.85)",borderRadius:7,padding:"6px 14px",cursor:"pointer",
               fontSize:12,fontWeight:600,fontFamily:"inherit",transition:"all .15s"}}
             onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.2)";}}
             onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.1)";}}>
-            ⬇ Descargar A3
+            ⬇ Descargar organigrama
           </button>
           <button
             onClick={async()=>{
@@ -4197,7 +3823,7 @@ function App(){
                       <Btn variant="secondary" small onClick={withAuth(openMove)}>↕ Mover</Btn>
                       <Btn variant="danger" small onClick={withAuth(del)}>✕ Eliminar</Btn>
                     </>}
-                    <Btn variant="secondary" small onClick={()=>{dlAreaPDF(selected);}}>🖨 A3 (PDF)</Btn>
+                    <Btn variant="secondary" small onClick={()=>{abrirHojaDeArea(selected);}}>🖨 Hoja (PDF)</Btn>
                   </div>
                 </div>
               </div>
