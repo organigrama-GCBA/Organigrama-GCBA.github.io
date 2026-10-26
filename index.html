@@ -3950,6 +3950,17 @@ function App(){
   }
 
   // Exportar todo A3
+  // El organigrama completo para descargar lo dibuja visor.html, que lo arma
+  // desde data/organigrama.json y sale con el tamaño de hoja del organigrama
+  // oficial. Se abre en modo impresión y el navegador lo guarda como PDF.
+  function abrirOrganigrama(){
+    window.open("visor.html#imprimir","_blank","noopener");
+  }
+
+  // Sin uso desde que el botón manda al visor. Armaba su propio dibujo a
+  // partir de las posiciones de layout.json: diecinueve hojas en vez de
+  // treinta y dos, y sin las áreas que no tienen posición guardada, que por
+  // eso no se dibujaban en ningún lado.
   function dlAll(){
     const allNodes=flatList(data);
     const pmap={};
@@ -4071,13 +4082,13 @@ function App(){
 
         {/* RIGHT — Descargar + Admin */}
         <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
-          <button onClick={dlAll}
+          <button onClick={abrirOrganigrama}
             style={{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.25)",
               color:"rgba(255,255,255,0.85)",borderRadius:7,padding:"6px 14px",cursor:"pointer",
               fontSize:12,fontWeight:600,fontFamily:"inherit",transition:"all .15s"}}
             onMouseEnter={e=>{e.currentTarget.style.background="rgba(255,255,255,0.2)";}}
             onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.1)";}}>
-            ⬇ Descargar A3
+            ⬇ Descargar organigrama
           </button>
           <button
             onClick={async()=>{

@@ -1195,6 +1195,17 @@ $("#pliego").addEventListener("click", (e) => {
 
 render();
 panelVacio();
+
+// Abierto como visor.html#imprimir, va derecho al diálogo de impresión. Es
+// como la página del organigrama entrega la descarga: en vez de armar el
+// dibujo por su cuenta, manda acá, que es donde está el organigrama bueno.
+if (location.hash === "#imprimir") {
+  $("#res").hidden = true;
+  medidasDeImpresion();
+  // Una vuelta para que el navegador termine de maquetar las 32 hojas antes
+  // de medir la página; imprimir en el mismo tick salía con hojas en blanco.
+  requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+}
 </script>
 </body>
 </html>
