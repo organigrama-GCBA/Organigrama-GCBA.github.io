@@ -280,6 +280,14 @@
               "children": []
             },
             {
+              "id": "EPI",
+              "nombre": "Ente Público No Estatal Parque de la Innovación",
+              "titular": "Augusto Ardiles Díaz",
+              "tipo": "ORG",
+              "dashed": true,
+              "children": []
+            },
+            {
               "id": "ENTUR",
               "nombre": "Ente de Turismo de la Ciudad de Buenos Aires Ley N° 2.627",
               "titular": "Valentin Díaz Gilligan",
