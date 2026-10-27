@@ -114,9 +114,9 @@ Verificado después de aplicar: 515 nodos, **el único campo que cambió en todo
   Funcionarios, que cita el acto de cada uno, y aplicados: `CBAS`, `DGANFA`, `DGDSEC`, `DGISIS` y
   `LOTBA`. Falta `DGGEDOC`, que el Cuadro no confirma porque su decreto (360/26) es posterior al
   corte de esa planilla. Ver `2026-10-27-funcionarios-excel.md`.
-- Las 2 altas: `EPI` se dio de alta el 26/10 (ver `docs/correcciones/2026-10-26-epi.md`).
-  **`CAPUAM`** (Consejo Asesor del Plan Urbano Ambiental, bajo Jefatura de Gabinete) sigue sin
-  cargar; el Cuadro de Funcionarios le dedica una hoja propia.
+- ~~Las 2 altas~~ — **las dos cargadas**: `EPI` el 26/10 (`docs/correcciones/2026-10-26-epi.md`) y
+  `CAPUAM` el 27/10 (`docs/correcciones/2026-10-27-capuam.md`), las dos contra el anexo del
+  Decreto 306/26 que las numera.
 - Resolver `ISSP`: ¿sigue Zavaleta o asumió como Fiscal General?
 - `DGIASINF` y `OFIP`: nosotros tenemos titular y el archivo dice "Sin designar". Puede ser un cese
   que no registramos o un hueco de la extracción.

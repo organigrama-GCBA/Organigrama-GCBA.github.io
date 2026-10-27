@@ -2340,6 +2340,14 @@
           ]
         },
         {
+          "id": "CAPUAM",
+          "nombre": "Consejo Asesor del Plan Urbano Ambiental",
+          "titular": "",
+          "tipo": "ORG",
+          "children": [],
+          "dashed": true
+        },
+        {
           "id": "UAIMJG",
           "nombre": "Unidad de Auditoría Interna",
           "titular": "María Florencia Fernández Camarda",
