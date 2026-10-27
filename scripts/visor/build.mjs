@@ -461,11 +461,11 @@ function calleDe(id, raiz) {
 // Se prueban varios valores y se elige el que más superficie del A3 cubre,
 // en la mejor de las dos orientaciones.
 const A3_CORTO = 297, A3_LARGO = 420, ALTO_TITULO = 14;
-// Debajo de este cuerpo la hoja se reparte en dos A3 para pegar. Con 6,5 hoy
-// no se parte ninguna: las tres más cargadas quedan en 6,8 / 6,8 / 6,9, y
-// Hacienda, la más chica de las holgadas, en 7,8. El organigrama oficial
-// anda por los 6. El mecanismo queda vivo para una hoja que creciera más.
-const PT_MINIMO = 6.5;
+// Debajo de este cuerpo la hoja se reparte en dos A3 para pegar. Con 7,5 se
+// parten las tres más cargadas, que en una sola hoja quedarían en 6,8 / 6,8
+// / 6,9 y partidas llegan a 8 / 9,4 / 8,1. La más chica de las que entran
+// holgadas es Hacienda, con 7,8. El organigrama oficial anda por los 6.
+const PT_MINIMO = 7.5;
 // Formatos posibles: un A3, o dos pegados por el lado largo o por el corto.
 // Al pegar dos, cada uno conserva su margen y su encabezado, así que lo útil
 // se suma por el lado donde se cortan.
