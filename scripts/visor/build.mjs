@@ -256,7 +256,7 @@ select,input,button,textarea{font:inherit;font-family:var(--texto)}
 /* La carátula es la única página sin nombre: un A3 vertical. Las hojas traen
    cada una su @page con nombre, calculado al imprimir. */
 @page{size:297mm 420mm;margin:9mm}
-.caratula{display:none}
+.caratula,.hoja.tira{display:none}
 @media print{
   /* Alto fijo, no 100vh: en papel el vh se mide contra otra página y la caja
      desbordaba, dejando una carilla en blanco y pasándole su medida a la
@@ -283,6 +283,10 @@ select,input,button,textarea{font:inherit;font-family:var(--texto)}
   .portada ol{columns:4;column-gap:8mm;font-size:8.2pt;color:var(--tinta-2);margin:0;padding:0;list-style:none}
   .portada li{break-inside:avoid;margin-bottom:.9mm}
   .portada li b{font-variant-numeric:tabular-nums;color:var(--tinta);font-weight:600}
+  /* En papel se ven las dos mitades para pegar, y no la hoja entera, que en
+     una sola carilla saldría con letra ilegible. */
+  .hoja.tira{display:block}
+  .hoja.solo-pantalla{display:none}
   .hoja{break-before:page;break-inside:avoid;border:0;border-radius:0;margin:0;box-shadow:none}
   .hoja-tit{border-bottom:1.2pt solid var(--tinta);padding:0 0 2mm;margin-bottom:3mm}
   .hoja-tit h2{font-size:14pt}
@@ -457,18 +461,88 @@ function calleDe(id, raiz) {
 // Se prueban varios valores y se elige el que más superficie del A3 cubre,
 // en la mejor de las dos orientaciones.
 const A3_CORTO = 297, A3_LARGO = 420, ALTO_TITULO = 14;
-function aprovechaA3(anchoU, altoU) {
-  let mejor = { fraccion: 0, apaisada: false, escala: 1 };
+// Debajo de este cuerpo la hoja se reparte en dos A3 para pegar. La más
+// chica de las que entran holgadas en una sola es Hacienda, con 7,8. El
+// organigrama oficial anda por los 6.
+const PT_MINIMO = 7.5;
+// Jefatura de Gabinete va entera, aunque el cuerpo quede por debajo del
+// mínimo. Es la hoja de la que ya se sacaron los diez ministerios para la
+// versión impresa; con eso pasó de 6,8 a 6,9 puntos, que no alcanzó para
+// llegar al umbral, pero se prefiere leerla de un vistazo antes que ganar
+// tres cuartos de punto a cambio de pegar dos hojas.
+const SIN_PARTIR = new Set(["MJGGC"]);
+// Formatos posibles: un A3, o dos pegados por el lado largo o por el corto.
+// Al pegar dos, cada uno conserva su margen y su encabezado, así que lo útil
+// se suma por el lado donde se cortan.
+// Las dos hojas se pegan SUPERPUESTAS, no a tope: cada una repite esta
+// franja de dibujo, así se alinean a ojo y no hay que recortar márgenes con
+// tijera. Lo que se repite se descuenta del ancho aprovechable.
+const SOLAPA = 24;
+function formatos() {
+  const out = [];
   for (const apaisada of [false, true]) {
     const pw = apaisada ? A3_LARGO : A3_CORTO, ph = apaisada ? A3_CORTO : A3_LARGO;
     const uw = pw - 2 * MARGEN, uh = ph - 2 * MARGEN - ALTO_TITULO;
-    const w = anchoU * MM_POR_UNIDAD, h = altoU * MM_POR_UNIDAD;
-    const escala = Math.min(uw / w, uh / h);
-    const fraccion = (w * escala) * (h * escala) / (uw * uh);
-    if (fraccion > mejor.fraccion) mejor = { fraccion, apaisada, escala };
+    out.push({ apaisada, partes: 1, eje: null, uw, uh });
+    out.push({ apaisada, partes: 2, eje: "x", uw: uw * 2 - SOLAPA, uh, utilUna: uw });
+    out.push({ apaisada, partes: 2, eje: "y", uw, uh: uh * 2 - SOLAPA, utilUna: uh });
   }
-  return mejor;
+  return out;
 }
+// Elige el formato: primero el de una sola hoja que más papel cubra; si con
+// eso la letra queda por debajo del mínimo, el de dos que más la agrande.
+function aprovechaA3(anchoU, altoU, permitirDos = false) {
+  const w = anchoU * MM_POR_UNIDAD, h = altoU * MM_POR_UNIDAD;
+  const medir = (f) => {
+    const escala = Math.min(f.uw / w, f.uh / h);
+    return { ...f, escala, fraccion: (w * escala) * (h * escala) / (f.uw * f.uh) };
+  };
+  const todos = formatos().map(medir);
+  const unaSola = todos.filter((f) => f.partes === 1)
+    .reduce((a, b) => (b.fraccion > a.fraccion ? b : a));
+  if (!permitirDos || 8 * unaSola.escala >= PT_MINIMO) return unaSola;
+  const dos = todos.filter((f) => f.partes === 2)
+    .reduce((a, b) => (b.escala > a.escala ? b : a));
+  return dos.escala > unaSola.escala * 1.1 ? dos : unaSola;
+}
+// Formato elegido por hoja: orientación, en cuántas partes y por qué eje se
+// corta. Se calcula una vez y lo usan tanto el dibujo como las medidas.
+const formatoDe = new Map();
+function elegirFormatos(hojas) {
+  for (const h of hojas) {
+    // Se mide sobre el dibujo DE VERDAD, no sobre el ancho nominal: el lienzo
+    // se estira para que entren las líneas que salen por el margen, así que
+    // el dibujo es un three por ciento más grande de lo que dice disponer(),
+    // y el cuerpo de letra real quedaba por debajo del calculado.
+    const svg = dibujar(h, idsImpresos(h));
+    const vb = (svg.match(/viewBox="(-?[\\d.]+) (-?[\\d.]+) ([\\d.]+) ([\\d.]+)"/) || [])
+      .slice(3).map(Number);
+    const d = { anchoTot: vb[0], altoTot: vb[1] };
+    const f = aprovechaA3(d.anchoTot, d.altoTot, !SIN_PARTIR.has(h.id));
+    f.w = d.anchoTot; f.h = d.altoTot;
+    if (f.partes === 2) {
+      // Las dos mitades tienen que entrar en su hoja, y además tiene que
+      // sobrar lugar para correr el corte hasta un hueco entre cajas. Si se
+      // agranda el dibujo hasta el límite, el corte queda clavado en el medio
+      // y parte lo que haya ahí: era lo que pasaba en Jefatura de Gabinete.
+      // Cuánto margen hace falta no se adivina: se le pregunta al dibujo a qué
+      // distancia del medio está el primer hueco libre. En Seguridad estaba a
+      // 108,5 unidades y el margen supuesto era de 100, así que el corte se
+      // quedaba clavado en el medio partiendo cinco cajas.
+      const largo = f.eje === "x" ? f.w : f.h;
+      const dists = (ejeCorte(svg, f.eje) || { dists: [] }).dists;
+      const holgura = dists.length ? Math.abs(dists[0]) + 2 : largo / 3;
+      for (let k = 0; k < 60; k++) {
+        const maxU = f.utilUna / (MM_POR_UNIDAD * f.escala);
+        const solapaU = SOLAPA / (MM_POR_UNIDAD * f.escala);
+        if (maxU - largo / 2 - solapaU >= holgura) break;
+        f.escala *= 0.98;
+      }
+    }
+    formatoDe.set(h.id, f);
+  }
+}
+
 const pilasProbadas = new Map();
 function pilaDe(raiz) {
   return pilasProbadas.has(raiz) ? pilasProbadas.get(raiz) : MAX_PILA;
@@ -477,7 +551,7 @@ function elegirPilas(hojas) {
   for (const h of hojas) {
     let mejor = { pila: MAX_PILA, fraccion: -1 };
     for (const pila of [3, 4, 5, 6, 7, 8]) {
-      const d = disponer(h.id, h.ids, true, pila);
+      const d = disponer(h.id, idsImpresos(h), true, pila);
       const { fraccion } = aprovechaA3(d.anchoTot, d.altoTot);
       // A igual aprovechamiento gana la pila más larga: menos columnas, menos
       // recorrido horizontal para leer.
@@ -1059,17 +1133,117 @@ function svgDe(d, rotulo, interno = false) {
   const ancho = x1 - x0;
   return \`<svg xmlns="http://www.w3.org/2000/svg" viewBox="\${x0} 0 \${ancho} \${altoTot}" width="\${ancho}" height="\${altoTot}" role="img" aria-label="Organigrama de \${esc(rotulo)}">\${s}</svg>\`;
 }
-function dibujar(hoja) {
+function dibujar(hoja, ids = hoja.ids) {
   cajaRaiz = hoja.id; pliego = false;
-  return svgDe(disponer(hoja.id, hoja.ids), hoja.nombre);
+  return svgDe(disponer(hoja.id, ids), hoja.nombre);
+}
+
+// En pantalla, la hoja de un ministerio muestra como tarjeta con enlace a
+// los otros ministerios que cuelgan de él: sirve para navegar. En papel el
+// enlace no existe y son diez cajas que no aportan estructura, así que la
+// versión impresa las deja afuera.
+function idsImpresos(h) {
+  if (N[h.id].tipo !== "MIN") return h.ids;
+  return h.ids.filter((id) => !(id !== h.id && esHojaPropia(id) && N[id].tipo === "MIN"));
+}
+
+// Parte un dibujo en dos recortando el viewBox: la mitad de la izquierda y
+// la de la derecha, o la de arriba y la de abajo. No hace falta recortar con
+// CSS ni volver a dibujar nada: el SVG ya muestra solo lo que entra en su
+// viewBox.
+// Por dónde se puede cortar un dibujo sin partir ninguna caja. Lo usan los
+// dos: el que elige la escala —que necesita saber cuánto margen hace falta
+// dejar— y el que parte de verdad. Antes cada uno tenía su cuenta y no
+// coincidían: el de la escala suponía que siempre habría un hueco a menos de
+// media columna, y en Seguridad el más cercano estaba a media unidad de más.
+function ejeCorte(svg, eje) {
+  // Ojo: esto vive dentro de una plantilla de texto, así que la barra del \d
+  // va doble o se la come el armador y el patrón deja de encontrar nada.
+  const m = svg.match(/viewBox="(-?[\\d.]+) (-?[\\d.]+) ([\\d.]+) ([\\d.]+)"/);
+  if (!m) return null;
+  const x = +m[1], y = +m[2], w = +m[3], h = +m[4];
+  // El rectángulo del marco es SOLO el bloque del nombre: abajo siguen la
+  // franja de la sigla y la línea del titular, que no son rectángulos. Si no
+  // se las suma, el corte cae por el medio de la caja, que es lo que le pasó
+  // a la DG de Innovación y Simplificación de Procesos.
+  const COLA = H_SIGLA + H_TITULAR;
+  const cajas = [...svg.matchAll(
+    /<rect class="marco" x="(-?[\\d.]+)" y="(-?[\\d.]+)" width="([\\d.]+)" height="([\\d.]+)"/g)]
+    .map((c) => (eje === "x"
+      ? [+c[1], +c[1] + +c[3]]
+      : [+c[2], +c[2] + +c[4] + COLA]));
+  const medio = eje === "x" ? x + w / 2 : y + h / 2;
+  const largo = eje === "x" ? w : h;
+  const libre = (v) => !cajas.some(([a, b]) => v > a - 3 && v < b + 3);
+  // Corrimientos posibles respecto del medio, del más chico al más grande.
+  const dists = [];
+  for (let d = 0; d <= largo / 3; d += 0.5) {
+    if (libre(medio - d)) dists.push(-d);
+    if (d && libre(medio + d)) dists.push(d);
+  }
+  return { m, x, y, w, h, medio, largo, dists };
+}
+
+function partirSVG(svg, eje, solapaU, maxU) {
+  const ej = ejeCorte(svg, eje);
+  if (!ej) return [{ svg, w: 0, h: 0 }, { svg, w: 0, h: 0 }];
+  const { m, x, y, w, h, medio, largo, dists } = ej;
+  // El corte se corre al hueco libre más próximo a la mitad, y no puede
+  // alejarse tanto como para que una mitad deje de entrar en su hoja: si se
+  // pasa, esa mitad se desborda a una carilla de más. Era lo que le pasaba a
+  // Justicia. La escala ya se eligió para que el hueco más cercano entre en
+  // este margen.
+  const margenCorte = Math.max(0, maxU - largo / 2 - solapaU);
+  const corrimiento = dists.find((d) => Math.abs(d) <= margenCorte);
+  const corte = medio + (corrimiento === undefined ? 0 : corrimiento);
+  // La solapa va toda de un lado: la parte 2 arranca LIMPIA en el hueco y la
+  // parte 1 se estira hacia adelante. Repartida a los dos lados, el borde de
+  // adelante caía en el hueco pero el de atrás no, y la parte 2 empezaba por
+  // el medio de una caja. Al pegar, la 2 va ENCIMA: su borde limpio tapa la
+  // caja que la 1 muestra cortada, y su encabezado queda sobre la franja
+  // repetida, que por eso tiene que ser más ancha que el encabezado.
+  // Cada mitad vuelve con su propia medida en unidades: como el corte no cae
+  // justo en el medio, si las dos se imprimieran al mismo ancho quedarían a
+  // escalas distintas y al pegarlas no empalmarían.
+  return [0, 1].map((i) => {
+    const desde = i ? corte : (eje === "x" ? x : y);
+    const hasta = i ? (eje === "x" ? x + w : y + h) : corte + solapaU;
+    const vx = eje === "x" ? desde : x;
+    const vy = eje === "y" ? desde : y;
+    const vw = eje === "x" ? hasta - desde : w;
+    const vh = eje === "y" ? hasta - desde : h;
+    return { svg: svg.replace(m[0], \`viewBox="\${vx} \${vy} \${vw} \${vh}"\`), w: vw, h: vh };
+  });
 }
 
 function render() {
-  $("#hojas").innerHTML = D.hojas.map((h) => \`
-    <section class="hoja" id="h-\${esc(h.id)}">
-      <div class="hoja-tit"><h2>\${esc(h.nombre)}</h2><span>\${h.ids.length} área\${h.ids.length === 1 ? "" : "s"}</span></div>
-      <div class="lienzo">\${dibujar(h)}</div>
-    </section>\`).join("");
+  $("#hojas").innerHTML = D.hojas.map((h) => {
+    const ids = idsImpresos(h);
+    const difiere = ids.length !== h.ids.length;
+    const svgPantalla = dibujar(h);
+    const svg = difiere ? dibujar(h, ids) : svgPantalla;
+    const f = formatoDe.get(h.id) || { partes: 1 };
+    const aparte = difiere || f.partes === 2;   // el papel lleva su propia sección
+    const rotulo = (n) => \`<span>\${n} área\${n === 1 ? "" : "s"}</span>\`;
+    const cabeza = (sufijo, n) => \`<div class="hoja-tit"><h2>\${esc(h.nombre)}\${sufijo}</h2>\${rotulo(n)}</div>\`;
+    let out = \`<section class="hoja\${aparte ? " solo-pantalla" : ""}" id="h-\${esc(h.id)}">\`
+      + cabeza("", h.ids.length) + \`<div class="lienzo">\${svgPantalla}</div></section>\`;
+    if (aparte && f.partes !== 2) {
+      out += \`<section class="hoja tira" id="h-\${esc(h.id)}-i">\`
+        + cabeza("", ids.length) + \`<div class="lienzo">\${svg}</div></section>\`;
+    }
+    if (f.partes === 2) {
+      // Las dos mitades solo existen para imprimir: en pantalla se sigue
+      // viendo la hoja entera, que es como se lee.
+      out += partirSVG(svg, f.eje, SOLAPA / (MM_POR_UNIDAD * f.escala), f.utilUna / (MM_POR_UNIDAD * f.escala)).map((mitad, i) =>
+        \`<section class="hoja tira" id="h-\${esc(h.id)}-p\${i + 1}"\`
+        + \` style="--ancho-impreso:\${(mitad.w * MM_POR_UNIDAD * f.escala).toFixed(1)}mm;\`
+        + \`--alto-impreso:\${(mitad.h * MM_POR_UNIDAD * f.escala).toFixed(1)}mm">\`
+        + cabeza(\`\${i ? " · para pegar, 2 de 2: va ENCIMA de la 1" : " · para pegar, 1 de 2"}\`, ids.length)
+        + \`<div class="lienzo">\${mitad.svg}</div></section>\`).join("");
+    }
+    return out;
+  }).join("");
   // Que el área esté en la lista de una hoja no quiere decir que la caja se
   // haya dibujado. Diez fuera de nivel estuvieron sin aparecer en ninguna
   // hoja mientras la cuenta por listas daba 515 de 515, así que la cuenta se
@@ -1234,16 +1408,30 @@ const MM_POR_UNIDAD = 35.3 / ANCHO, MARGEN = 9, ANCHO_OFICIAL = 297.7;
 function medidasDeImpresion() {
   const reglas = [];
   D.hojas.forEach((h, i) => {
-    const d = disponer(h.id, h.ids);
-    const { apaisada, escala } = aprovechaA3(d.anchoTot, d.altoTot);
+    const idsImp = idsImpresos(h);
+    const { apaisada, escala, partes, eje, w, h: alto } = formatoDe.get(h.id);
     const pw = apaisada ? A3_LARGO : A3_CORTO, ph = apaisada ? A3_CORTO : A3_LARGO;
-    const anchoMM = d.anchoTot * MM_POR_UNIDAD * escala;
-    const altoMM = d.altoTot * MM_POR_UNIDAD * escala;
-    reglas.push(
-      \`@page h\${i} { size: \${pw}mm \${ph}mm; margin: \${MARGEN}mm }\`,
-      \`#h-\${CSS.escape(h.id)} { page: h\${i} }\`,
-      \`#h-\${CSS.escape(h.id)} .lienzo svg { --ancho-impreso: \${anchoMM.toFixed(1)}mm; --alto-impreso: \${altoMM.toFixed(1)}mm }\`,
-    );
+    const anchoMM = w * MM_POR_UNIDAD * escala;
+    const altoMM = alto * MM_POR_UNIDAD * escala;
+    reglas.push(\`@page h\${i} { size: \${pw}mm \${ph}mm; margin: \${MARGEN}mm }\`);
+    // Cada mitad lleva su medida: la del dibujo entero recortada por el eje
+    // donde se corta. Pegadas dan el dibujo completo, al doble de tamaño que
+    // si entrara en una sola hoja.
+    if (partes === 2) {
+      // Las medidas de cada mitad las escribe el recorte, que es el único que
+      // sabe por dónde cortó.
+      reglas.push(
+        \`#h-\${CSS.escape(h.id)}-p1 { page: h\${i} }\`,
+        \`#h-\${CSS.escape(h.id)}-p2 { page: h\${i} }\`,
+      );
+    } else {
+      // Si la versión de papel va aparte, la medida es de ESA sección.
+      const destino = idsImp.length !== h.ids.length ? h.id + "-i" : h.id;
+      reglas.push(
+        \`#h-\${CSS.escape(destino)} { page: h\${i} }\`,
+        \`#h-\${CSS.escape(destino)} .lienzo svg { --ancho-impreso: \${anchoMM.toFixed(1)}mm; --alto-impreso: \${altoMM.toFixed(1)}mm }\`,
+      );
+    }
   });
   let est = document.getElementById("medidas-impresion");
   if (!est) { est = document.createElement("style"); est.id = "medidas-impresion"; document.head.appendChild(est); }
@@ -1261,13 +1449,17 @@ function prepararImpresion(solo) {
   // o la impresión arranca con una carilla en blanco.
   est.textContent = solo
     ? \`@media print{.caratula{display:none!important}.hoja{display:none!important}\` +
-      \`#h-\${CSS.escape(solo)}{display:block!important;break-before:auto}}\`
+      \`#h-\${CSS.escape(solo)}:not(.solo-pantalla),#h-\${CSS.escape(solo)}-i,\` +
+      \`#h-\${CSS.escape(solo)}-p1,#h-\${CSS.escape(solo)}-p2{display:block!important}\` +
+      \`#h-\${CSS.escape(solo)}:not(.solo-pantalla),#h-\${CSS.escape(solo)}-i,\` +
+      \`#h-\${CSS.escape(solo)}-p1{break-before:auto}}\`
     : "";
 }
 $("#imprimir").addEventListener("click", () => { prepararImpresion(null); window.print(); });
 // Antes de medir nada hay que decidir en cuántas columnas se reparte cada
 // hoja: eso define su silueta y, con ella, cuánto del A3 se aprovecha.
 elegirPilas(D.hojas);
+elegirFormatos(D.hojas);
 medidasDeImpresion();
 
 // Pliego: el árbol entero en un solo dibujo, sin cortar en las otras hojas.
@@ -1348,4 +1540,12 @@ if (pedido) {
 `;
 
 fs.writeFileSync(path.join(ROOT, "visor.html"), html);
+// La plantilla se come una barra de cada escape: si un \\d llega al archivo
+// como d, la expresión regular deja de encontrar nada y el fallo es mudo. Ya
+// pasó tres veces, así que se comprueba al armar.
+const comidos = (html.match(/\/[^/\n"]{0,60}\[d\.\]/g) || []);
+if (comidos.length) {
+  console.error(`Escapes comidos por la plantilla: ${comidos.join(", ")}`);
+  process.exit(1);
+}
 console.log(`visor.html — ${total} áreas · ${ordenHojas.length} hojas · ${conFunciones} con funciones · ${(html.length / 1024).toFixed(0)} KB`);
