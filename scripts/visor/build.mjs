@@ -51,8 +51,7 @@ function descendientes(id) {
 // el modelo.
 const hojas = [
   "JG", "PG", "CDNNYA", "SGCBA", "URFVI", "VJG", "APRA", "COPIDIS", "UPEEI",
-  "MJGGC", "SECITD", "SECD", "ASINF", "IDECBA", "MHFGC", "AGIP",
-  "MJGC", "SECJ", "AGC", "MSEGC", "SECSEG", "SECC", "MSGC",
+  "MJGGC", "ASINF", "IDECBA", "MHFGC", "AGIP", "MJGC", "AGC", "MSEGC", "MSGC",
   "EAIT", "MEDGC", "MDECGC", "ENTUR", "MCGC", "MDHYHGC", "MEPHUGC", "MMIGC",
   "SECGE", "SECLYT", "SECCO", "SECAE", "SECGVC", "SECME",
 ];
