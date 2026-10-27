@@ -286,7 +286,7 @@ select,input,button,textarea{font:inherit;font-family:var(--texto)}
   /* En papel se ven las dos mitades para pegar, y no la hoja entera, que en
      una sola carilla saldría con letra ilegible. */
   .hoja.tira{display:block}
-  .hoja.partida{display:none}
+  .hoja.solo-pantalla{display:none}
   .hoja{break-before:page;break-inside:avoid;border:0;border-radius:0;margin:0;box-shadow:none}
   .hoja-tit{border-bottom:1.2pt solid var(--tinta);padding:0 0 2mm;margin-bottom:3mm}
   .hoja-tit h2{font-size:14pt}
@@ -461,9 +461,11 @@ function calleDe(id, raiz) {
 // Se prueban varios valores y se elige el que más superficie del A3 cubre,
 // en la mejor de las dos orientaciones.
 const A3_CORTO = 297, A3_LARGO = 420, ALTO_TITULO = 14;
-// Debajo de este cuerpo la hoja deja de leerse de parado, y conviene
-// repartirla en dos A3 para pegar. El organigrama oficial anda por los 6.
-const PT_MINIMO = 7.5;
+// Debajo de este cuerpo la hoja se reparte en dos A3 para pegar. Con 6,5 hoy
+// no se parte ninguna: las tres más cargadas quedan en 6,8 / 6,8 / 6,9, y
+// Hacienda, la más chica de las holgadas, en 7,8. El organigrama oficial
+// anda por los 6. El mecanismo queda vivo para una hoja que creciera más.
+const PT_MINIMO = 6.5;
 // Formatos posibles: un A3, o dos pegados por el lado largo o por el corto.
 // Al pegar dos, cada uno conserva su margen y su encabezado, así que lo útil
 // se suma por el lado donde se cortan.
@@ -503,8 +505,30 @@ function aprovechaA3(anchoU, altoU, permitirDos = false) {
 const formatoDe = new Map();
 function elegirFormatos(hojas) {
   for (const h of hojas) {
-    const d = disponer(h.id, h.ids);
-    formatoDe.set(h.id, aprovechaA3(d.anchoTot, d.altoTot, true));
+    // Se mide sobre el dibujo DE VERDAD, no sobre el ancho nominal: el lienzo
+    // se estira para que entren las líneas que salen por el margen, así que
+    // el dibujo es un three por ciento más grande de lo que dice disponer(),
+    // y el cuerpo de letra real quedaba por debajo del calculado.
+    const vb = (dibujar(h, idsImpresos(h)).match(/viewBox="(-?[\\d.]+) (-?[\\d.]+) ([\\d.]+) ([\\d.]+)"/) || [])
+      .slice(3).map(Number);
+    const d = { anchoTot: vb[0], altoTot: vb[1] };
+    const f = aprovechaA3(d.anchoTot, d.altoTot, true);
+    f.w = d.anchoTot; f.h = d.altoTot;
+    if (f.partes === 2) {
+      // Las dos mitades tienen que entrar en su hoja, y además tiene que
+      // sobrar lugar para correr el corte hasta un hueco entre cajas. Si se
+      // agranda el dibujo hasta el límite, el corte queda clavado en el medio
+      // y parte lo que haya ahí: era lo que pasaba en Jefatura de Gabinete.
+      const largo = f.eje === "x" ? f.w : f.h;
+      const holgura = f.eje === "x" ? COL * 0.6 : (CALLE_SEP + ALTO_MIN) * 0.8;
+      for (let k = 0; k < 40; k++) {
+        const maxU = f.utilUna / (MM_POR_UNIDAD * f.escala);
+        const solapaU = SOLAPA / (MM_POR_UNIDAD * f.escala);
+        if (maxU - largo / 2 - solapaU / 2 >= holgura) break;
+        f.escala *= 0.98;
+      }
+    }
+    formatoDe.set(h.id, f);
   }
 }
 
@@ -516,7 +540,7 @@ function elegirPilas(hojas) {
   for (const h of hojas) {
     let mejor = { pila: MAX_PILA, fraccion: -1 };
     for (const pila of [3, 4, 5, 6, 7, 8]) {
-      const d = disponer(h.id, h.ids, true, pila);
+      const d = disponer(h.id, idsImpresos(h), true, pila);
       const { fraccion } = aprovechaA3(d.anchoTot, d.altoTot);
       // A igual aprovechamiento gana la pila más larga: menos columnas, menos
       // recorrido horizontal para leer.
@@ -1098,9 +1122,18 @@ function svgDe(d, rotulo, interno = false) {
   const ancho = x1 - x0;
   return \`<svg xmlns="http://www.w3.org/2000/svg" viewBox="\${x0} 0 \${ancho} \${altoTot}" width="\${ancho}" height="\${altoTot}" role="img" aria-label="Organigrama de \${esc(rotulo)}">\${s}</svg>\`;
 }
-function dibujar(hoja) {
+function dibujar(hoja, ids = hoja.ids) {
   cajaRaiz = hoja.id; pliego = false;
-  return svgDe(disponer(hoja.id, hoja.ids), hoja.nombre);
+  return svgDe(disponer(hoja.id, ids), hoja.nombre);
+}
+
+// En pantalla, la hoja de un ministerio muestra como tarjeta con enlace a
+// los otros ministerios que cuelgan de él: sirve para navegar. En papel el
+// enlace no existe y son diez cajas que no aportan estructura, así que la
+// versión impresa las deja afuera.
+function idsImpresos(h) {
+  if (N[h.id].tipo !== "MIN") return h.ids;
+  return h.ids.filter((id) => !(id !== h.id && esHojaPropia(id) && N[id].tipo === "MIN"));
 }
 
 // Parte un dibujo en dos recortando el viewBox: la mitad de la izquierda y
@@ -1160,12 +1193,20 @@ function partirSVG(svg, eje, solapaU, maxU) {
 
 function render() {
   $("#hojas").innerHTML = D.hojas.map((h) => {
-    const svg = dibujar(h);
+    const ids = idsImpresos(h);
+    const difiere = ids.length !== h.ids.length;
+    const svgPantalla = dibujar(h);
+    const svg = difiere ? dibujar(h, ids) : svgPantalla;
     const f = formatoDe.get(h.id) || { partes: 1 };
-    const cuenta = \`<span>\${h.ids.length} área\${h.ids.length === 1 ? "" : "s"}</span>\`;
-    const cabeza = (sufijo) => \`<div class="hoja-tit"><h2>\${esc(h.nombre)}\${sufijo}</h2>\${cuenta}</div>\`;
-    let out = \`<section class="hoja\${f.partes === 2 ? " partida" : ""}" id="h-\${esc(h.id)}">\`
-      + cabeza("") + \`<div class="lienzo">\${svg}</div></section>\`;
+    const aparte = difiere || f.partes === 2;   // el papel lleva su propia sección
+    const rotulo = (n) => \`<span>\${n} área\${n === 1 ? "" : "s"}</span>\`;
+    const cabeza = (sufijo, n) => \`<div class="hoja-tit"><h2>\${esc(h.nombre)}\${sufijo}</h2>\${rotulo(n)}</div>\`;
+    let out = \`<section class="hoja\${aparte ? " solo-pantalla" : ""}" id="h-\${esc(h.id)}">\`
+      + cabeza("", h.ids.length) + \`<div class="lienzo">\${svgPantalla}</div></section>\`;
+    if (aparte && f.partes !== 2) {
+      out += \`<section class="hoja tira" id="h-\${esc(h.id)}-i">\`
+        + cabeza("", ids.length) + \`<div class="lienzo">\${svg}</div></section>\`;
+    }
     if (f.partes === 2) {
       // Las dos mitades solo existen para imprimir: en pantalla se sigue
       // viendo la hoja entera, que es como se lee.
@@ -1173,7 +1214,7 @@ function render() {
         \`<section class="hoja tira" id="h-\${esc(h.id)}-p\${i + 1}"\`
         + \` style="--ancho-impreso:\${(mitad.w * MM_POR_UNIDAD * f.escala).toFixed(1)}mm;\`
         + \`--alto-impreso:\${(mitad.h * MM_POR_UNIDAD * f.escala).toFixed(1)}mm">\`
-        + cabeza(\` · para pegar, \${i + 1} de 2\`)
+        + cabeza(\` · para pegar, \${i + 1} de 2\`, ids.length)
         + \`<div class="lienzo">\${mitad.svg}</div></section>\`).join("");
     }
     return out;
@@ -1342,11 +1383,11 @@ const MM_POR_UNIDAD = 35.3 / ANCHO, MARGEN = 9, ANCHO_OFICIAL = 297.7;
 function medidasDeImpresion() {
   const reglas = [];
   D.hojas.forEach((h, i) => {
-    const d = disponer(h.id, h.ids);
-    const { apaisada, escala, partes, eje } = formatoDe.get(h.id);
+    const idsImp = idsImpresos(h);
+    const { apaisada, escala, partes, eje, w, h: alto } = formatoDe.get(h.id);
     const pw = apaisada ? A3_LARGO : A3_CORTO, ph = apaisada ? A3_CORTO : A3_LARGO;
-    const anchoMM = d.anchoTot * MM_POR_UNIDAD * escala;
-    const altoMM = d.altoTot * MM_POR_UNIDAD * escala;
+    const anchoMM = w * MM_POR_UNIDAD * escala;
+    const altoMM = alto * MM_POR_UNIDAD * escala;
     reglas.push(\`@page h\${i} { size: \${pw}mm \${ph}mm; margin: \${MARGEN}mm }\`);
     // Cada mitad lleva su medida: la del dibujo entero recortada por el eje
     // donde se corta. Pegadas dan el dibujo completo, al doble de tamaño que
@@ -1359,9 +1400,11 @@ function medidasDeImpresion() {
         \`#h-\${CSS.escape(h.id)}-p2 { page: h\${i} }\`,
       );
     } else {
+      // Si la versión de papel va aparte, la medida es de ESA sección.
+      const destino = idsImp.length !== h.ids.length ? h.id + "-i" : h.id;
       reglas.push(
-        \`#h-\${CSS.escape(h.id)} { page: h\${i} }\`,
-        \`#h-\${CSS.escape(h.id)} .lienzo svg { --ancho-impreso: \${anchoMM.toFixed(1)}mm; --alto-impreso: \${altoMM.toFixed(1)}mm }\`,
+        \`#h-\${CSS.escape(destino)} { page: h\${i} }\`,
+        \`#h-\${CSS.escape(destino)} .lienzo svg { --ancho-impreso: \${anchoMM.toFixed(1)}mm; --alto-impreso: \${altoMM.toFixed(1)}mm }\`,
       );
     }
   });
@@ -1381,9 +1424,10 @@ function prepararImpresion(solo) {
   // o la impresión arranca con una carilla en blanco.
   est.textContent = solo
     ? \`@media print{.caratula{display:none!important}.hoja{display:none!important}\` +
-      \`#h-\${CSS.escape(solo)}:not(.partida),#h-\${CSS.escape(solo)}-p1,#h-\${CSS.escape(solo)}-p2\` +
-      \`{display:block!important}#h-\${CSS.escape(solo)}:not(.partida),#h-\${CSS.escape(solo)}-p1\` +
-      \`{break-before:auto}}\`
+      \`#h-\${CSS.escape(solo)}:not(.solo-pantalla),#h-\${CSS.escape(solo)}-i,\` +
+      \`#h-\${CSS.escape(solo)}-p1,#h-\${CSS.escape(solo)}-p2{display:block!important}\` +
+      \`#h-\${CSS.escape(solo)}:not(.solo-pantalla),#h-\${CSS.escape(solo)}-i,\` +
+      \`#h-\${CSS.escape(solo)}-p1{break-before:auto}}\`
     : "";
 }
 $("#imprimir").addEventListener("click", () => { prepararImpresion(null); window.print(); });
@@ -1471,4 +1515,12 @@ if (pedido) {
 `;
 
 fs.writeFileSync(path.join(ROOT, "visor.html"), html);
+// La plantilla se come una barra de cada escape: si un \\d llega al archivo
+// como d, la expresión regular deja de encontrar nada y el fallo es mudo. Ya
+// pasó tres veces, así que se comprueba al armar.
+const comidos = (html.match(/\/[^/\n"]{0,60}\[d\.\]/g) || []);
+if (comidos.length) {
+  console.error(`Escapes comidos por la plantilla: ${comidos.join(", ")}`);
+  process.exit(1);
+}
 console.log(`visor.html — ${total} áreas · ${ordenHojas.length} hojas · ${conFunciones} con funciones · ${(html.length / 1024).toFixed(0)} KB`);
