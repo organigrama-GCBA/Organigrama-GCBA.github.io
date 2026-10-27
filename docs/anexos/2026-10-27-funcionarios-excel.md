@@ -120,7 +120,14 @@ resolverla.
 `SSRINS` con Mariano Lomolino, los dos coincidiendo con nosotros—. No se resuelven con esta
 fuente.
 
-## Lo que no se aplicó
+## Lo que se aplicó
 
-Nada. Este documento es el cotejo; los cinco cambios de persona se dejan decididos aparte, igual
-que el 23/10, porque reemplazar a un funcionario no se deshace con un revert.
+Los **cinco cambios de persona** de la tabla de arriba, con el visto bueno del usuario. Es lo
+único que se tocó: el diff de `data/organigrama.json` son cinco líneas, todas del campo `titular`,
+y el archivo hace round-trip exacto con `indent=2`. Siguen siendo 516 áreas y los verificadores de
+dibujo siguen en cero.
+
+`DGGEDOC` **no** se aplicó: lo pide una sola fuente.
+
+Las tres grafías distintas (`SSPIE`, `SSAJU`, `DGUIAF`) tampoco: para elegir entre "Mauricio" y
+"Guillermo" hace falta el acto, no una segunda planilla.
