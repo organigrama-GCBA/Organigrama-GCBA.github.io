@@ -467,14 +467,18 @@ const PT_MINIMO = 7.5;
 // Formatos posibles: un A3, o dos pegados por el lado largo o por el corto.
 // Al pegar dos, cada uno conserva su margen y su encabezado, así que lo útil
 // se suma por el lado donde se cortan.
+// Las dos hojas se pegan SUPERPUESTAS, no a tope: cada una repite esta
+// franja de dibujo, así se alinean a ojo y no hay que recortar márgenes con
+// tijera. Lo que se repite se descuenta del ancho aprovechable.
+const SOLAPA = 24;
 function formatos() {
   const out = [];
   for (const apaisada of [false, true]) {
     const pw = apaisada ? A3_LARGO : A3_CORTO, ph = apaisada ? A3_CORTO : A3_LARGO;
     const uw = pw - 2 * MARGEN, uh = ph - 2 * MARGEN - ALTO_TITULO;
     out.push({ apaisada, partes: 1, eje: null, uw, uh });
-    out.push({ apaisada, partes: 2, eje: "x", uw: uw * 2, uh });
-    out.push({ apaisada, partes: 2, eje: "y", uw, uh: uh * 2 });
+    out.push({ apaisada, partes: 2, eje: "x", uw: uw * 2 - SOLAPA, uh, utilUna: uw });
+    out.push({ apaisada, partes: 2, eje: "y", uw, uh: uh * 2 - SOLAPA, utilUna: uh });
   }
   return out;
 }
@@ -1103,7 +1107,7 @@ function dibujar(hoja) {
 // la de la derecha, o la de arriba y la de abajo. No hace falta recortar con
 // CSS ni volver a dibujar nada: el SVG ya muestra solo lo que entra en su
 // viewBox.
-function partirSVG(svg, eje) {
+function partirSVG(svg, eje, solapaU, maxU) {
   // Ojo: esto vive dentro de una plantilla de texto, así que la barra del \d
   // va doble o se la come el armador y el patrón deja de encontrar nada.
   const m = svg.match(/viewBox="(-?[\\d.]+) (-?[\\d.]+) ([\\d.]+) ([\\d.]+)"/);
@@ -1112,26 +1116,44 @@ function partirSVG(svg, eje) {
   // El corte no puede caer por el medio de una caja: se lo acerca al hueco
   // libre más próximo a la mitad. Si no hay ninguno cerca, se corta igual en
   // la mitad, que es mejor que no partir.
+  // El rectángulo del marco es SOLO el bloque del nombre: abajo siguen la
+  // franja de la sigla y la línea del titular, que no son rectángulos. Si no
+  // se las suma, el corte cae por el medio de la caja, que es lo que le pasó
+  // a la DG de Innovación y Simplificación de Procesos.
+  const COLA = H_SIGLA + H_TITULAR;
   const cajas = [...svg.matchAll(
     /<rect class="marco" x="(-?[\\d.]+)" y="(-?[\\d.]+)" width="([\\d.]+)" height="([\\d.]+)"/g)]
-    .map((c) => (eje === "x" ? [+c[1], +c[1] + +c[3]] : [+c[2], +c[2] + +c[4]]));
+    .map((c) => (eje === "x"
+      ? [+c[1], +c[1] + +c[3]]
+      : [+c[2], +c[2] + +c[4] + COLA]));
   const medio = eje === "x" ? x + w / 2 : y + h / 2;
   const largo = eje === "x" ? w : h;
   const libre = (v) => !cajas.some(([a, b]) => v > a - 3 && v < b + 3);
+  // El corte no puede alejarse tanto del medio como para que una mitad deje
+  // de entrar en su hoja: si se pasa, esa mitad se desborda a una carilla de
+  // más. Era lo que le pasaba a Justicia.
+  const ini = eje === "x" ? x : y;
+  const margenCorte = Math.max(0, maxU - largo / 2 - solapaU / 2);
+  const libreYEntra = (v) =>
+    libre(v) && Math.abs(v - medio) <= margenCorte;
   let corte = medio;
   for (let d = 0; d <= largo / 6; d += 2) {
-    if (libre(medio - d)) { corte = medio - d; break; }
-    if (libre(medio + d)) { corte = medio + d; break; }
+    if (libreYEntra(medio - d)) { corte = medio - d; break; }
+    if (libreYEntra(medio + d)) { corte = medio + d; break; }
   }
-  const a1 = eje === "x" ? corte - x : corte - y;
+  // Cada mitad se estira media solapa más allá del corte: esa franja sale
+  // repetida en las dos y es la que se superpone al pegar.
+  const media = solapaU / 2;
   // Cada mitad vuelve con su propia medida en unidades: como el corte no cae
   // justo en el medio, si las dos se imprimieran al mismo ancho quedarían a
   // escalas distintas y al pegarlas no empalmarían.
   return [0, 1].map((i) => {
-    const vw = eje === "x" ? (i ? w - a1 : a1) : w;
-    const vh = eje === "y" ? (i ? h - a1 : a1) : h;
-    const vx = eje === "x" && i ? corte : x;
-    const vy = eje === "y" && i ? corte : y;
+    const desde = i ? corte - media : (eje === "x" ? x : y);
+    const hasta = i ? (eje === "x" ? x + w : y + h) : corte + media;
+    const vx = eje === "x" ? desde : x;
+    const vy = eje === "y" ? desde : y;
+    const vw = eje === "x" ? hasta - desde : w;
+    const vh = eje === "y" ? hasta - desde : h;
     return { svg: svg.replace(m[0], \`viewBox="\${vx} \${vy} \${vw} \${vh}"\`), w: vw, h: vh };
   });
 }
@@ -1147,7 +1169,7 @@ function render() {
     if (f.partes === 2) {
       // Las dos mitades solo existen para imprimir: en pantalla se sigue
       // viendo la hoja entera, que es como se lee.
-      out += partirSVG(svg, f.eje).map((mitad, i) =>
+      out += partirSVG(svg, f.eje, SOLAPA / (MM_POR_UNIDAD * f.escala), f.utilUna / (MM_POR_UNIDAD * f.escala)).map((mitad, i) =>
         \`<section class="hoja tira" id="h-\${esc(h.id)}-p\${i + 1}"\`
         + \` style="--ancho-impreso:\${(mitad.w * MM_POR_UNIDAD * f.escala).toFixed(1)}mm;\`
         + \`--alto-impreso:\${(mitad.h * MM_POR_UNIDAD * f.escala).toFixed(1)}mm">\`
