@@ -50,6 +50,18 @@ Orden: del más viejo al más nuevo (número de decreto = orden cronológico).
 - **Decreto 105**: `DGDIYDP` renombrada a "DG. Docencia, Investigación y Desarrollo Profesional".
 - **Decreto 215**: `DGCEME` (Cementerios) → SS Servicios; `DGCCTA` (Competencias Comunales y Talleres) → SS Gestión Comunal; `DGGCDCI` (Gestión de Calidad y Demanda Ciudadana) mal colgada bajo DGISIS → SS Vinculación Ciudadana; eliminada `DGADJREC` (DG Adjunta Registro Estado Civil).
 
+## Decretos posteriores al base
+
+El base de junio ya no manda sobre estos: son actos más nuevos, así que las designaciones
+**sí** se aplican (al revés de las anteriores a junio, que quedan stale).
+
+| Decreto | Publicado | Área | Cambio |
+|---|---|---|---|
+| 367 | 27/10 | `DGDDDM` — DG. Desarrollo del Deporte Motor | Renuncia de Tomás Francisco Burtin; designa a Gustavo Ariel Der Ohanessian |
+
+El 367 lo pasó el usuario; el Boletín de ese día todavía no está en `data/boletin`, así que el
+número está asentado pero el acto no se cotejó contra el texto publicado.
+
 ## Parte 2 — Misiones y funciones (carga de `data/funciones.json`)
 
 Fuente por ministerio: el último decreto de estructura con **Anexo II (Responsabilidades

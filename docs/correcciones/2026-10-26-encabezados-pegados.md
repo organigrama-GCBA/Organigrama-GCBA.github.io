@@ -38,6 +38,7 @@ anterior del archivo.
 
 ## Lo que no se arregló
 
-El importador. Esta corrección limpia los datos ya cargados, no la causa: el próximo anexo que se
-importe va a volver a pegar encabezados. `scripts/importar-anexo/run.mjs` ya aprendió a descartar
-los pies de GEDO; hay que enseñarle también a cortar en el encabezado del punto siguiente.
+~~El importador.~~ Esta corrección limpia los datos ya cargados, no la causa. **Arreglado después**,
+en `scripts/importar-anexo/run.mjs`: cada punto ahora recuerda en qué línea arranca y el cuerpo se
+cierra donde empieza el título del siguiente, así que el próximo anexo que se importe ya no pega
+encabezados.
