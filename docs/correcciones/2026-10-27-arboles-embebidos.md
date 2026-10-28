@@ -33,12 +33,26 @@ login sin preguntar cada rato. Antes de borrarlo se comprobó que no hiciera fal
 el panel del Boletín y el guardado en la nube no dependían de él, cada uno consulta el estado de
 login por su cuenta.
 
-## Lo que queda por decidir
+## La tercera copia vieja: la del navegador del visitante
 
-`APP_VERSION` sigue en `"20260621"`. Mientras no cambie, **el navegador de quien ya visitó la
-página sigue sirviendo su copia guardada** en vez de los datos frescos. No se tocó porque subirla
-descarta lo que ese navegador tenga guardado, y esa es una decisión del usuario, no una
-corrección.
+`APP_VERSION` llevaba **cuatro meses** en `"20260621"`. Esa constante es la que le dice al
+navegador que tire su copia guardada y vuelva a leer `data/organigrama.json`; mientras no cambia,
+quien ya visitó la página **sigue viendo lo que tenía guardado**. Todo lo corregido desde junio
+—los decretos de septiembre y octubre, los cinco titulares, el EPI, `CAPUAM`— no le llegaba a
+nadie que hubiera entrado antes.
+
+Se subió a `"20261028"` el 28/10, con el visto bueno del usuario, porque el efecto no es inocuo:
+descarta lo que ese navegador tenga guardado localmente.
+
+Comprobado con el banco de pruebas, sembrando `localStorage` como lo tendría un visitante que ya
+entró:
+
+- con la versión **vieja** guardada y un organigrama inventado encima: la copia vieja desaparece,
+  aparecen las 517 áreas y la versión guardada queda en `20261028`;
+- con la versión **nueva** ya guardada: conserva su copia, que es el comportamiento buscado y
+  confirma que el corte lo hace la constante y no otra cosa.
+
+Cero errores en los dos casos. Hay que acordarse de subirla cada vez que cambien los datos.
 
 ## Verificación
 
