@@ -161,7 +161,12 @@ body{margin:0;font-family:'Open Sans','Inter',-apple-system,sans-serif;backgroun
 const{useState,useEffect,useMemo,useCallback,useRef}=React;
 
 const STORAGE_KEY="gcba_org_v2";
-const APP_VERSION="20260621"; // Cambia con cada nueva versión del archivo
+// Subir esta fecha hace que el navegador tire su copia guardada y vuelva a
+// leer data/organigrama.json. Hay que subirla cada vez que cambian los datos:
+// mientras no cambie, quien ya visitó la página sigue viendo lo que tenía
+// guardado. Estuvo cuatro meses en 20260621 y por eso los cambios de
+// septiembre y octubre no le llegaban a nadie que hubiera entrado antes.
+const APP_VERSION="20261028";
 const VERSION_KEY="gcba_org_version";
 // Sanitiza el árbol: filtra agujeros (sparse arrays) y nodos nulos/undefined.
 function sanitize(n){
