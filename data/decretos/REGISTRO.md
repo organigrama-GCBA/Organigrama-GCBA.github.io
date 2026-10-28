@@ -50,6 +50,12 @@ Orden: del más viejo al más nuevo (número de decreto = orden cronológico).
 - **Decreto 105**: `DGDIYDP` renombrada a "DG. Docencia, Investigación y Desarrollo Profesional".
 - **Decreto 215**: `DGCEME` (Cementerios) → SS Servicios; `DGCCTA` (Competencias Comunales y Talleres) → SS Gestión Comunal; `DGGCDCI` (Gestión de Calidad y Demanda Ciudadana) mal colgada bajo DGISIS → SS Vinculación Ciudadana; eliminada `DGADJREC` (DG Adjunta Registro Estado Civil).
 
+- **Cuadro de Funcionarios (27/10)**: cinco titulares que el PDF oficial de junio traía mal, cada
+  uno con acto anterior al base y confirmado por dos fuentes independientes — `CBAS` → Karina
+  Andrea Burijson (Decreto 62/26), `DGANFA` → Juan Ignacio Nigrelli (Res. 64-AGIP/25), `DGDSEC` →
+  Ezequiel Welsk (Decreto 236/26), `DGISIS` → Gabriela Andrea Angeletti (Res. 136-ASINF/26),
+  `LOTBA` → Jesús Mariano Acevedo (Decreto 46/26).
+
 ## Decretos posteriores al base
 
 El base de junio ya no manda sobre estos: son actos más nuevos, así que las designaciones

@@ -1019,7 +1019,7 @@
             {
               "id": "LOTBA",
               "nombre": "Lotería de la Ciudad de Buenos Aires S.A.U. LOTBA Ley N° 5785",
-              "titular": "Nahuel Nicolás Conti",
+              "titular": "Jesús Mariano Acevedo",
               "tipo": "ORG",
               "dashed": true,
               "children": []
@@ -1153,7 +1153,7 @@
                 {
                   "id": "DGANFA",
                   "nombre": "DG. Análisis Fiscal",
-                  "titular": "Manuel Esteban Balestretti",
+                  "titular": "Juan Ignacio Nigrelli",
                   "tipo": "DG",
                   "children": []
                 },
@@ -2340,6 +2340,14 @@
           ]
         },
         {
+          "id": "CAPUAM",
+          "nombre": "Consejo Asesor del Plan Urbano Ambiental",
+          "titular": "",
+          "tipo": "ORG",
+          "children": [],
+          "dashed": true
+        },
+        {
           "id": "UAIMJG",
           "nombre": "Unidad de Auditoría Interna",
           "titular": "María Florencia Fernández Camarda",
@@ -2529,7 +2537,7 @@
                 {
                   "id": "DGISIS",
                   "nombre": "DG. Integración de Sistemas",
-                  "titular": "Jorge Ariel González",
+                  "titular": "Gabriela Andrea Angeletti",
                   "tipo": "DG",
                   "children": [],
                   "dashed": false
@@ -2672,7 +2680,7 @@
         {
           "id": "CBAS",
           "nombre": "Corporación Buenos Aires Sur S.A.U. Ley N°470",
-          "titular": "Leandro Cesar Cuervo",
+          "titular": "Karina Andrea Burijson",
           "tipo": "ORG",
           "dashed": true,
           "children": []
@@ -3000,7 +3008,7 @@
             {
               "id": "DGDSEC",
               "nombre": "DG. Desarrollo Sostenible y Economía Circular",
-              "titular": "Analia Flores",
+              "titular": "Ezequiel Welsk",
               "tipo": "DG",
               "children": []
             },
