@@ -1549,7 +1549,7 @@
             {
               "id": "IGE",
               "nombre": "Instituto de Gestión Electoral",
-              "titular": "Adrián Hugo González",
+              "titular": "",
               "tipo": "ORG",
               "dashed": true,
               "children": []
@@ -1557,7 +1557,7 @@
             {
               "id": "IGEA",
               "nombre": "Instituto de Gestión Electoral Adjunta",
-              "titular": "Tomás Aguerre",
+              "titular": "",
               "tipo": "ORG",
               "dashed": true,
               "children": [
@@ -3083,7 +3083,7 @@
             {
               "id": "DGTCU",
               "nombre": "DG. Transformación Cultural",
-              "titular": "",
+              "titular": "Sofía Soledad Lugo",
               "tipo": "DG",
               "children": []
             },
