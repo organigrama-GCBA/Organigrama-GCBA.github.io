@@ -2062,13 +2062,6 @@
                       "children": []
                     },
                     {
-                      "id": "DGICR",
-                      "nombre": "DG. Investigación Criminal",
-                      "titular": "Claudio Walter Abbondanza",
-                      "tipo": "DG",
-                      "children": []
-                    },
-                    {
                       "id": "DGALC",
                       "nombre": "DG. Alcaidías",
                       "titular": "Felipe Ignacio Cascante",
@@ -2335,6 +2328,13 @@
               "titular": "Pablo Gonzalo Pinamonti",
               "tipo": "ORG",
               "dashed": true,
+              "children": []
+            },
+            {
+              "id": "DGSUPERVISIO",
+              "nombre": "DG. Supervisión y Control",
+              "tipo": "DG",
+              "titular": "",
               "children": []
             }
           ]
