@@ -1431,7 +1431,7 @@
                 {
                   "id": "DGAI",
                   "nombre": "DG. Administración de Infracciones",
-                  "titular": "Gustavo Alejandro May",
+                  "titular": "Sebastián Ariel Silvestri",
                   "tipo": "DG",
                   "children": [
                     {
@@ -1549,7 +1549,7 @@
             {
               "id": "IGE",
               "nombre": "Instituto de Gestión Electoral",
-              "titular": "",
+              "titular": "Federico Fahey Duarte",
               "tipo": "ORG",
               "dashed": true,
               "children": []
@@ -1557,7 +1557,7 @@
             {
               "id": "IGEA",
               "nombre": "Instituto de Gestión Electoral Adjunta",
-              "titular": "",
+              "titular": "Tomás Aguerre",
               "tipo": "ORG",
               "dashed": true,
               "children": [
@@ -2334,7 +2334,7 @@
               "id": "DGSUPERVISIO",
               "nombre": "DG. Supervisión y Control",
               "tipo": "DG",
-              "titular": "",
+              "titular": "Claudio Walter Abbondanza",
               "children": []
             }
           ]
