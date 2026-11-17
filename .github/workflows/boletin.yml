@@ -175,3 +175,35 @@ jobs:
             git commit -m "Actualizar índice de cambios pendientes del Boletín"
             git push origin main
           fi
+
+      # Un día hábil que no se pudo bajar NO es un día sin novedades: puede
+      # haber salido un decreto de estructura y no lo vio nadie. Hasta el
+      # 17/11/2026 los dos casos terminaban igual —en verde, "Sin cambios"— y
+      # así se perdieron el 3, 9, 10 y 11 de noviembre de 2026.
+      # Va al final para no tapar el PR de los días que sí se leyeron.
+      - name: Avisar los días que no se pudieron leer
+        if: always() && steps.run.outputs.sin_leer != ''
+        env:
+          SIN_LEER: ${{ steps.run.outputs.sin_leer }}
+          GRAVES: ${{ steps.run.outputs.sin_leer_grave }}
+        run: |
+          {
+            echo "### Días que no se pudieron leer"
+            echo ""
+            echo "No bajaron: \`${SIN_LEER}\`"
+            echo ""
+            if [ -n "$GRAVES" ]; then
+              echo "⛔ Con error del servidor (y ya reintentado): \`${GRAVES}\`."
+              echo "Si esos días salió un decreto de estructura, **no entró al organigrama**."
+            else
+              echo "Todos dieron 404. Los de sábado y domingo son normales; los de día hábil están marcados como aviso más arriba."
+            fi
+            echo ""
+            echo "Para recuperarlos: correr este workflow a mano con **desde** y **hasta** en esas fechas."
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Solo los errores de servidor tumban el run: un 404 puede ser un
+          # feriado y no tiene sentido dejar el repo en rojo por eso.
+          if [ -n "$GRAVES" ]; then
+            echo "::error::No se pudo leer el Boletín de: ${GRAVES}"
+            exit 1
+          fi
