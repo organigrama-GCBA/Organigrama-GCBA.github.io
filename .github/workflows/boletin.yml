@@ -179,9 +179,14 @@ jobs:
       # Un día hábil que no se pudo bajar NO es un día sin novedades: puede
       # haber salido un decreto de estructura y no lo vio nadie. Hasta el
       # 17/11/2026 los dos casos terminaban igual —en verde, "Sin cambios"— y
-      # así se perdió el 3 de noviembre de 2026, que dio un 500. Los 404 de
-      # día hábil del 9, 10 y 11 fueron feriados: por eso avisan pero no
-      # tumban el run, o el repo quedaría en rojo cada feriado.
+      # así quedó sin leer el 3 de noviembre de 2026, que dio un 500 (resultó
+      # no tener cambios, pero eso se supo después y a mano). Los 404 de día
+      # hábil del 9, 10 y 11 fueron feriados: por eso avisan pero no tumban el
+      # run, o el repo quedaría en rojo cada feriado.
+      #
+      # OJO: esto no cubre el caso de que la corrida programada no arranque.
+      # El jueves 15/10/2026 no hubo run y el día nunca se leyó; para eso hace
+      # falta llevar la cuenta de los días ya procesados.
       # Va al final para no tapar el PR de los días que sí se leyeron.
       - name: Avisar los días que no se pudieron leer
         if: always() && steps.run.outputs.sin_leer != ''
