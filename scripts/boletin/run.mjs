@@ -109,15 +109,36 @@ function pdfUrl(fecha) {
   const [y, m, d] = fecha.split("-");
   return `https://boletinoficial.buenosaires.gob.ar/documentos/boletines/${y}/${m}/${y}${m}${d}.pdf`;
 }
+// Un 404 es definitivo: ese día no hay boletín publicado en esa URL. Cualquier
+// otra cosa —500, 502, timeout, DNS— es el servidor del BOCBA teniendo un mal
+// momento, y reintentar alcanza. El 3/11/2026 quedó sin leer por un 500 que
+// nadie reintentó.
+const REINTENTOS = 3;
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
 async function fetchPdf(url) {
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-      "Accept": "application/pdf,*/*",
-    },
-  });
-  if (!res.ok) throw new Error(`No se pudo bajar el boletín (${res.status}) desde ${url}`);
-  return Buffer.from(await res.arrayBuffer());
+  let ultimo;
+  for (let intento = 1; intento <= REINTENTOS; intento++) {
+    let res;
+    try {
+      res = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+          "Accept": "application/pdf,*/*",
+        },
+      });
+    } catch (e) {
+      ultimo = Object.assign(new Error(`No se pudo bajar el boletín (${e.message || "error de red"})`), { status: 0 });
+      if (intento < REINTENTOS) { await espera(intento * 5000); continue; }
+      throw ultimo;
+    }
+    if (res.ok) return Buffer.from(await res.arrayBuffer());
+    const err = Object.assign(new Error(`No se pudo bajar el boletín (${res.status})`), { status: res.status });
+    if (res.status === 404) throw err;          // no hay edición: no insistir
+    ultimo = err;
+    if (intento < REINTENTOS) { await espera(intento * 5000); continue; }
+    throw ultimo;
+  }
+  throw ultimo;
 }
 
 // ── 2) Extraer y filtrar texto ─────────────────────────────────────────
@@ -397,8 +418,14 @@ async function procesarDia(client, orgContext, fecha) {
   try {
     pdf = await fetchPdf(url);
   } catch (e) {
-    console.log(`  ${fecha}: sin boletín (${e.message.split(" desde ")[0]})`);
-    return { fecha, url, cambios: [] };
+    // OJO: esto NO es lo mismo que un día sin novedades. Hasta el 17/11/2026
+    // devolvía `cambios: []`, igual que un día leído y vacío, así que el job
+    // terminaba en verde y el día no leído desaparecía sin que nadie lo viera.
+    // Así quedó sin leer el 3/11/2026, que dio 500. Ese resultó no tener
+    // cambios, pero se supo después y a mano: el robot no podía decirlo. El
+    // día vuelve marcado para que main() lo denuncie.
+    console.log(`  ${fecha}: sin boletín (${e.message})`);
+    return { fecha, url, cambios: [], sinLeer: { fecha, url, status: e.status ?? 0, motivo: e.message } };
   }
   const { text } = await pdfParse(pdf);
   const decretos = SOLO_DECRETOS ? soloDecretos(text) : text;
@@ -468,6 +495,28 @@ function diasEntre(desde, hasta) {
 }
 
 // ── Main ───────────────────────────────────────────────────────────────
+// Un día hábil que no se pudo leer es un agujero en el organigrama: puede
+// haber salido un decreto y no lo vio nadie. Se denuncia en el log con las
+// anotaciones de Actions y se deja en las salidas del paso, para que el
+// workflow pueda terminar en rojo en vez de en verde.
+const esFinDeSemana = (fecha) => {
+  const d = new Date(fecha + "T12:00:00Z").getUTCDay();
+  return d === 0 || d === 6;
+};
+function reportarSinLeer(sinLeer) {
+  setOutput("sin_leer", sinLeer.map((s) => s.fecha).join(","));
+  // Un 404 de sábado o domingo es lo esperable: ese día no hay edición.
+  const sospechosos = sinLeer.filter((s) => !(s.status === 404 && esFinDeSemana(s.fecha)));
+  setOutput("sin_leer_grave", sospechosos.filter((s) => s.status !== 404).map((s) => s.fecha).join(","));
+  if (!sospechosos.length) return;
+  console.log(`\n⚠️  ${sospechosos.length} día(s) hábil(es) que NO se pudieron leer:`);
+  for (const s of sospechosos) {
+    const nivel = s.status === 404 ? "warning" : "error";
+    console.log(`::${nivel}::Boletín ${s.fecha} NO leído — ${s.motivo}. Si ese día salió un decreto de estructura, no entró al organigrama.`);
+  }
+  console.log("Reprocesalos a mano con el workflow (desde/hasta) cuando el BOCBA vuelva a responder.");
+}
+
 function setOutput(k, v) {
   if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `${k}=${v}\n`);
 }
@@ -490,6 +539,7 @@ async function main() {
   const client = new Anthropic(); // usa ANTHROPIC_API_KEY
 
   let tag, titulo, fuente, cambios = [];
+  const sinLeer = [];   // días que no se pudieron bajar: no son días vacíos
 
   // Detecta errores de API por los que NO tiene sentido seguir llamando.
   const esFatal = (e) => /usage limit|rate limit|overloaded|401|403|authentication|x-api-key|credit balance|insufficient/i.test(String(e?.message || e));
@@ -503,6 +553,7 @@ async function main() {
     for (const dia of dias) {
       try {
         const r = await procesarDia(client, orgContext, dia);
+        if (r.sinLeer) sinLeer.push(r.sinLeer);
         cambios = cambios.concat(r.cambios); // orden cronológico
         ultimo = dia;
       } catch (e) {
@@ -523,10 +574,15 @@ async function main() {
     setOutput("fecha", fecha);
     console.log(`Boletín ${fecha} con ${MODEL}…`);
     const r = await procesarDia(client, orgContext, fecha);
+    if (r.sinLeer) sinLeer.push(r.sinLeer);
     cambios = r.cambios;
     titulo = `Cambios del Boletín Oficial — ${fecha}`;
     fuente = `Fuente: ${r.url}`;
   }
+
+  // Antes del corte por "sin cambios": si no se denuncia acá, un día no leído
+  // se va por ese return y el job termina en verde sin que nadie se entere.
+  reportarSinLeer(sinLeer);
 
   console.log(`Cambios propuestos por el modelo: ${cambios.length}`);
   if (!cambios.length) { setOutput("changed", "false"); console.log("Sin cambios."); return; }
