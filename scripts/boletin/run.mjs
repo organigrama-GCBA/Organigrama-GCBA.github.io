@@ -420,9 +420,9 @@ async function procesarDia(client, orgContext, fecha) {
   } catch (e) {
     // OJO: esto NO es lo mismo que un día sin novedades. Hasta el 17/11/2026
     // devolvía `cambios: []`, igual que un día leído y vacío, así que el job
-    // terminaba en verde y el día no leído desaparecía sin que nadie lo viera:
-    // el 3, 9, 10 y 11 de noviembre de 2026 se perdieron así. El día vuelve
-    // marcado para que main() lo denuncie.
+    // terminaba en verde y el día no leído desaparecía sin que nadie lo viera.
+    // Así se perdió el 3/11/2026, que dio 500. El día vuelve marcado para que
+    // main() lo denuncie.
     console.log(`  ${fecha}: sin boletín (${e.message})`);
     return { fecha, url, cambios: [], sinLeer: { fecha, url, status: e.status ?? 0, motivo: e.message } };
   }
