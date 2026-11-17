@@ -156,23 +156,29 @@ jobs:
             exit 1
           fi
 
-      - name: Actualizar índice de cambios pendientes (para el panel de la app)
+      - name: Actualizar índice y registro de días procesados
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -e
+          # El registro de días leídos va SIEMPRE a main, no a la rama del PR:
+          # si viajara en el PR, un PR sin mergear dejaría los días como no
+          # leídos y la corrida siguiente los volvería a procesar. Hay que
+          # ponerlo a salvo porque el reset --hard de abajo lo borraría.
+          cp data/boletin-procesados.json "$RUNNER_TEMP/procesados.json" 2>/dev/null || true
           git fetch origin main
           git checkout main
           git reset --hard origin/main
+          cp "$RUNNER_TEMP/procesados.json" data/boletin-procesados.json 2>/dev/null || true
           gh pr list --state open --json title,url,headRefName,body \
             --jq '[ .[] | select(.headRefName|startswith("boletin/")) | {fecha:(.headRefName|sub("boletin/";"")), titulo:.title, url:.url, resumen:.body} ]' \
             > data/cambios-pendientes.json
-          if ! git diff --quiet -- data/cambios-pendientes.json; then
+          if ! git diff --quiet -- data/cambios-pendientes.json data/boletin-procesados.json; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add data/cambios-pendientes.json
-            git commit -m "Actualizar índice de cambios pendientes del Boletín"
+            git add data/cambios-pendientes.json data/boletin-procesados.json
+            git commit -m "Actualizar índice y registro del Boletín"
             git push origin main
           fi
 

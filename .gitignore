@@ -2,9 +2,12 @@
 scripts/boletin/node_modules/
 scripts/boletin/package-lock.json
 
-# Dumps de depuración del boletín (DUMP_TEXT=1)
-boletin-*.txt
-boletin-*.json
+# Dumps de depuración del boletín (DUMP_TEXT=1). Van a la raíz del repo, así
+# que las reglas se anclan ahí: sin la barra de adelante también tapaban
+# data/boletin-procesados.json, que SÍ tiene que versionarse —es el registro
+# de qué días se leyeron, y si no se guarda, cada corrida arranca de cero—.
+/boletin-*.txt
+/boletin-*.json
 
 # Importador PDF
 scripts/importar-pdf/node_modules/

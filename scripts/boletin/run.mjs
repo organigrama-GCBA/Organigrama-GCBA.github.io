@@ -453,6 +453,58 @@ async function procesarDia(client, orgContext, fecha) {
   return { fecha, url, cambios };
 }
 
+// ── Registro de días procesados ────────────────────────────────────────
+// El robot anota qué días ya leyó. Sin esto, un día que se pierde se pierde
+// para siempre y nadie se entera: el jueves 15/10/2026 quedó sin leer porque
+// la ejecución programada directamente no arrancó —GitHub a veces se saltea
+// una— y traía el Decreto 360/26. Ningún aviso dentro del script lo podía
+// detectar, porque el script no llegó a correr. Con el registro, la corrida
+// siguiente ve el agujero y lo levanta sola.
+//
+// Estados: "leido" (final), "sin-edicion" (404; tras SIN_EDICION_FIRME
+// intentos se da por feriado o fin de semana y se deja de insistir) y
+// "error" (el servidor falló; se reintenta mientras siga en la ventana).
+const REGISTRO_PATH = path.join(ROOT, "data", "boletin-procesados.json");
+const VENTANA_DIAS = 14;        // hasta dónde mirar para atrás
+const SIN_EDICION_FIRME = 3;    // 404 repetidos que dan el día por cerrado
+const MAX_RECUPERAR = 5;        // días atrasados por corrida, para acotar el gasto
+
+function cargarRegistro() {
+  try { return JSON.parse(fs.readFileSync(REGISTRO_PATH, "utf8")) || {}; }
+  catch { return {}; }
+}
+function guardarRegistro(reg) {
+  const ordenado = Object.fromEntries(Object.entries(reg).sort(([a], [b]) => a.localeCompare(b)));
+  fs.writeFileSync(REGISTRO_PATH, JSON.stringify(ordenado, null, 1) + "\n");
+}
+function anotar(reg, fecha, estado, extra = {}) {
+  const previo = reg[fecha] || {};
+  reg[fecha] = {
+    estado,
+    ...(estado === "leido" ? {} : { intentos: (previo.intentos || 0) + 1 }),
+    ...extra,
+    visto: new Date().toISOString().slice(0, 10),
+  };
+}
+// Un día cerrado es uno que no tiene sentido volver a pedir.
+function cerrado(rec) {
+  if (!rec) return false;
+  if (rec.estado === "leido") return true;
+  return rec.estado === "sin-edicion" && (rec.intentos || 0) >= SIN_EDICION_FIRME;
+}
+// Días hábiles de la ventana que quedaron sin leer, del más viejo al más nuevo.
+function diasPendientes(reg, hasta) {
+  const out = [];
+  const d = new Date(hasta + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() - VENTANA_DIAS);
+  for (let i = 0; i < VENTANA_DIAS; i++) {
+    const f = d.toISOString().slice(0, 10);
+    if (!esFinDeSemana(f) && !cerrado(reg[f])) out.push(f);
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return out;
+}
+
 // ── Qué día del boletín corresponde procesar ───────────────────────────
 const TZ = "America/Argentina/Buenos_Aires";
 // Fecha y hora en Buenos Aires, sin depender de la zona horaria de la máquina.
@@ -540,6 +592,12 @@ async function main() {
 
   let tag, titulo, fuente, cambios = [];
   const sinLeer = [];   // días que no se pudieron bajar: no son días vacíos
+  const registro = cargarRegistro();
+  // Anota en el registro cómo le fue a un día ya procesado.
+  const registrar = (fecha, r) => {
+    if (!r.sinLeer) return anotar(registro, fecha, "leido", { cambios: r.cambios.length });
+    anotar(registro, fecha, r.sinLeer.status === 404 ? "sin-edicion" : "error", { status: r.sinLeer.status });
+  };
 
   // Detecta errores de API por los que NO tiene sentido seguir llamando.
   const esFatal = (e) => /usage limit|rate limit|overloaded|401|403|authentication|x-api-key|credit balance|insufficient/i.test(String(e?.message || e));
@@ -553,11 +611,13 @@ async function main() {
     for (const dia of dias) {
       try {
         const r = await procesarDia(client, orgContext, dia);
+        registrar(dia, r);
         if (r.sinLeer) sinLeer.push(r.sinLeer);
         cambios = cambios.concat(r.cambios); // orden cronológico
         ultimo = dia;
       } catch (e) {
         console.error(`  ${dia}: ERROR ${String(e?.message || e)}`);
+        anotar(registro, dia, "error", { motivo: String(e?.message || e).slice(0, 120) });
         if (esFatal(e)) {
           console.error("⛔ Error de API (límite/credenciales). Corto el backfill y guardo lo recolectado.");
           parcial = true;
@@ -569,20 +629,46 @@ async function main() {
     titulo = `Backfill del Boletín — ${DESDE} a ${HASTA}` + (parcial ? ` (PARCIAL, hasta ${ultimo || "—"})` : "");
     fuente = `Procesados ${dias.length} días${parcial ? ` (cortado por error de API en ${ultimo || "el inicio"})` : ""}. Cambios aplicados en orden cronológico (los más nuevos pisan a los más viejos).`;
   } else {
-    const fecha = (process.env.FECHA || "").trim() || fechaDeHoy();
-    tag = fecha;
-    setOutput("fecha", fecha);
-    console.log(`Boletín ${fecha} con ${MODEL}…`);
-    const r = await procesarDia(client, orgContext, fecha);
-    if (r.sinLeer) sinLeer.push(r.sinLeer);
-    cambios = r.cambios;
-    titulo = `Cambios del Boletín Oficial — ${fecha}`;
-    fuente = `Fuente: ${r.url}`;
+    const hoy = (process.env.FECHA || "").trim() || fechaDeHoy();
+    // Primero los atrasados: los días hábiles de la ventana que el registro
+    // no da por leídos. Así un día que se perdió —porque la corrida no
+    // arrancó o porque el BOCBA no respondía— lo levanta la corrida
+    // siguiente, en vez de quedar afuera para siempre.
+    const atrasados = diasPendientes(registro, hoy).filter((d) => d !== hoy).slice(0, MAX_RECUPERAR);
+    if (atrasados.length) console.log(`Días atrasados a recuperar: ${atrasados.join(", ")}`);
+    const dias = [...atrasados, hoy];
+    tag = hoy;
+    setOutput("fecha", hoy);
+    console.log(`Boletín ${hoy} con ${MODEL}…`);
+    let urlHoy = "";
+    for (const dia of dias) {
+      try {
+        const r = await procesarDia(client, orgContext, dia);
+        registrar(dia, r);
+        if (r.sinLeer) sinLeer.push(r.sinLeer);
+        cambios = cambios.concat(r.cambios);   // orden cronológico
+        if (dia === hoy) urlHoy = r.url;
+      } catch (e) {
+        console.error(`  ${dia}: ERROR ${String(e?.message || e)}`);
+        anotar(registro, dia, "error", { motivo: String(e?.message || e).slice(0, 120) });
+        if (esFatal(e)) {
+          console.error("⛔ Error de API (límite/credenciales). Corto y guardo lo recolectado.");
+          break;
+        }
+      }
+    }
+    titulo = atrasados.length
+      ? `Cambios del Boletín Oficial — ${hoy} y ${atrasados.length} día(s) atrasado(s)`
+      : `Cambios del Boletín Oficial — ${hoy}`;
+    fuente = atrasados.length ? `Días procesados: ${dias.join(", ")}.` : `Fuente: ${urlHoy}`;
   }
 
   // Antes del corte por "sin cambios": si no se denuncia acá, un día no leído
   // se va por ese return y el job termina en verde sin que nadie se entere.
   reportarSinLeer(sinLeer);
+  // Antes de cualquier return: el registro vale aunque el día no traiga nada,
+  // porque lo que anota es que el día SE LEYÓ.
+  guardarRegistro(registro);
 
   console.log(`Cambios propuestos por el modelo: ${cambios.length}`);
   if (!cambios.length) { setOutput("changed", "false"); console.log("Sin cambios."); return; }
