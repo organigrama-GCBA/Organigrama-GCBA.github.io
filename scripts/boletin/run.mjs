@@ -384,8 +384,50 @@ function aplicar(root, funciones, cambios) {
   return { aplicados, omitidos };
 }
 
+// ── Decretos de estructura ─────────────────────────────────────────────
+// El cuerpo de un decreto de estructura no dice qué cambia: remite a anexos
+// que se publican como documentos aparte y que el robot no ve. El Decreto
+// 355/26 ("Modificar la estructura organizativa de la Vicejefatura de acuerdo
+// a lo establecido en los Anexos I - Organigrama y II - Responsabilidades
+// Primarias") salió como un set_funciones de confianza baja y quedó en "a
+// revisar"; del 306/26, que reestructuró todo el gobierno en 30 anexos, el
+// robot solo capturó un renombre suelto. Los dos se terminaron cargando a
+// mano semanas después.
+//
+// No se puede resolver leyendo el boletín del día, pero sí se puede dejar de
+// perder: se detecta el decreto, se avisa fuerte y se fuerza un PR aunque no
+// haya ningún cambio aplicable, para que quede algo que mirar.
+const PATRONES_ESTRUCTURA = [
+  /estructura\s+organizativa/i,
+  /estructura\s+org[áa]nico[\s-]*funcional/i,
+  /apru[ée]ba(?:se|nse)?\s+la\s+estructura/i,
+  /modif[íi]ca(?:se|nse|r)?\s+(?:la\s+)?estructura/i,
+];
+// Número de norma más cercano hacia atrás, que es como aparece en el boletín.
+function normaCercana(texto, hasta) {
+  const m = [...texto.slice(0, hasta).matchAll(/decreto\s*n?[.°º]*\s*(\d{1,4})\s*[-/]\s*(\d{2,4})/gi)].pop();
+  return m ? `Decreto ${m[1]}/${m[2]}` : "decreto sin identificar";
+}
+function detectarEstructura(fecha, texto) {
+  const avisos = [];
+  const vistos = new Set();
+  for (const pat of PATRONES_ESTRUCTURA) {
+    for (const m of texto.matchAll(new RegExp(pat.source, "gi"))) {
+      const norma = normaCercana(texto, m.index);
+      if (vistos.has(norma)) continue;
+      vistos.add(norma);
+      const desde = Math.max(0, m.index - 160);
+      avisos.push({
+        fecha, norma,
+        cita: texto.slice(desde, m.index + 240).replace(/\s+/g, " ").trim(),
+      });
+    }
+  }
+  return avisos;
+}
+
 // ── Resumen (audit + cuerpo del PR) ────────────────────────────────────
-function resumen(titulo, fuente, aplicados, omitidos) {
+function resumen(titulo, fuente, aplicados, omitidos, estructura = []) {
   const linea = (c) => {
     const det = [];
     if (c.tipo === "set_funciones") {
@@ -401,6 +443,13 @@ function resumen(titulo, fuente, aplicados, omitidos) {
     return `- **${c.tipo}** \`${c.target_id}\`${det.length ? " — " + det.join(", ") : ""}${dia}\n  - ${c.norma || "?"} · confianza: ${c.confianza}\n  - _"${(c.cita || "").slice(0, 240)}"_`;
   };
   let md = `# ${titulo}\n\n${fuente}\n\n`;
+  if (estructura.length) {
+    md += `## ⚠️ Cambios de estructura a procesar a mano (${estructura.length})\n\n`;
+    md += `El cuerpo del decreto remite a anexos que no vienen en el boletín del día, así que el robot
+no puede saber qué cambió. Hay que bajar los anexos y cargarlos a mano.\n\n`;
+    md += estructura.map((e) => `- **${e.norma}** _(${e.fecha})_\n  - _"${e.cita}"_`).join("\n\n");
+    md += `\n\n`;
+  }
   md += `## Cambios aplicados (${aplicados.length})\n\n`;
   md += aplicados.length ? aplicados.map(linea).join("\n\n") : "_(ninguno)_";
   md += `\n\n## No aplicados / a revisar (${omitidos.length})\n\n`;
@@ -436,21 +485,35 @@ async function procesarDia(client, orgContext, fecha) {
   dump(`${fecha}-1-crudo.txt`, text);
   dump(`${fecha}-2-decretos.txt`, decretos);
   dump(`${fecha}-3-relevante.txt`, relevante);
+  // Sobre el texto completo de los decretos, no sobre el filtrado: lo que
+  // busca es el decreto que remite a anexos, y no depende del modelo.
+  const estructura = detectarEstructura(fecha, decretos);
+  if (estructura.length) {
+    console.log(`  ${fecha}: ⚠️ ${estructura.length} decreto(s) de estructura: ${estructura.map((e) => e.norma).join(", ")}`);
+  }
   if (!relevante) {
     console.log(`  ${fecha}: sin secciones relevantes`);
-    return { fecha, url, cambios: [] };
+    return { fecha, url, cambios: [], estructura };
   }
   const chunks = chunkText(relevante, MAX_CHUNK_CHARS);
   let cambios = [];
-  for (let i = 0; i < chunks.length; i++) {
-    dump(`${fecha}-4-frag${i + 1}.txt`, chunks[i]);
-    const c = await extraerCambios(client, orgContext, chunks[i]);
-    dump(`${fecha}-5-respuesta${i + 1}.json`, JSON.stringify(c, null, 2));
-    cambios = cambios.concat(c);
+  try {
+    for (let i = 0; i < chunks.length; i++) {
+      dump(`${fecha}-4-frag${i + 1}.txt`, chunks[i]);
+      const c = await extraerCambios(client, orgContext, chunks[i]);
+      dump(`${fecha}-5-respuesta${i + 1}.json`, JSON.stringify(c, null, 2));
+      cambios = cambios.concat(c);
+    }
+  } catch (e) {
+    // El aviso de estructura no depende del modelo: se detectó sobre el texto
+    // antes de llamarlo. Si la llamada falla, el aviso tiene que sobrevivir a
+    // la excepción o se pierde justo el día que más importa.
+    e.estructura = estructura;
+    throw e;
   }
   cambios.forEach((c) => { c._dia = fecha; });
   console.log(`  ${fecha}: ${cambios.length} cambio(s) (${chunks.length} frag.)`);
-  return { fecha, url, cambios };
+  return { fecha, url, cambios, estructura };
 }
 
 // ── Registro de días procesados ────────────────────────────────────────
@@ -592,6 +655,7 @@ async function main() {
 
   let tag, titulo, fuente, cambios = [];
   const sinLeer = [];   // días que no se pudieron bajar: no son días vacíos
+  const estructura = []; // decretos de estructura: el detalle vive en anexos
   const registro = cargarRegistro();
   // Anota en el registro cómo le fue a un día ya procesado.
   const registrar = (fecha, r) => {
@@ -613,10 +677,12 @@ async function main() {
         const r = await procesarDia(client, orgContext, dia);
         registrar(dia, r);
         if (r.sinLeer) sinLeer.push(r.sinLeer);
+        if (r.estructura) estructura.push(...r.estructura);
         cambios = cambios.concat(r.cambios); // orden cronológico
         ultimo = dia;
       } catch (e) {
         console.error(`  ${dia}: ERROR ${String(e?.message || e)}`);
+        if (e?.estructura) estructura.push(...e.estructura);
         anotar(registro, dia, "error", { motivo: String(e?.message || e).slice(0, 120) });
         if (esFatal(e)) {
           console.error("⛔ Error de API (límite/credenciales). Corto el backfill y guardo lo recolectado.");
@@ -640,16 +706,17 @@ async function main() {
     tag = hoy;
     setOutput("fecha", hoy);
     console.log(`Boletín ${hoy} con ${MODEL}…`);
-    let urlHoy = "";
+    let urlHoy = pdfUrl(hoy);   // por si el día falla: el informe igual dice de dónde salía
     for (const dia of dias) {
       try {
         const r = await procesarDia(client, orgContext, dia);
         registrar(dia, r);
         if (r.sinLeer) sinLeer.push(r.sinLeer);
+        if (r.estructura) estructura.push(...r.estructura);
         cambios = cambios.concat(r.cambios);   // orden cronológico
-        if (dia === hoy) urlHoy = r.url;
       } catch (e) {
         console.error(`  ${dia}: ERROR ${String(e?.message || e)}`);
+        if (e?.estructura) estructura.push(...e.estructura);
         anotar(registro, dia, "error", { motivo: String(e?.message || e).slice(0, 120) });
         if (esFatal(e)) {
           console.error("⛔ Error de API (límite/credenciales). Corto y guardo lo recolectado.");
@@ -670,11 +737,22 @@ async function main() {
   // porque lo que anota es que el día SE LEYÓ.
   guardarRegistro(registro);
 
+  // Un decreto de estructura casi nunca trae cambios aplicables —el detalle
+  // está en los anexos—, así que si el corte de abajo fuera solo por
+  // `cambios` se iría por ahí sin dejar rastro. Se avisa y se fuerza el PR.
+  setOutput("estructura", estructura.length);
+  if (estructura.length) {
+    console.log(`\n⚠️  ${estructura.length} decreto(s) de estructura: el detalle está en anexos que el robot no ve.`);
+    for (const e of estructura) {
+      console.log(`::warning::${e.norma} (${e.fecha}) cambia una estructura organizativa. Hay que bajar los anexos y cargarlo a mano.`);
+    }
+  }
+
   console.log(`Cambios propuestos por el modelo: ${cambios.length}`);
-  if (!cambios.length) { setOutput("changed", "false"); console.log("Sin cambios."); return; }
+  if (!cambios.length && !estructura.length) { setOutput("changed", "false"); console.log("Sin cambios."); return; }
 
   const { aplicados, omitidos } = aplicar(root, funciones, cambios);
-  const md = resumen(titulo, fuente, aplicados, omitidos);
+  const md = resumen(titulo, fuente, aplicados, omitidos, estructura);
 
   // Resumen de auditoría versionado
   const auditDir = path.join(ROOT, "data", "boletin");
@@ -703,7 +781,7 @@ async function main() {
   // Anexo aparte, fuera del PDF del boletín) desaparece sin dejar rastro: el
   // informe se escribe en el runner y se descarta con él. El PR con el informe
   // es justamente lo que avisa que hay que mirarlo a mano.
-  setOutput("changed", (aplicados.length || omitidos.length) ? "true" : "false");
+  setOutput("changed", (aplicados.length || omitidos.length || estructura.length) ? "true" : "false");
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

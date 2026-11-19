@@ -110,6 +110,7 @@ jobs:
           FECHA: ${{ steps.run.outputs.fecha }}
           APLICADOS: ${{ steps.run.outputs.aplicados }}
           OMITIDOS: ${{ steps.run.outputs.omitidos }}
+          ESTRUCTURA: ${{ steps.run.outputs.estructura }}
           REPO: ${{ github.repository }}
           BODY_PATH: ${{ runner.temp }}/pr-body.md
           # Usa un PAT si existe (evita el bloqueo de "Actions no puede crear PRs");
@@ -126,7 +127,12 @@ jobs:
           git push -f origin "$branch"
 
           compare="https://github.com/${REPO}/compare/main...${branch}?expand=1"
-          if [ "${APLICADOS:-0}" = "0" ]; then
+          if [ "${ESTRUCTURA:-0}" != "0" ]; then
+            # Lo más importante que puede traer un día, y lo que el robot NO
+            # puede resolver solo: el detalle vive en anexos aparte. Va primero
+            # en el título para que no se lea como un día cualquiera.
+            title="Boletín ${FECHA}: ⚠️ CAMBIO DE ESTRUCTURA — hay que procesar los anexos a mano"
+          elif [ "${APLICADOS:-0}" = "0" ]; then
             # Nada se pudo aplicar solo: el PR trae únicamente el informe, para
             # que alguien resuelva a mano lo que el script detectó.
             title="Boletín ${FECHA}: ${OMITIDOS} cambio(s) a revisar a mano"
