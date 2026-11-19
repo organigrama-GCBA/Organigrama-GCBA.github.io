@@ -64,6 +64,7 @@ El base de junio ya no manda sobre estos: son actos más nuevos, así que las de
 | Decreto | Publicado | Área | Cambio |
 |---|---|---|---|
 | 367 | 27/10 | `DGDDDM` — DG. Desarrollo del Deporte Motor | Renuncia de Tomás Francisco Burtin; designa a Gustavo Ariel Der Ohanessian |
+| 403 ⭐ | 19/11 | Justicia, Gobierno y Vínculo Ciudadano, Secretaría General | **Reestructuración.** Disuelve las secretarías de Justicia y de Trabajo y Empleo; crea SS. Convivencia Ciudadana y Diálogo Institucional y SS. de Gestión Administrativa y Planificación; mueve SS. Servicios y Derechos Humanos entre jurisdicciones; da de baja seis áreas. 38 operaciones, de 517 a 514 áreas. Ver `docs/anexos/2026-11-19-decreto-403.md` |
 
 El 367 lo pasó el usuario; el Boletín de ese día todavía no está en `data/boletin`, así que el
 número está asentado pero el acto no se cotejó contra el texto publicado.
