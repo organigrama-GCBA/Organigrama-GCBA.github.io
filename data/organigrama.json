@@ -1175,278 +1175,6 @@
           "tipo": "MIN",
           "children": [
             {
-              "id": "DGCSGE",
-              "nombre": "DG. Control de Seguimiento y Gestión",
-              "titular": "Sergio Sebastián Stoyanchaqui",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "DGTALMJ",
-              "nombre": "DG. Técnica, Administrativa y Legal",
-              "titular": "Ricardo Christian Pardo",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "SSRG",
-              "nombre": "SS. Relaciones Gubernamentales",
-              "titular": "Natalia Gambaro",
-              "tipo": "SS",
-              "children": [
-                {
-                  "id": "DGGOM",
-                  "nombre": "DG. Gobernanza Metropolitana",
-                  "titular": "Pablo Fabián D'Alessandro",
-                  "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DGTCAI",
-                  "nombre": "DG. Transferencia de Competencias y Asuntos Interjurisdiccionales",
-                  "titular": "Karina Ángela Palacios",
-                  "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DGAPYE",
-                  "nombre": "DG. Asuntos Políticos y Electorales",
-                  "titular": "Javier Ignacio Tejerizo",
-                  "tipo": "DG",
-                  "children": []
-                }
-              ]
-            },
-            {
-              "id": "SECTE",
-              "nombre": "Secretaría de Trabajo y Empleo",
-              "titular": "Ezequiel Edgardo Jarvis",
-              "tipo": "SEC",
-              "children": [
-                {
-                  "id": "SSTYE",
-                  "nombre": "SS. de Trabajo y Empleo",
-                  "titular": "Horacio Esteban Bueno",
-                  "tipo": "SS",
-                  "children": [
-                    {
-                      "id": "DGEMP",
-                      "nombre": "DG. Empleo",
-                      "titular": "Mónica Paola Tijeras",
-                      "tipo": "DG",
-                      "children": []
-                    },
-                    {
-                      "id": "DGPDT",
-                      "nombre": "DG. Protección del Trabajo",
-                      "titular": "José Fernando Cohen",
-                      "tipo": "DG",
-                      "children": []
-                    },
-                    {
-                      "id": "DGRDT",
-                      "nombre": "DG. Relaciones de Trabajo",
-                      "titular": "Adrián Alfonso Jalife",
-                      "tipo": "DG",
-                      "children": []
-                    },
-                    {
-                      "id": "DGAGRCE",
-                      "nombre": "DG. Asuntos Gremiales y Relación con Cámaras Empresariales",
-                      "titular": "Alicia María Vazquez",
-                      "tipo": "DG",
-                      "children": []
-                    },
-                    {
-                      "id": "DGIPS",
-                      "nombre": "DG. Innovación y Simplificación de Procesos",
-                      "titular": "Rodrigo Nicolás Bouzas",
-                      "tipo": "DG",
-                      "children": []
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "id": "SECJ",
-              "nombre": "Secretaría de Justicia",
-              "titular": "",
-              "tipo": "SEC",
-              "children": [
-                {
-                  "id": "SSPCAP",
-                  "nombre": "SS. Política Criminal y Asuntos Penitenciarios",
-                  "titular": "Leandro Ernesto Halperin",
-                  "tipo": "SS",
-                  "children": [
-                    {
-                      "id": "USPRS",
-                      "nombre": "Servicio Penitenciario y de Reintegración Social - Ley 6923",
-                      "titular": "Leandro Ernesto Halperin",
-                      "tipo": "ORG",
-                      "children": [
-                        {
-                          "id": "UIETFP",
-                          "nombre": "Instituto de Educación, Trabajo y Formación Profesional - Ley 6924",
-                          "titular": "",
-                          "tipo": "ORG",
-                          "children": []
-                        }
-                      ]
-                    },
-                    {
-                      "id": "DGPCAR",
-                      "nombre": "DG. Política Criminal y Articulación",
-                      "titular": "Kevin Boss Nielsen",
-                      "tipo": "DG",
-                      "children": []
-                    },
-                    {
-                      "id": "DGRSO",
-                      "nombre": "DG. Reintegración Social",
-                      "titular": "Alejandra Ariela Álvarez",
-                      "tipo": "DG",
-                      "children": []
-                    },
-                    {
-                      "id": "DGEPRE",
-                      "nombre": "DG. Ejecución de la Pena y Reparación",
-                      "titular": "Andrea Verónica Triolo",
-                      "tipo": "DG",
-                      "children": []
-                    },
-                    {
-                      "id": "DGCISP",
-                      "nombre": "DG. Cultura Institucional del Servicio Penitenciario",
-                      "titular": "Mariana Di Palma",
-                      "tipo": "DG",
-                      "children": []
-                    },
-                    {
-                      "id": "UOTCE",
-                      "nombre": "Oficina de Transparencia y Control Externo - Ley 6923",
-                      "titular": "",
-                      "tipo": "ORG",
-                      "children": []
-                    },
-                    {
-                      "id": "UDPSPRS",
-                      "nombre": "Defensoría del Personal del Servicio Penitenciario y de Reintegración Social - Ley 6923",
-                      "titular": "",
-                      "tipo": "ORG",
-                      "children": []
-                    }
-                  ]
-                },
-                {
-                  "id": "SSAJUD",
-                  "nombre": "SS. Asuntos Judiciales",
-                  "titular": "Fernando Calvo",
-                  "tipo": "SS",
-                  "children": [
-                    {
-                      "id": "DGAJU",
-                      "nombre": "DG. Acceso a la Justicia",
-                      "titular": "Janine Weidemann",
-                      "tipo": "DG",
-                      "children": []
-                    },
-                    {
-                      "id": "DGAV",
-                      "nombre": "DG. Asistencia a la Victima",
-                      "titular": "Felicitas María De Lasa",
-                      "tipo": "DG",
-                      "children": []
-                    },
-                    {
-                      "id": "DGDHU",
-                      "nombre": "DG. Derechos Humanos",
-                      "titular": "Natacha Yael Steinberg",
-                      "tipo": "DG",
-                      "children": [
-                        {
-                          "id": "CGPMMVTE",
-                          "nombre": "Consejo de Gestión del Parque de la Memoria y del Monumento a las Víctimas del Terrorismo de Estado - Ley N° 3.078",
-                          "titular": "María Florencia Battiti",
-                          "tipo": "ORG",
-                          "dashed": true,
-                          "children": []
-                        },
-                        {
-                          "id": "CAPPM",
-                          "nombre": "Consejo asesor en políticas públicas de memoria - Ley N°4929",
-                          "titular": "",
-                          "tipo": "ORG",
-                          "dashed": true,
-                          "children": []
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "id": "SSRMARC",
-                  "nombre": "SS. Registro y Métodos Alternativos de Resolución de Conflictos",
-                  "titular": "Hernán Emilio Najenson",
-                  "tipo": "SS",
-                  "children": [
-                    {
-                      "id": "DGMCV",
-                      "nombre": "DG. Mediación y Convivencia Vecinal",
-                      "titular": "Adrián Nicolás De Stefano",
-                      "tipo": "DG",
-                      "children": []
-                    },
-                    {
-                      "id": "DGARE",
-                      "nombre": "DG. Asuntos Registrales",
-                      "titular": "Agustín Ulanovsky",
-                      "tipo": "DG",
-                      "children": []
-                    },
-                    {
-                      "id": "DGVCC",
-                      "nombre": "DG. Vinculación con la Comunidad",
-                      "titular": "Jorge Daniel Mansilla",
-                      "tipo": "DG",
-                      "children": []
-                    },
-                    {
-                      "id": "DGMARC",
-                      "nombre": "DG. Métodos Alternativos de resolución de Conflictos",
-                      "titular": "Mariano Alberto Salvatori",
-                      "tipo": "DG",
-                      "children": []
-                    }
-                  ]
-                },
-                {
-                  "id": "DGGAP",
-                  "nombre": "DG. Gestión Administrativa Penitenciaria",
-                  "titular": "Pablo Norberto Porreca",
-                  "tipo": "DG",
-                  "children": []
-                },
-                {
-                  "id": "DGAI",
-                  "nombre": "DG. Administración de Infracciones",
-                  "titular": "Sebastián Ariel Silvestri",
-                  "tipo": "DG",
-                  "children": [
-                    {
-                      "id": "UADMCF",
-                      "nombre": "Unidad Administrativa de Control de Faltas",
-                      "titular": "",
-                      "tipo": "ORG",
-                      "dashed": true,
-                      "children": []
-                    }
-                  ]
-                }
-              ]
-            },
-            {
               "id": "UAIMJ",
               "nombre": "Unidad de Auditoria Interna MJGC",
               "titular": "Sandra Karina Ibendahl",
@@ -1555,23 +1283,6 @@
               "children": []
             },
             {
-              "id": "IGEA",
-              "nombre": "Instituto de Gestión Electoral Adjunta",
-              "titular": "Tomás Aguerre",
-              "tipo": "ORG",
-              "dashed": true,
-              "children": [
-                {
-                  "id": "UEE",
-                  "nombre": "Unidad de Enlace Electoral",
-                  "titular": "Julieta Miragaya",
-                  "tipo": "ORG",
-                  "dashed": true,
-                  "children": []
-                }
-              ]
-            },
-            {
               "id": "CEAMSE",
               "nombre": "Coordinación Ecológica Área Metropolitana Sociedad del Estado (CEAMSE)",
               "titular": "",
@@ -1593,6 +1304,253 @@
               "titular": "",
               "tipo": "ORG",
               "dashed": true,
+              "children": []
+            },
+            {
+              "id": "SSPCAP",
+              "nombre": "SS. Política Criminal y Asuntos Penitenciarios",
+              "titular": "Leandro Ernesto Halperin",
+              "tipo": "SS",
+              "children": [
+                {
+                  "id": "DGPCAR",
+                  "nombre": "DG. Política Criminal y Articulación",
+                  "titular": "Kevin Boss Nielsen",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGRSO",
+                  "nombre": "DG. Reintegración Social",
+                  "titular": "Alejandra Ariela Álvarez",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGEPRE",
+                  "nombre": "DG. Ejecución de la Pena y Reparación",
+                  "titular": "Andrea Verónica Triolo",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGCISP",
+                  "nombre": "DG. Cultura Institucional del Servicio Penitenciario",
+                  "titular": "Mariana Di Palma",
+                  "tipo": "DG",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "SSAJUD",
+              "nombre": "SS. Asuntos Judiciales y Relaciones Gubernamentales",
+              "titular": "Fernando Calvo",
+              "tipo": "SS",
+              "children": [
+                {
+                  "id": "DGAJU",
+                  "nombre": "DG. Acceso a la Justicia",
+                  "titular": "Janine Weidemann",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGAV",
+                  "nombre": "DG. Asistencia a la Victima",
+                  "titular": "Felicitas María De Lasa",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGTCAI",
+                  "nombre": "DG. Transferencia de Competencias y Asuntos Interjurisdiccionales",
+                  "titular": "Karina Ángela Palacios",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGAPYE",
+                  "nombre": "DG. Asuntos Políticos y Electorales",
+                  "titular": "Javier Ignacio Tejerizo",
+                  "tipo": "DG",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "SSRMARC",
+              "nombre": "SS. Registro y Métodos Alternativos de Resolución de Conflictos",
+              "titular": "Hernán Emilio Najenson",
+              "tipo": "SS",
+              "children": [
+                {
+                  "id": "DGARE",
+                  "nombre": "DG. Asuntos Registrales",
+                  "titular": "Agustín Ulanovsky",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGVCC",
+                  "nombre": "DG. Vinculación con la Comunidad",
+                  "titular": "Jorge Daniel Mansilla",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGMARC",
+                  "nombre": "DG. Métodos Alternativos de resolución de Conflictos",
+                  "titular": "Mariano Alberto Salvatori",
+                  "tipo": "DG",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "SSTYE",
+              "nombre": "SS. de Trabajo y Empleo",
+              "titular": "Horacio Esteban Bueno",
+              "tipo": "SS",
+              "children": [
+                {
+                  "id": "DGEMP",
+                  "nombre": "DG. Empleo",
+                  "titular": "Mónica Paola Tijeras",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGPDT",
+                  "nombre": "DG. Protección del Trabajo",
+                  "titular": "José Fernando Cohen",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGRDT",
+                  "nombre": "DG. Relaciones de Trabajo",
+                  "titular": "Adrián Alfonso Jalife",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGCOP",
+                  "nombre": "DG. Conciliación Obligatoria Previa (DICOP)",
+                  "titular": "",
+                  "tipo": "DG",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "SSSERV",
+              "nombre": "SS. Servicios",
+              "titular": "Facundo Bargalló Benegas",
+              "tipo": "SS",
+              "children": [
+                {
+                  "id": "DGHC",
+                  "nombre": "DG. Habilitación a Conductores",
+                  "titular": "María Florencia Saavedra",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGRC",
+                  "nombre": "DG. Registro del Estado Civil y Capacidad de las Personas",
+                  "titular": "Pablo Ezequiel Feito",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGAI",
+                  "nombre": "DG. Administración de Infracciones",
+                  "titular": "Sebastián Ariel Silvestri",
+                  "tipo": "DG",
+                  "children": [
+                    {
+                      "id": "UADMCF",
+                      "nombre": "Unidad Administrativa de Control de Faltas",
+                      "titular": "",
+                      "tipo": "ORG",
+                      "dashed": true,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "SSGAPL",
+              "nombre": "SS. de Gestión Administrativa y Planificación",
+              "titular": "",
+              "tipo": "SS",
+              "children": [
+                {
+                  "id": "DGTALMJ",
+                  "nombre": "DG. Técnica, Administrativa y Presupuestaria",
+                  "titular": "Ricardo Christian Pardo",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGCSGE",
+                  "nombre": "DG. Control, Planificación y Seguimiento de Gestión",
+                  "titular": "Sergio Sebastián Stoyanchaqui",
+                  "tipo": "DG",
+                  "children": []
+                },
+                {
+                  "id": "DGAIL",
+                  "nombre": "DG. Adquisiciones, Infraestructura y Logística",
+                  "titular": "",
+                  "tipo": "DG",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "DGCPAG",
+              "nombre": "DG. Comunicación, Protocolo y Agenda",
+              "titular": "",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGCLEMJ",
+              "nombre": "DG. Coordinación Legal",
+              "titular": "",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "USPRS",
+              "nombre": "Servicio Penitenciario y de Reintegración Social - Ley 6923",
+              "titular": "Leandro Ernesto Halperin",
+              "tipo": "ORG",
+              "children": [
+                {
+                  "id": "UIETFP",
+                  "nombre": "Instituto de Educación, Trabajo y Formación Profesional - Ley 6924",
+                  "titular": "",
+                  "tipo": "ORG",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "UOTCE",
+              "nombre": "Oficina de Transparencia y Control Externo - Ley 6923",
+              "titular": "",
+              "tipo": "ORG",
+              "children": []
+            },
+            {
+              "id": "UDPSPRS",
+              "nombre": "Defensoría del Personal del Servicio Penitenciario y de Reintegración Social - Ley 6923",
+              "titular": "",
+              "tipo": "ORG",
               "children": []
             }
           ]
@@ -3205,13 +3163,6 @@
               "titular": "María Del Pilar Bosca Chillida",
               "tipo": "DG",
               "children": []
-            },
-            {
-              "id": "DGREIN",
-              "nombre": "DG. Relaciones Institucionales",
-              "titular": "",
-              "tipo": "DG",
-              "children": []
             }
           ]
         },
@@ -3700,6 +3651,13 @@
               "titular": "Claudio Alfredo Baranzelli",
               "tipo": "DG",
               "children": []
+            },
+            {
+              "id": "DGCEME",
+              "nombre": "DG. Cementerios",
+              "titular": "Ignacio Salaberri",
+              "tipo": "DG",
+              "children": []
             }
           ]
         },
@@ -3709,13 +3667,6 @@
           "titular": "Maximiliano Corach",
           "tipo": "SS",
           "children": [
-            {
-              "id": "DGCYM",
-              "nombre": "DG. Colectividades y Migrantes",
-              "titular": "Gastón Juan Santos",
-              "tipo": "DG",
-              "children": []
-            },
             {
               "id": "DGG",
               "nombre": "DG. Gobierno",
@@ -3727,6 +3678,13 @@
               "id": "DGDYPC",
               "nombre": "DG. Defensa y Protección al Consumidor",
               "titular": "Alejandro Pérez",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGMCV",
+              "nombre": "DG. Mediación y Convivencia Vecinal",
+              "titular": "Adrián Nicolás De Stefano",
               "tipo": "DG",
               "children": []
             }
@@ -3756,35 +3714,6 @@
               "id": "DGGCDCI",
               "nombre": "DG. Gestión de Calidad y Demanda Ciudadana",
               "titular": "Luis María Cuence",
-              "tipo": "DG",
-              "children": []
-            }
-          ]
-        },
-        {
-          "id": "SSSERV",
-          "nombre": "SS. Servicios",
-          "titular": "Facundo Bargalló Benegas",
-          "tipo": "SS",
-          "children": [
-            {
-              "id": "DGHC",
-              "nombre": "DG. Habilitación a Conductores",
-              "titular": "María Florencia Saavedra",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "DGRC",
-              "nombre": "DG. Registro del Estado Civil y Capacidad de las Personas",
-              "titular": "Pablo Ezequiel Feito",
-              "tipo": "DG",
-              "children": []
-            },
-            {
-              "id": "DGCEME",
-              "nombre": "DG. Cementerios",
-              "titular": "Ignacio Salaberri",
               "tipo": "DG",
               "children": []
             }
@@ -3827,6 +3756,52 @@
           "tipo": "ORG",
           "dashed": true,
           "children": []
+        },
+        {
+          "id": "SSCCDI",
+          "nombre": "SS. Convivencia Ciudadana y Diálogo Institucional",
+          "titular": "",
+          "tipo": "SS",
+          "children": [
+            {
+              "id": "DGCYM",
+              "nombre": "DG. Colectividades y Migrantes",
+              "titular": "Gastón Juan Santos",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGREIN",
+              "nombre": "DG. Relaciones Institucionales",
+              "titular": "",
+              "tipo": "DG",
+              "children": []
+            },
+            {
+              "id": "DGDHU",
+              "nombre": "DG. Derechos Humanos",
+              "titular": "Natacha Yael Steinberg",
+              "tipo": "DG",
+              "children": [
+                {
+                  "id": "CGPMMVTE",
+                  "nombre": "Consejo de Gestión del Parque de la Memoria y del Monumento a las Víctimas del Terrorismo de Estado - Ley N° 3.078",
+                  "titular": "María Florencia Battiti",
+                  "tipo": "ORG",
+                  "dashed": true,
+                  "children": []
+                },
+                {
+                  "id": "CAPPM",
+                  "nombre": "Consejo asesor en políticas públicas de memoria - Ley N°4929",
+                  "titular": "",
+                  "tipo": "ORG",
+                  "dashed": true,
+                  "children": []
+                }
+              ]
+            }
+          ]
         }
       ]
     }
