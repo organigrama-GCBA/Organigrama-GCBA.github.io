@@ -110,6 +110,7 @@ jobs:
           FECHA: ${{ steps.run.outputs.fecha }}
           APLICADOS: ${{ steps.run.outputs.aplicados }}
           OMITIDOS: ${{ steps.run.outputs.omitidos }}
+          ESTRUCTURA: ${{ steps.run.outputs.estructura }}
           REPO: ${{ github.repository }}
           BODY_PATH: ${{ runner.temp }}/pr-body.md
           # Usa un PAT si existe (evita el bloqueo de "Actions no puede crear PRs");
@@ -126,7 +127,12 @@ jobs:
           git push -f origin "$branch"
 
           compare="https://github.com/${REPO}/compare/main...${branch}?expand=1"
-          if [ "${APLICADOS:-0}" = "0" ]; then
+          if [ "${ESTRUCTURA:-0}" != "0" ]; then
+            # Lo más importante que puede traer un día, y lo que el robot NO
+            # puede resolver solo: el detalle vive en anexos aparte. Va primero
+            # en el título para que no se lea como un día cualquiera.
+            title="Boletín ${FECHA}: ⚠️ CAMBIO DE ESTRUCTURA — hay que procesar los anexos a mano"
+          elif [ "${APLICADOS:-0}" = "0" ]; then
             # Nada se pudo aplicar solo: el PR trae únicamente el informe, para
             # que alguien resuelva a mano lo que el script detectó.
             title="Boletín ${FECHA}: ${OMITIDOS} cambio(s) a revisar a mano"
@@ -156,23 +162,29 @@ jobs:
             exit 1
           fi
 
-      - name: Actualizar índice de cambios pendientes (para el panel de la app)
+      - name: Actualizar índice y registro de días procesados
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -e
+          # El registro de días leídos va SIEMPRE a main, no a la rama del PR:
+          # si viajara en el PR, un PR sin mergear dejaría los días como no
+          # leídos y la corrida siguiente los volvería a procesar. Hay que
+          # ponerlo a salvo porque el reset --hard de abajo lo borraría.
+          cp data/boletin-procesados.json "$RUNNER_TEMP/procesados.json" 2>/dev/null || true
           git fetch origin main
           git checkout main
           git reset --hard origin/main
+          cp "$RUNNER_TEMP/procesados.json" data/boletin-procesados.json 2>/dev/null || true
           gh pr list --state open --json title,url,headRefName,body \
             --jq '[ .[] | select(.headRefName|startswith("boletin/")) | {fecha:(.headRefName|sub("boletin/";"")), titulo:.title, url:.url, resumen:.body} ]' \
             > data/cambios-pendientes.json
-          if ! git diff --quiet -- data/cambios-pendientes.json; then
+          if ! git diff --quiet -- data/cambios-pendientes.json data/boletin-procesados.json; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add data/cambios-pendientes.json
-            git commit -m "Actualizar índice de cambios pendientes del Boletín"
+            git add data/cambios-pendientes.json data/boletin-procesados.json
+            git commit -m "Actualizar índice y registro del Boletín"
             git push origin main
           fi
 
