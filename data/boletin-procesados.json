@@ -472,5 +472,11 @@
   "estado": "leido",
   "cambios": 2,
   "visto": "2026-11-20"
+ },
+ "2026-11-23": {
+  "estado": "sin-edicion",
+  "intentos": 1,
+  "status": 404,
+  "visto": "2026-11-24"
  }
 }
