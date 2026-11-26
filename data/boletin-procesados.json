@@ -475,13 +475,18 @@
  },
  "2026-11-23": {
   "estado": "sin-edicion",
-  "intentos": 2,
+  "intentos": 3,
   "status": 404,
-  "visto": "2026-11-25"
+  "visto": "2026-11-26"
  },
  "2026-11-24": {
   "estado": "leido",
   "cambios": 0,
   "visto": "2026-11-25"
+ },
+ "2026-11-25": {
+  "estado": "leido",
+  "cambios": 1,
+  "visto": "2026-11-26"
  }
 }
